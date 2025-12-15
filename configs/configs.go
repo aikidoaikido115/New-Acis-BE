@@ -86,13 +86,13 @@ func LoadConfigs() *Configs {
 			Port:     getEnv("DB_PORT", "5432"),
 			Username: getEnv("DB_USER", "postgres"),
 			Password: getEnv("DB_PASSWORD", "password"),
-			Database: getEnv("DB_NAME", "chronocount"),
+			Database: getEnv("DB_NAME", "test"),
 			SSLMode:  getEnv("SSL_Mode", "disable"),
 		},
 		Server: Server{
 			Host:    getEnv("SERVER_HOST", ""),
 			Port:    getEnv("SERVER_PORT", "8080"),
-			AppName: "Chronocount",
+			AppName: "New Acis",
 			CORS: CORS{
 				AllowOrigins:     getEnv("CORS_ALLOW_ORIGINS", "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000"),
 				AllowMethods:     getEnv("CORS_ALLOW_METHODS", "GET,POST,PUT,DELETE,OPTIONS"),
