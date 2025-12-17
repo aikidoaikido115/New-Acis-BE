@@ -21,13 +21,14 @@ type UserRepository interface {
 	GetUserByEmail(email string) (*entities.User, error)
 	GetUserByID(id string) (*entities.User, error)
 	GetUserByUsername(username string) (*entities.User, error)
+	GetRoleByName(roleName string) (*entities.Role, error)
 	UsernameExists(username string) (bool, error)
 	EmailExists(email string) (bool, error)
 	GetAllUsers() ([]*entities.User, error)
 	UpdateUserByID(user *entities.User) error
 	CreateOTP(otp *entities.OTP) error
 	GetOTPByUserID(userID string) (*entities.OTP, error)
-	DeleteOTP(userID string) error
+	DeleteOTP(userID string) error	
 	StoreResetToken(temptoken *entities.TempToken) error
 	GetResetToken(userID string) (string, error)
 	DeleteResetToken(userID string) error
@@ -59,7 +60,7 @@ func (r *GormUserRepository) GetUserByEmail(email string) (*entities.User, error
 
 func (r *GormUserRepository) GetUserByID(id string) (*entities.User, error) {
 	var user entities.User
-	if err := r.db.First(&user, "id = ?", id).Error; err != nil {
+	if err := r.db.Preload("Role").First(&user, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil
@@ -71,6 +72,14 @@ func (r *GormUserRepository) GetUserByUsername(username string) (*entities.User,
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *GormUserRepository) GetRoleByName(roleName string) (*entities.Role, error) {
+	var role entities.Role
+	if err := r.db.First(&role, "name = ?", roleName).Error; err != nil {
+		return nil, err
+	}
+	return &role, nil
 }
 
 func (r *GormUserRepository) UsernameExists(username string) (bool, error) {

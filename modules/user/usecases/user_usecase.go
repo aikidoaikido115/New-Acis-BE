@@ -18,7 +18,7 @@ import (
 )
 
 type UserUsecase interface {
-	Register(user *entities.User) (*entities.User, error)
+	Register(user *entities.User, roleName string) (*entities.User, error)
 	Login(username, password string) (string, *entities.User, error)
 	ResetPassword(userID, oldPassword, newPassword string) error
 
@@ -52,11 +52,17 @@ func NewUserUseCase(
 	}
 }
 
-func (u *UserUseCaseImpl) Register(user *entities.User) (*entities.User, error) {
+func (u *UserUseCaseImpl) Register(user *entities.User, roleName string) (*entities.User, error) {
 	normalizedEmail, err := utils.NormalizeEmail(user.Email)
 	if err != nil {
 		return nil, errors.New("invalid email format")
 	}
+
+	role, err := u.userrepo.GetRoleByName(roleName)
+	if err != nil {
+		return nil, errors.New("role not found")
+	}
+
 	user.Email = normalizedEmail
 	user.Username = norm.NFC.String(user.Username)
 
@@ -77,6 +83,7 @@ func (u *UserUseCaseImpl) Register(user *entities.User) (*entities.User, error) 
 	}
 
 	user.ID = uuid.New().String()
+	user.RoleID = role.ID
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, errors.New("failed to hash password")
@@ -180,6 +187,22 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 			existingUser.NumberOfUsernames++ //นับจำนวนครั้งที่เปลี่ยน username
 			existingUser.Username = user.Username
 		}
+	}
+
+	if user.FirstName != "" {
+		existingUser.FirstName = user.FirstName
+	}
+
+	if user.LastName != "" {
+		existingUser.LastName = user.LastName
+	}
+
+	if user.Nickname != "" {
+		existingUser.Nickname = user.Nickname
+	}
+
+	if user.Gender != "" {
+		existingUser.Gender = user.Gender
 	}
 
 	if file != nil {

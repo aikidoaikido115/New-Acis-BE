@@ -27,6 +27,7 @@ func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
 		Username string `json:"username"`
 		Email    string `json:"email"`
 		Password string `json:"password"`
+		RoleName string `json:"role_name"`
 	}
 
 	if err := ctx.BodyParser(&req); err != nil {
@@ -71,7 +72,7 @@ func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
 		Password: req.Password,
 	}
 
-	data, err := c.userusecase.Register(user)
+	data, err := c.userusecase.Register(user, req.RoleName)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -407,7 +408,7 @@ func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	// Get multipart form
+
 	form, err := ctx.MultipartForm()
 	if err != nil {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
@@ -418,13 +419,26 @@ func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	// Create user entity and parse form values
+
 	user := &entities.User{}
 
-	// Get username from form data if provided
+
 	if usernames := form.Value["username"]; len(usernames) > 0 {
 		user.Username = usernames[0]
 	}
+	if firstNames := form.Value["first_name"]; len(firstNames) > 0 {
+		user.FirstName = firstNames[0]
+	}
+	if lastNames := form.Value["last_name"]; len(lastNames) > 0 {
+		user.LastName = lastNames[0]
+	}
+	if nicknames := form.Value["nickname"]; len(nicknames) > 0 {
+		user.Nickname = nicknames[0]
+	}
+	if genders := form.Value["gender"]; len(genders) > 0 {
+		user.Gender = genders[0]
+	}
+	
 
 	// Get the profile image files (optional)
 	files := form.File["profile_image"]

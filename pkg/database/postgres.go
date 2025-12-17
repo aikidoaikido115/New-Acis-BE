@@ -6,6 +6,7 @@ import (
 
 	"github.com/aikidoaikido115/New-Acis-BE/configs"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	"github.com/aikidoaikido115/New-Acis-BE/pkg/database/seed"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -30,7 +31,9 @@ func InitDB(config configs.PostgreSQL) {
 		log.Fatalf("Database connection failed: %v", err)
 	}
 
+	// Run migrations
 	if err := db.AutoMigrate(
+		&entities.Role{},
 		&entities.User{},
 		&entities.OTP{},
 		&entities.TempToken{},
@@ -39,6 +42,9 @@ func InitDB(config configs.PostgreSQL) {
 	}
 
 	log.Printf("Database connected: %s@%s:%s/%s", config.Username, config.Host, config.Port, config.Database)
+
+	// Auto seed database
+	seed.RunAll(db)
 }
 
 func GetDB() *gorm.DB {
