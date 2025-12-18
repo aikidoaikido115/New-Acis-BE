@@ -18,8 +18,15 @@ func NewGormUserRepository(db *gorm.DB) *GormUserRepository {
 
 type UserRepository interface {
 	CreateUser(user *entities.User) (*entities.User, error)
+	CreateStaff(user *entities.User, staff *entities.Staff) (*entities.Staff, error)
+	CreateStaffFile(staffFile *entities.StaffsFiles) (*entities.StaffsFiles, error)
+	// TODO CrateRelative()
+
 	GetUserByEmail(email string) (*entities.User, error)
 	GetUserByID(id string) (*entities.User, error)
+	GetStaffByID(id string) (*entities.Staff, error)
+	GetStaffByUserID(userID string) (*entities.Staff, error)
+	GetStaffFileByID(id string) (*entities.StaffsFiles, error)
 	GetUserByUsername(username string) (*entities.User, error)
 	GetRoleByName(roleName string) (*entities.Role, error)
 	UsernameExists(username string) (bool, error)
@@ -48,6 +55,43 @@ func (r *GormUserRepository) CreateUser(user *entities.User) (*entities.User, er
 	return r.GetUserByID(user.ID)
 }
 
+func (r *GormUserRepository) CreateStaff(user *entities.User, staff *entities.Staff) (*entities.Staff, error) {
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&staff).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return r.GetStaffByID(staff.ID)
+}
+
+func (r *GormUserRepository) CreateStaffFile(staffFile *entities.StaffsFiles) (*entities.StaffsFiles, error) {
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&staffFile).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return r.GetStaffFileByID(staffFile.ID)
+}
+
+func (r *GormUserRepository) GetStaffFileByID(id string) (*entities.StaffsFiles, error) {
+	var staffFile entities.StaffsFiles
+	err := r.db.First(&staffFile, "id = ?", id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &staffFile, nil
+}
+
 func (r *GormUserRepository) GetUserByEmail(email string) (*entities.User, error) {
 	var user entities.User
 	err := r.db.Where("email = ?", email).First(&user).Error
@@ -64,6 +108,22 @@ func (r *GormUserRepository) GetUserByID(id string) (*entities.User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *GormUserRepository) GetStaffByID(id string) (*entities.Staff, error) {
+	var staff entities.Staff
+	if err := r.db.Preload("User").First(&staff, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	return &staff, nil
+}
+
+func (r *GormUserRepository) GetStaffByUserID(userID string) (*entities.Staff, error) {
+	var staff entities.Staff
+	if err := r.db.Preload("User").First(&staff, "user_id = ?", userID).Error; err != nil {
+		return nil, err
+	}
+	return &staff, nil
 }
 
 func (r *GormUserRepository) GetUserByUsername(username string) (*entities.User, error) {

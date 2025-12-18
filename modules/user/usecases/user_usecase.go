@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"errors"
+	"io"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -29,6 +30,8 @@ type UserUsecase interface {
 	ForgotPassword(email string) error
 	VerifyOTP(email, otpCode string) error
 	ChangePassword(email, newPassword string) error
+
+	CreateStaffFile(userID string, files []*multipart.FileHeader) ([]*entities.StaffsFiles, error)
 }
 
 type UserUseCaseImpl struct {
@@ -92,6 +95,16 @@ func (u *UserUseCaseImpl) Register(user *entities.User, roleName string) (*entit
 	createdUser, err := u.userrepo.CreateUser(user)
 	if err != nil {
 		return nil, errors.New("failed to create user: " + err.Error())
+	}
+
+	if role.Name == "Medical Staff" || role.Name == "Kitchen Staff" {
+		staff := &entities.Staff{
+			ID:     uuid.New().String(),
+			UserID: createdUser.ID}
+		_, err := u.userrepo.CreateStaff(createdUser, staff)
+		if err != nil {
+			return nil, errors.New("failed to create staff: " + err.Error())
+		}
 	}
 
 	return createdUser, nil
@@ -206,17 +219,17 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 	}
 
 	if file != nil {
-		fileExtension, err := utils.DetectImageType(file)
+		fileExtension, err := utils.DetectFileType(file)
 		if err != nil {
-			return nil, errors.New("invalid image file: " + err.Error())
+			return nil, errors.New("invalid file: " + err.Error())
 		}
 
-		// Reset file pointer to beginning after DetectImageType
-		file.Seek(0, 0)
+		// Reset file pointer to beginning after DetectFileType
+		file.Seek(0, io.SeekStart)
 
 		fileName := uuid.New().String() + fileExtension
 
-		profileURL, err := utils.UploadImageFromFile(file, fileName, "profiles/", u.supa)
+		profileURL, err := utils.UploadFile2Supa(file, fileName, "profiles/", u.supa)
 		if err != nil {
 			return nil, errors.New("failed to upload profile image: " + err.Error())
 		}
@@ -371,4 +384,82 @@ func (u *UserUseCaseImpl) ChangePassword(email, newPassword string) error {
 	}
 
 	return nil
+}
+
+func (u *UserUseCaseImpl) CreateStaffFile(userID string, files []*multipart.FileHeader) ([]*entities.StaffsFiles, error) {
+	existingUser, err := u.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+	if existingUser.Role.Name != "Medical Staff" && existingUser.Role.Name != "Kitchen Staff" {
+		return nil, errors.New("user is not staff")
+	}
+
+	staff, err := u.userrepo.GetStaffByUserID(existingUser.ID)
+	if err != nil {
+		return nil, errors.New("staff not found")
+	}
+
+	if len(files) == 0 {
+		return nil, errors.New("no files provided")
+	}
+
+	// สร้าง slice สำหรับเก็บผลลัพธ์
+	createdFiles := make([]*entities.StaffsFiles, 0, len(files))
+
+	// loop ผ่านแต่ละไฟล์และบันทึกแยกกัน
+	for _, fileHeader := range files {
+		// เปิดไฟล์
+		file, err := fileHeader.Open()
+		if err != nil {
+			return nil, errors.New("failed to open file: " + err.Error())
+		}
+		defer file.Close()
+
+		// ตรวจสอบประเภทไฟล์
+		fileExtension, err := utils.DetectFileType(file)
+		if err != nil {
+			return nil, errors.New("invalid file: " + err.Error())
+		}
+
+		// Reset file pointer to beginning after DetectFileType
+		file.Seek(0, io.SeekStart)
+
+		// หาขนาดไฟล์โดย seek ไปท้ายไฟล์
+		fileSize, err := file.Seek(0, io.SeekEnd)
+		if err != nil {
+			return nil, errors.New("failed to get file size: " + err.Error())
+		}
+
+		// Reset file pointer กลับไปจุดเริ่มต้นก่อนอัพโหลด
+		file.Seek(0, io.SeekStart)
+
+		fileName := uuid.New().String() + fileExtension
+
+		// อัพโหลดไฟล์ไปยัง Supabase
+		staffFileURL, err := utils.UploadFile2Supa(file, fileName, "staff_file/", u.supa)
+		if err != nil {
+			return nil, errors.New("failed to upload staff file: " + err.Error())
+		}
+
+		// สร้าง entity สำหรับแต่ละไฟล์
+		staffFile := &entities.StaffsFiles{
+			ID:       uuid.New().String(),
+			StaffID:  staff.ID,
+			File:      staffFileURL,
+			FileName: fileName,
+			FileType: fileExtension,
+			FileSize: fileSize,
+		}
+
+		// เรียก repository เพื่อบันทึกแต่ละไฟล์
+		createdStaffFile, err := u.userrepo.CreateStaffFile(staffFile)
+		if err != nil {
+			return nil, errors.New("failed to create staff file: " + err.Error())
+		}
+
+		createdFiles = append(createdFiles, createdStaffFile)
+	}
+
+	return createdFiles, nil
 }

@@ -6,8 +6,8 @@ import (
 	"net/http"
 )
 
-// DetectImageType - ตรวจสอบ image type จาก file content
-func DetectImageType(file multipart.File) (string, error) {
+// DetectFileType - ตรวจสอบ file type จาก file content (รองรับ images และ PDF)
+func DetectFileType(file multipart.File) (string, error) {
 	// อ่าน 512 bytes แรกเพื่อตรวจสอบ MIME type
 	buffer := make([]byte, 512)
 	_, err := file.Read(buffer)
@@ -30,7 +30,9 @@ func DetectImageType(file multipart.File) (string, error) {
 		return ".gif", nil
 	case "image/webp":
 		return ".webp", nil
+	case "application/pdf":
+		return ".pdf", nil
 	default:
-		return "", errors.New("unsupported image format: " + mimeType)
+		return "", errors.New("unsupported file format: " + mimeType)
 	}
 }

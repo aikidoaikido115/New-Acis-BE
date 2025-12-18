@@ -35,6 +35,8 @@ func InitDB(config configs.PostgreSQL) {
 	if err := db.AutoMigrate(
 		&entities.Role{},
 		&entities.User{},
+		&entities.Staff{},
+		&entities.StaffsFiles{},
 		&entities.OTP{},
 		&entities.TempToken{},
 	); err != nil {

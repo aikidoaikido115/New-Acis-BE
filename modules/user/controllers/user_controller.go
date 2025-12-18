@@ -477,3 +477,55 @@ func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 		"result":      updatedUser,
 	})
 }
+
+
+func (c *UserController) CreateStaffFileHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":      "Error",
+			"status_code": fiber.StatusUnauthorized,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	form, err := ctx.MultipartForm()
+	if err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      "Error",
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     "Invalid form data",
+			"result":      nil,
+		})
+	}
+
+	// รับไฟล์หลายไฟล์จาก form
+	files := form.File["file"]
+	if len(files) == 0 {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      "Error",
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     "No files provided",
+			"result":      nil,
+		})
+	}
+
+	// เรียก usecase เพื่อสร้างหลายไฟล์
+	createdFiles, err := c.userusecase.CreateStaffFile(userID, files)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusCreated,
+		"message":     "Staff files created successfully",
+		"result":      createdFiles,
+	})
+}
