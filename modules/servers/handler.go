@@ -10,6 +10,8 @@ import (
 	userRepository "github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
 	userUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/user/usecases"
 
+	auditLogRepository "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
+
 	"github.com/aikidoaikido115/New-Acis-BE/pkg/database"
 	"github.com/aikidoaikido115/New-Acis-BE/pkg/middlewares"
 
@@ -81,8 +83,10 @@ func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa co
 }
 
 func SetupUserRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.Supabase, mail configs.Mail) {
+	
+	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
 	userRepository := userRepository.NewGormUserRepository(db)
-	userUsecase := userUsecase.NewUserUseCase(userRepository, jwt, supa, mail)
+	userUsecase := userUsecase.NewUserUseCase(userRepository, auditLogRepository, jwt, supa, mail)
 	userController := userController.NewUserController(userUsecase)
 
 	authGroup := app.Group("/api/auth")

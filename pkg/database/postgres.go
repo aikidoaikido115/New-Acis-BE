@@ -39,6 +39,7 @@ func InitDB(config configs.PostgreSQL) {
 		&entities.StaffsFiles{},
 		&entities.OTP{},
 		&entities.TempToken{},
+		&entities.AuditLogs{},
 	); err != nil {
 		log.Fatalf("Database migration failed: %v", err)
 	}

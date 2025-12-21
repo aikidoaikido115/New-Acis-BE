@@ -1,14 +1,18 @@
 package usecases
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/configs"
+	audit_repo "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
 	"github.com/aikidoaikido115/New-Acis-BE/pkg/utils"
@@ -35,23 +39,26 @@ type UserUsecase interface {
 }
 
 type UserUseCaseImpl struct {
-	userrepo  repositories.UserRepository
-	jwtSecret string
-	supa      configs.Supabase
-	mail      configs.Mail
+	userrepo     repositories.UserRepository
+	auditlogrepo audit_repo.AuditLogRepository
+	jwtSecret    string
+	supa         configs.Supabase
+	mail         configs.Mail
 }
 
 func NewUserUseCase(
 	userrepo repositories.UserRepository,
+	auditlogrepo audit_repo.AuditLogRepository,
 	jwt configs.JWT,
 	supa configs.Supabase,
 	mail configs.Mail) UserUsecase {
 
 	return &UserUseCaseImpl{
-		userrepo:  userrepo,
-		jwtSecret: jwt.Secret,
-		supa:      supa,
-		mail:      mail,
+		userrepo:     userrepo,
+		auditlogrepo: auditlogrepo,
+		jwtSecret:    jwt.Secret,
+		supa:         supa,
+		mail:         mail,
 	}
 }
 
@@ -180,6 +187,15 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 		return nil, errors.New("user not found")
 	}
 
+	oldUserData, _ := json.Marshal(map[string]interface{}{
+		"username":      existingUser.Username,
+		"first_name":    existingUser.FirstName,
+		"last_name":     existingUser.LastName,
+		"nickname":      existingUser.Nickname,
+		"gender":        existingUser.Gender,
+		"profile_image": existingUser.ProfileImage,
+	})
+
 	// อัพเดต เท่าที่ อนุญาตให้อัพเดต
 	// อัพเดต username เฉพาะเมื่อมีการส่งมา (ไม่ใช่ค่าว่าง)
 	if user.Username != "" {
@@ -241,6 +257,31 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 		return nil, errors.New("failed to update user")
 	}
 
+	newUserData, _ := json.Marshal(map[string]interface{}{
+		"username":      existingUser.Username,
+		"first_name":    existingUser.FirstName,
+		"last_name":     existingUser.LastName,
+		"nickname":      existingUser.Nickname,
+		"gender":        existingUser.Gender,
+		"profile_image": existingUser.ProfileImage,
+	})
+
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "users",
+		RecordID:  existingUser.ID,
+		UserID:    id,
+		Action:    utils.AuditActionUpdate,
+		OldValue:  string(oldUserData),
+		NewValue:  string(newUserData),
+	}
+
+	// สร้าง audit log (ไม่ return error เพื่อไม่ให้กระทบกับการอัปเดต user)
+	_, err = u.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for user %s: %v", id, err)
+	}
+
 	return existingUser, nil
 }
 
@@ -280,9 +321,12 @@ func (u *UserUseCaseImpl) ForgotPassword(email string) error {
 	}
 	templatePath := filepath.Join(workingDir, "assets", "OTPMail.html")
 
-	if err := utils.SendMail(templatePath, user, otpCode, u.mail); err != nil {
-		return errors.New("failed to send OTP email: " + err.Error())
-	}
+	// ส่งอีเมลแบบ asynchronous
+	go func() {
+		if err := utils.SendMail(templatePath, user, otpCode, u.mail); err != nil {
+			log.Printf("[ERROR] Failed to send OTP email: %v", err)
+		}
+	}()
 
 	return nil
 }
@@ -404,62 +448,112 @@ func (u *UserUseCaseImpl) CreateStaffFile(userID string, files []*multipart.File
 		return nil, errors.New("no files provided")
 	}
 
-	// สร้าง slice สำหรับเก็บผลลัพธ์
-	createdFiles := make([]*entities.StaffsFiles, 0, len(files))
+	// สร้าง slice สำหรับเก็บผลลัพธ์และ error handling
+	createdFiles := make([]*entities.StaffsFiles, len(files))
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var firstError error
 
-	// loop ผ่านแต่ละไฟล์และบันทึกแยกกัน
-	for _, fileHeader := range files {
-		// เปิดไฟล์
-		file, err := fileHeader.Open()
-		if err != nil {
-			return nil, errors.New("failed to open file: " + err.Error())
-		}
-		defer file.Close()
+	// อัปโหลดไฟล์แบบ parallel ด้วย goroutines
+	for i, fileHeader := range files {
+		wg.Add(1)
+		go func(index int, fh *multipart.FileHeader) {
+			defer wg.Done()
 
-		// ตรวจสอบประเภทไฟล์
-		fileExtension, err := utils.DetectFileType(file)
-		if err != nil {
-			return nil, errors.New("invalid file: " + err.Error())
-		}
+			// เปิดไฟล์
+			file, err := fh.Open()
+			if err != nil {
+				mu.Lock()
+				if firstError == nil {
+					firstError = errors.New("failed to open file: " + err.Error())
+				}
+				mu.Unlock()
+				return
+			}
+			defer file.Close()
 
-		// Reset file pointer to beginning after DetectFileType
-		file.Seek(0, io.SeekStart)
+			// ตรวจสอบประเภทไฟล์
+			fileExtension, err := utils.DetectFileType(file)
+			if err != nil {
+				mu.Lock()
+				if firstError == nil {
+					firstError = errors.New("invalid file: " + err.Error())
+				}
+				mu.Unlock()
+				return
+			}
 
-		// หาขนาดไฟล์โดย seek ไปท้ายไฟล์
-		fileSize, err := file.Seek(0, io.SeekEnd)
-		if err != nil {
-			return nil, errors.New("failed to get file size: " + err.Error())
-		}
+			// Reset file pointer to beginning after DetectFileType
+			file.Seek(0, io.SeekStart)
 
-		// Reset file pointer กลับไปจุดเริ่มต้นก่อนอัพโหลด
-		file.Seek(0, io.SeekStart)
+			// หาขนาดไฟล์โดย seek ไปท้ายไฟล์
+			fileSize, err := file.Seek(0, io.SeekEnd)
+			if err != nil {
+				mu.Lock()
+				if firstError == nil {
+					firstError = errors.New("failed to get file size: " + err.Error())
+				}
+				mu.Unlock()
+				return
+			}
 
-		fileName := uuid.New().String() + fileExtension
+			// Reset file pointer กลับไปจุดเริ่มต้นก่อนอัพโหลด
+			file.Seek(0, io.SeekStart)
 
-		// อัพโหลดไฟล์ไปยัง Supabase
-		staffFileURL, err := utils.UploadFile2Supa(file, fileName, "staff_file/", u.supa)
-		if err != nil {
-			return nil, errors.New("failed to upload staff file: " + err.Error())
-		}
+			fileName := uuid.New().String() + fileExtension
 
-		// สร้าง entity สำหรับแต่ละไฟล์
-		staffFile := &entities.StaffsFiles{
-			ID:       uuid.New().String(),
-			StaffID:  staff.ID,
-			File:      staffFileURL,
-			FileName: fileName,
-			FileType: fileExtension,
-			FileSize: fileSize,
-		}
+			// อัพโหลดไฟล์ไปยัง Supabase
+			staffFileURL, err := utils.UploadFile2Supa(file, fileName, "staff_file/", u.supa)
+			if err != nil {
+				mu.Lock()
+				if firstError == nil {
+					firstError = errors.New("failed to upload staff file: " + err.Error())
+				}
+				mu.Unlock()
+				return
+			}
 
-		// เรียก repository เพื่อบันทึกแต่ละไฟล์
-		createdStaffFile, err := u.userrepo.CreateStaffFile(staffFile)
-		if err != nil {
-			return nil, errors.New("failed to create staff file: " + err.Error())
-		}
+			// สร้าง entity สำหรับแต่ละไฟล์
+			staffFile := &entities.StaffsFiles{
+				ID:       uuid.New().String(),
+				StaffID:  staff.ID,
+				File:     staffFileURL,
+				FileName: fileName,
+				FileType: fileExtension,
+				FileSize: fileSize,
+			}
 
-		createdFiles = append(createdFiles, createdStaffFile)
+			// เรียก repository เพื่อบันทึกแต่ละไฟล์
+			createdStaffFile, err := u.userrepo.CreateStaffFile(staffFile)
+			if err != nil {
+				mu.Lock()
+				if firstError == nil {
+					firstError = errors.New("failed to create staff file: " + err.Error())
+				}
+				mu.Unlock()
+				return
+			}
+
+			// เก็บผลลัพธ์ในตำแหน่งที่ถูกต้อง (ไม่ต้อง lock เพราะแต่ละ goroutine เขียนคนละ index)
+			createdFiles[index] = createdStaffFile
+		}(i, fileHeader)
 	}
 
-	return createdFiles, nil
+	// รอให้ทุก goroutine ทำงานเสร็จ
+	wg.Wait()
+
+	// ตรวจสอบว่ามี error เกิดขึ้นหรือไม่
+	if firstError != nil {
+		return nil, firstError
+	}
+
+	// กรองเฉพาะไฟล์ที่อัปโหลดสำเร็จ (ไม่ใช่ nil)
+	successFiles := make([]*entities.StaffsFiles, 0, len(files))
+	for _, file := range createdFiles {
+		if file != nil {
+			successFiles = append(successFiles, file)
+		}
+	}
+
+	return successFiles, nil
 }
