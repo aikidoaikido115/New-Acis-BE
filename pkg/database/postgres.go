@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/aikidoaikido115/New-Acis-BE/configs"
-	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	// "github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 	"github.com/aikidoaikido115/New-Acis-BE/pkg/database/seed"
 
 	"gorm.io/driver/postgres"
@@ -32,17 +32,17 @@ func InitDB(config configs.PostgreSQL) {
 	}
 
 	// Run migrations
-	if err := db.AutoMigrate(
-		&entities.Role{},
-		&entities.User{},
-		&entities.Staff{},
-		&entities.StaffsFiles{},
-		&entities.OTP{},
-		&entities.TempToken{},
-		&entities.AuditLogs{},
-	); err != nil {
-		log.Fatalf("Database migration failed: %v", err)
-	}
+	// if err := db.AutoMigrate(
+	// 	&entities.Role{},
+	// 	&entities.User{},
+	// 	&entities.Staff{},
+	// 	&entities.StaffsFiles{},
+	// 	&entities.OTP{},
+	// 	&entities.TempToken{},
+	// 	&entities.AuditLogs{},
+	// ); err != nil {
+	// 	log.Fatalf("Database migration failed: %v", err)
+	// }
 
 	log.Printf("Database connected: %s@%s:%s/%s", config.Username, config.Host, config.Port, config.Database)
 
