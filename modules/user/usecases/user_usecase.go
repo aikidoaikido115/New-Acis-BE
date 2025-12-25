@@ -343,7 +343,10 @@ func (u *UserUseCaseImpl) VerifyOTP(email, otpCode string) error {
 		return errors.New("OTP not found for user")
 	}
 
+	// ตรวจสอบว่า OTP หมดอายุหรือไม่ และลบออกหากหมดอายุ
 	if time.Now().After(otp.ExpiresAt) {
+		// ลบ OTP ที่หมดอายุออกจากระบบ
+		_ = u.userrepo.DeleteOTP(userID)
 		return errors.New("OTP has expired")
 	}
 
