@@ -1,2 +1,2 @@
 release: sh -c "curl -L -o atlas https://release.ariga.io/atlas/atlas-linux-amd64-latest && chmod +x atlas && ./atlas migrate apply --env dev --allow-dirty"
-web: ./New-Acis-BE
+web: sh -c "ls -la && echo '=== checking bin/ ===' && ls -la bin/ 2>/dev/null || echo 'no bin folder' && if [ -f ./New-Acis-BE ]; then ./New-Acis-BE; elif [ -f ./bin/New-Acis-BE ]; then ./bin/New-Acis-BE; else echo 'Binary not found!'; exit 1; fi"
