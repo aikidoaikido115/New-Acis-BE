@@ -1,2 +1,2 @@
-release: sh -c "curl -sSf https://atlasgo.sh | sh && export PATH=\"$HOME/.atlas:$PATH\" && atlas migrate apply --env dev"
+release: sh -c "curl -L -o atlas https://release.ariga.io/atlas/atlas-linux-amd64-latest && chmod +x atlas && ./atlas migrate apply --env dev"
 web: ./main
