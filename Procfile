@@ -1,0 +1,1 @@
+web: sh -c "atlas migrate apply --env dev && ./main"

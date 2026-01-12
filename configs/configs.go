@@ -90,8 +90,8 @@ func LoadConfigs() *Configs {
 			SSLMode:  getEnv("SSL_Mode", "disable"),
 		},
 		Server: Server{
-			Host:    getEnv("SERVER_HOST", ""),
-			Port:    getEnv("SERVER_PORT", "8080"),
+			Host:    getEnv("SERVER_HOST", "0.0.0.0"),
+			Port:    getEnv("PORT", getEnv("SERVER_PORT", "8080")), // Heroku ใช้ PORT env
 			AppName: "New Acis",
 			CORS: CORS{
 				AllowOrigins:     getEnv("CORS_ALLOW_ORIGINS", "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000"),
