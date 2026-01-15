@@ -15,6 +15,12 @@
 # Test binary, built with `go test -c`
 *.test
 
+coverage
+coverage.out
+coverage.html
+*.coverprofile
+*.cover
+
 # Output of the go coverage tool
 *.out
 
