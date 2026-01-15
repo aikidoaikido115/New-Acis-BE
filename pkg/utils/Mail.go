@@ -68,14 +68,32 @@ func SendMail(templatePath string, user *entities.User, otp string, config confi
 }
 
 func NormalizeEmail(email string) (string, error) {
-	email = strings.ToLower(email)
-	parts := strings.Split(email, "@")
-	if len(parts) != 2 {
-		return "", errors.New("invalid Email")
-	}
+    email = strings.TrimSpace(email)
+    
+    if email == "" {
+        return "", errors.New("invalid Email")
+    }
 
-	localPart, domain := parts[0], parts[1]
-	localPart = strings.ReplaceAll(localPart, ".", "")
-	email = localPart + "@" + domain
-	return email, nil
+    parts := strings.Split(email, "@")
+    
+    if len(parts) != 2 {
+        return "", errors.New("invalid Email")
+    }
+
+    localPart := parts[0]
+    domain := parts[1]
+
+    if localPart == "" {
+        return "", errors.New("invalid Email")
+    }
+
+    if domain == "" {
+        return "", errors.New("invalid Email")
+    }
+
+    localPart = strings.ReplaceAll(localPart, ".", "")
+
+    normalizedEmail := strings.ToLower(localPart + "@" + domain)
+
+    return normalizedEmail, nil
 }
