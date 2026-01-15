@@ -1,53 +1,45 @@
 package middlewares
 
 import (
-	"github.com/aikidoaikido115/New-Acis-BE/configs"
+    "fmt"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
+    "github.com/aikidoaikido115/New-Acis-BE/configs"
+    "github.com/gofiber/fiber/v2"
+    "github.com/golang-jwt/jwt/v5"
 )
 
 func JWTMiddleware(config configs.JWT) fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
-		tokenString := ctx.Get("Authorization")
-		if tokenString == "" || len(tokenString) < 8 {
-			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"status":      "Unauthorized",
-				"status_code": fiber.StatusUnauthorized,
-				"message":     "Missing or invalid token",
-				"result":      nil,
-			})
-		}
+    return func(ctx *fiber.Ctx) error {
+        tokenString := ctx.Get("Authorization")
+        if tokenString == "" || len(tokenString) < 8 {
+            return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+                "status":  "Unauthorized",
+                "message": "Missing or invalid authorization header",
+            })
+        }
 
-		tokenString = tokenString[7:]
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fiber.ErrUnauthorized
-			}
-			return []byte(config.Secret), nil
-		})
+        tokenString = tokenString[7:] // Remove "Bearer "
 
-		if err != nil || !token.Valid {
-			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"status":      "Unauthorized",
-				"status_code": fiber.StatusUnauthorized,
-				"message":     "Invalid or expired token",
-				"result":      nil,
-			})
-		}
+        token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+            // ✅ STRICT CHECK: Only accept HS256
+            if token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
+                return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+            }
+            
+            return []byte(config.Secret), nil
+        })
 
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"status":      "Unauthorized",
-				"status_code": fiber.StatusUnauthorized,
-				"message":     "Invalid token claims",
-				"result":      nil,
-			})
-		}
+        if err != nil || !token.Valid {
+            return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+                "status":  "Unauthorized",
+                "message": "Invalid or expired token",
+            })
+        }
 
-		ctx.Locals("user_id", claims["user_id"])
-		// ctx.Locals("role", claims["role"])
-		return ctx.Next()
-	}
+        if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+            ctx.Locals("user_id", claims["user_id"])
+        }
+
+        return ctx.Next()
+    }
 }
