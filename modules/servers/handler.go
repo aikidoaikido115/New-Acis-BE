@@ -19,10 +19,10 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/swagger"
 
 	"gorm.io/gorm"
 )
-
 
 func SetupServer(server configs.Server, jwt configs.JWT, supa configs.Supabase, mail configs.Mail) *fiber.App {
 	app := fiber.New(fiber.Config{
@@ -34,15 +34,12 @@ func SetupServer(server configs.Server, jwt configs.JWT, supa configs.Supabase, 
 
 	})
 
-
 	setupMiddlewares(app, server.CORS)
-
 
 	setupRoutes(app, server, jwt, supa, mail)
 
 	return app
 }
-
 
 func setupMiddlewares(app *fiber.App, cor configs.CORS) {
 	// Recovery middleware - จับ panic และแปลงเป็น 500 error
@@ -51,7 +48,6 @@ func setupMiddlewares(app *fiber.App, cor configs.CORS) {
 	// Logger middleware - บันทึก request/response
 	app.Use(logger.New())
 
-	
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     cor.AllowOrigins,
 		AllowMethods:     cor.AllowMethods,
@@ -60,13 +56,15 @@ func setupMiddlewares(app *fiber.App, cor configs.CORS) {
 	}))
 }
 
-
 func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa configs.Supabase, mail configs.Mail) {
 	// Initialize database connection
 	db := database.GetDB()
 	if db == nil {
 		log.Fatal("Failed to initialize database")
 	}
+
+	// Swagger route
+	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	SetupUserRoutes(app, db, jwt, supa, mail)
 
@@ -83,7 +81,7 @@ func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa co
 }
 
 func SetupUserRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.Supabase, mail configs.Mail) {
-	
+
 	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
 	userRepository := userRepository.NewGormUserRepository(db)
 	userUsecase := userUsecase.NewUserUseCase(userRepository, auditLogRepository, jwt, supa, mail)

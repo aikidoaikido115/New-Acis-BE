@@ -22,6 +22,17 @@ func NewUserController(userusecase usecases.UserUsecase) *UserController {
 	}
 }
 
+// RegisterHandler godoc
+// @Summary User Registration
+// @Description Register a new user with username, email, password, and role
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body object{username=string,email=string,password=string,role_name=string} true "Registration information"
+// @Success 201 {object} object{status=string,status_code=int,message=string,result=object} "User created successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing required fields"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/auth/register [post]
 func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
 	var req struct {
 		Username string `json:"username"`
@@ -90,6 +101,17 @@ func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// LoginHandler godoc
+// @Summary User Login
+// @Description Login with username and password to get access token
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body object{username=string,password=string} true "Login credentials"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object{token=string,user_id=string,username=string,email=string,profile_image=string}} "Login successful"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing username or password"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/auth/login [post]
 func (c *UserController) LoginHandler(ctx *fiber.Ctx) error {
 	var req struct {
 		Username string `json:"username"`
@@ -147,6 +169,20 @@ func (c *UserController) LoginHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// ResetPasswordHandler godoc
+// @Summary Reset Password (Authenticated)
+// @Description Reset password for authenticated user with old password verification
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body object{email=string,old_password=string,new_password=string} true "Password reset information"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=any} "Password reset successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Old password invalid"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 404 {object} object{status=string,status_code=int,message=string,result=any} "User not found"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/auth/resetpassword [put]
 func (c *UserController) ResetPasswordHandler(ctx *fiber.Ctx) error {
 	var req struct {
 		Email       string `json:"email"`
@@ -216,6 +252,17 @@ func (c *UserController) ResetPasswordHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// ForgotPasswordHandler godoc
+// @Summary Forgot Password - Request OTP
+// @Description Send OTP to user's email for password recovery
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body object{email=string} true "User email"
+// @Success 200 {object} object{status=string,status_code=int,message=string} "Sent OTP successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Email is missing"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/auth/forgotpassword [post]
 func (c *UserController) ForgotPasswordHandler(ctx *fiber.Ctx) error {
 	type ForgotPasswordRequest struct {
 		Email string `json:"email" validate:"required,email"`
@@ -257,6 +304,17 @@ func (c *UserController) ForgotPasswordHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// VerifyOTPHandler godoc
+// @Summary Verify OTP
+// @Description Verify the OTP sent to user's email for password recovery
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body object{email=string,otp=string} true "Email and OTP"
+// @Success 200 {object} object{status=string,status_code=int,message=string} "OTP is correct"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Email or OTP is missing"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/auth/forgotpassword/otp [post]
 func (c *UserController) VerifyOTPHandler(ctx *fiber.Ctx) error {
 	type OTPRequest struct {
 		Email string `json:"email" validate:"required,email"`
@@ -308,6 +366,17 @@ func (c *UserController) VerifyOTPHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// ChangePasswordHandler godoc
+// @Summary Change Password (Forgot Password Flow)
+// @Description Change password after OTP verification in forgot password flow
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body object{email=string,new_password=string} true "Email and new password"
+// @Success 200 {object} object{status=string,status_code=int,message=string} "Password changed successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Email or new password is missing"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/auth/forgotpassword/changepassword [put]
 func (c *UserController) ChangePasswordHandler(ctx *fiber.Ctx) error {
 	type OTPRequest struct {
 		Email       string `json:"email" validate:"required,email"`
@@ -359,6 +428,17 @@ func (c *UserController) ChangePasswordHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// GetUserByIDHandler godoc
+// @Summary Get User Information
+// @Description Get authenticated user's information
+// @Tags User
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "User Info retrieved successfully"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 404 {object} object{status=string,status_code=int,message=string,result=any} "User not found"
+// @Router /api/user [get]
 func (c *UserController) GetUserByIDHandler(ctx *fiber.Ctx) error {
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
@@ -388,6 +468,15 @@ func (c *UserController) GetUserByIDHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// LogoutHandler godoc
+// @Summary User Logout
+// @Description Logout authenticated user
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=any} "Logout successful"
+// @Router /api/auth/logout [post]
 func (c *UserController) LogoutHandler(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":      "Success",
@@ -397,6 +486,24 @@ func (c *UserController) LogoutHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// UpdateUserByIDHandler godoc
+// @Summary Update User Information
+// @Description Update authenticated user's profile including username, first name, last name, nickname, gender, and profile image
+// @Tags User
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param username formData string false "Username"
+// @Param first_name formData string false "First Name"
+// @Param last_name formData string false "Last Name"
+// @Param nickname formData string false "Nickname"
+// @Param gender formData string false "Gender"
+// @Param profile_image formData file false "Profile Image"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "User updated successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Invalid form data"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/user [put]
 func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
@@ -408,7 +515,6 @@ func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-
 	form, err := ctx.MultipartForm()
 	if err != nil {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
@@ -419,9 +525,7 @@ func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-
 	user := &entities.User{}
-
 
 	if usernames := form.Value["username"]; len(usernames) > 0 {
 		user.Username = usernames[0]
@@ -438,7 +542,6 @@ func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 	if genders := form.Value["gender"]; len(genders) > 0 {
 		user.Gender = genders[0]
 	}
-	
 
 	// Get the profile image files (optional)
 	files := form.File["profile_image"]
@@ -478,7 +581,19 @@ func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 	})
 }
 
-
+// CreateStaffFileHandler godoc
+// @Summary Upload Staff Files
+// @Description Upload multiple files for staff member
+// @Tags User
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param file formData file true "Files to upload (can select multiple)"
+// @Success 201 {object} object{status=string,status_code=int,message=string,result=array} "Staff files created successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - No files provided or invalid form data"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/user/staff/files [post]
 func (c *UserController) CreateStaffFileHandler(ctx *fiber.Ctx) error {
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
