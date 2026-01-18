@@ -18,6 +18,7 @@ require (
 )
 
 require (
+	ariga.io/atlas-provider-gorm v0.6.0 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
