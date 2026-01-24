@@ -12,6 +12,10 @@ import (
 
 	auditLogRepository "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
 
+	emrController "github.com/aikidoaikido115/New-Acis-BE/modules/emr/controllers"
+	emrRepository "github.com/aikidoaikido115/New-Acis-BE/modules/emr/repositories"
+	emrUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/emr/usecases"
+
 	"github.com/aikidoaikido115/New-Acis-BE/pkg/database"
 	"github.com/aikidoaikido115/New-Acis-BE/pkg/middlewares"
 
@@ -67,6 +71,7 @@ func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa co
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	SetupUserRoutes(app, db, jwt, supa, mail)
+	SetupEmrRoutes(app, db, jwt)	
 
 	// API group
 	api := app.Group("/api")
@@ -100,4 +105,15 @@ func SetupUserRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.
 	userGroup.Get("/", middlewares.JWTMiddleware(jwt), userController.GetUserByIDHandler)
 	userGroup.Put("/", middlewares.JWTMiddleware(jwt), userController.UpdateUserByIDHandler)
 	userGroup.Post("/staff/files", middlewares.JWTMiddleware(jwt), userController.CreateStaffFileHandler)
+}
+
+
+func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
+	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
+	emrRepository := emrRepository.NewGormEmrRepository(db)
+	emrUsecase := emrUsecase.NewEmrUseCase(emrRepository, auditLogRepository)
+	emrController := emrController.NewEmrController(emrUsecase)
+
+	residentGroup := app.Group("/api/emr/residents")
+	residentGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateResident)
 }

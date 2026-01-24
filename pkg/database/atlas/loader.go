@@ -21,6 +21,7 @@ func main() {
 		&entities.TempToken{},
 		&entities.AuditLogs{},
 		&entities.Room{},
+		&entities.Resident{},
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to load gorm schema: %v\n", err)
