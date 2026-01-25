@@ -23,8 +23,8 @@ import (
 )
 
 type UserUsecase interface {
-	Register(user *entities.User, roleName string) (*entities.User, error)
-	Login(username, password string) (string, *entities.User, error)
+	Register(user *entities.User, roleName string, file multipart.File) (*entities.User, error)
+	Login(username, email, password string) (string, *entities.User, error)
 	ResetPassword(userID, oldPassword, newPassword string) error
 
 	GetUserByID(id string) (*entities.User, error)
@@ -62,7 +62,7 @@ func NewUserUseCase(
 	}
 }
 
-func (u *UserUseCaseImpl) Register(user *entities.User, roleName string) (*entities.User, error) {
+func (u *UserUseCaseImpl) Register(user *entities.User, roleName string, file multipart.File) (*entities.User, error) {
 	normalizedEmail, err := utils.NormalizeEmail(user.Email)
 	if err != nil {
 		return nil, errors.New("invalid email format: " + err.Error())
@@ -94,6 +94,27 @@ func (u *UserUseCaseImpl) Register(user *entities.User, roleName string) (*entit
 
 	user.ID = uuid.New().String()
 	user.RoleID = role.ID
+
+	// Upload profile image if provided
+	if file != nil {
+		fileExtension, err := utils.DetectFileType(file)
+		if err != nil {
+			return nil, errors.New("invalid file: " + err.Error())
+		}
+
+		// Reset file pointer to beginning after DetectFileType
+		file.Seek(0, io.SeekStart)
+
+		fileName := uuid.New().String() + fileExtension
+
+		profileURL, err := utils.UploadFile2Supa(file, fileName, "profiles/", u.supa)
+		if err != nil {
+			return nil, errors.New("failed to upload profile image: " + err.Error())
+		}
+
+		user.ProfileImage = profileURL
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, errors.New("failed to hash password: " + err.Error())
@@ -140,10 +161,17 @@ func (u *UserUseCaseImpl) Register(user *entities.User, roleName string) (*entit
 	return createdUser, nil
 }
 
-func (u *UserUseCaseImpl) Login(username, password string) (string, *entities.User, error) {
-	user, err := u.userrepo.GetUserByUsername(username)
+func (u *UserUseCaseImpl) Login(username, email, password string) (string, *entities.User, error) {
+	
+	var user, err = &entities.User{}, error(nil)
+	if username != "" {
+		user, err = u.userrepo.GetUserByUsername(username)
+	} else if email != "" {
+		user, err = u.userrepo.GetUserByEmail(email)
+	}
+	
 	if err != nil {
-		return "", nil, errors.New("invalid username: " + err.Error())
+		return "", nil, errors.New("invalid username or email: " + err.Error())
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {

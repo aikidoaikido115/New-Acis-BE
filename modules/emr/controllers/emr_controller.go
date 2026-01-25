@@ -55,7 +55,7 @@ func (c *EmrController) CreateResident(ctx *fiber.Ctx) error {
 
 	if req.FirstName == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "First name is missing",
 			"result":      nil,
@@ -64,7 +64,7 @@ func (c *EmrController) CreateResident(ctx *fiber.Ctx) error {
 
 	if req.LastName == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "Last name is missing",
 			"result":      nil,
@@ -73,7 +73,7 @@ func (c *EmrController) CreateResident(ctx *fiber.Ctx) error {
 
 	if req.Age == nil {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "Age is missing",
 			"result":      nil,
@@ -82,7 +82,7 @@ func (c *EmrController) CreateResident(ctx *fiber.Ctx) error {
 
 	if req.Gender == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "Gender is missing",
 			"result":      nil,
