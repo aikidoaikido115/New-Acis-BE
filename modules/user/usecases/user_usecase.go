@@ -274,12 +274,6 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 			if usernameExists {
 				return nil, errors.New("username already taken")
 			}
-
-			if existingUser.NumberOfUsernames >= 1 {
-				return nil, errors.New("username can change only once")
-			}
-
-			existingUser.NumberOfUsernames++ //นับจำนวนครั้งที่เปลี่ยน username
 			existingUser.Username = user.Username
 		}
 	}

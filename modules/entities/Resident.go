@@ -9,4 +9,5 @@ type Resident struct {
 	Gender	 	string `json:"gender" gorm:"not null"`
 
 	Room 		Room   `json:"-" gorm:"foreignKey:RoomID;references:ID"`
+	ResidentLabels []ResidentLabels `json:"resident_labels" gorm:"foreignKey:ResidentID;references:ID"`
 }
