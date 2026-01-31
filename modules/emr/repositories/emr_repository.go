@@ -18,7 +18,7 @@ func NewGormEmrRepository(db *gorm.DB) *GormEmrRepository {
 
 type EmrRepository interface {
 	// Resident operations
-	CreateResident(user *entities.Resident) (*entities.Resident, error)
+	CreateResident(resident *entities.Resident) (*entities.Resident, error)
 	GetResidentByID(id string) (*entities.Resident, error)
 	GetResidentByRoomID(roomID string) ([]*entities.Resident, error)
 	GetAllResidents() ([]*entities.Resident, error)
