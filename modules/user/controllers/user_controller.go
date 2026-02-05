@@ -143,7 +143,7 @@ func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
 
 	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"status":      "Success",
-		"status_code": fiber.StatusOK,
+		"status_code": fiber.StatusCreated,
 		"message":     "user created successfully",
 		"result":      data,
 	})
@@ -151,13 +151,13 @@ func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
 
 // LoginHandler godoc
 // @Summary User Login
-// @Description Login with username and password to get access token
+// @Description Login with username or email and password to get access token. You must provide EITHER username OR email, not both
 // @Tags Authentication
 // @Accept json
 // @Produce json
-// @Param request body object{username=string,password=string} true "Login credentials"
+// @Param request body object{username=string,email=string,password=string} true "Login credentials (provide EITHER username OR email with password, not both)"
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=object{token=string,user_id=string,username=string,email=string,profile_image=string}} "Login successful"
-// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing username or password"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing credentials, sent both username and email, or missing password"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/auth/login [post]
 func (c *UserController) LoginHandler(ctx *fiber.Ctx) error {
@@ -225,16 +225,15 @@ func (c *UserController) LoginHandler(ctx *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body object{email=string,old_password=string,new_password=string} true "Password reset information"
+// @Param request body object{old_password=string,new_password=string} true "Password reset information"
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=any} "Password reset successfully"
-// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Old password invalid"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Old password invalid or passwords are the same"
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
 // @Failure 404 {object} object{status=string,status_code=int,message=string,result=any} "User not found"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/auth/resetpassword [put]
 func (c *UserController) ResetPasswordHandler(ctx *fiber.Ctx) error {
 	var req struct {
-		Email       string `json:"email"`
 		OldPassword string `json:"old_password"`
 		NewPassword string `json:"new_password"`
 	}

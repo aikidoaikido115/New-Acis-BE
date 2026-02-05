@@ -162,14 +162,23 @@ func (u *UserUseCaseImpl) Register(user *entities.User, roleName string, file mu
 }
 
 func (u *UserUseCaseImpl) Login(username, email, password string) (string, *entities.User, error) {
-	
-	var user, err = &entities.User{}, error(nil)
+	if username != "" && email != "" {
+		return "", nil, errors.New("please provide either username or email, not both")
+	}
+
+	if username == "" && email == "" {
+		return "", nil, errors.New("username or email is required")
+	}
+
+	var user *entities.User
+	var err error
+
 	if username != "" {
 		user, err = u.userrepo.GetUserByUsername(username)
-	} else if email != "" {
+	} else {
 		user, err = u.userrepo.GetUserByEmail(email)
 	}
-	
+
 	if err != nil {
 		return "", nil, errors.New("invalid username or email: " + err.Error())
 	}
@@ -201,6 +210,11 @@ func (u *UserUseCaseImpl) ResetPassword(userID, oldPassword, newPassword string)
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(oldPassword)); err != nil {
 		return errors.New("old password invalid")
+	}
+
+	// ตรวจสอบว่ารหัสผ่านใหม่ไม่ซ้ำกับรหัสผ่านเดิม
+	if oldPassword == newPassword {
+		return errors.New("new password cannot be the same as current password")
 	}
 
 	hashedNewPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
@@ -477,6 +491,11 @@ func (u *UserUseCaseImpl) ChangePassword(email, newPassword string) error {
 	// ตรวจสอบว่า user_id ใน token ตรงกับ user ที่กำลังเปลี่ยนรหัสผ่าน
 	if userId, ok := claims["user_id"].(string); !ok || userId != user.ID {
 		return errors.New("token does not match user")
+	}
+
+	// ตรวจสอบว่ารหัสผ่านใหม่ไม่ซ้ำกับรหัสผ่านเดิม
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(newPassword)); err == nil {
+		return errors.New("new password cannot be the same as current password")
 	}
 
 	hashedNewPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)

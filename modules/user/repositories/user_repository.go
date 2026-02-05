@@ -201,11 +201,11 @@ func (r *GormUserRepository) StoreResetToken(tempToken *entities.TempToken) erro
 		}
 
 		// Create new token
-		tempToken := &entities.TempToken{
+		newTempToken := &entities.TempToken{
 			UserID: tempToken.UserID,
 			Token:  tempToken.Token,
 		}
-		return tx.Create(tempToken).Error
+		return tx.Create(newTempToken).Error
 	})
 }
 

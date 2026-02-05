@@ -34,10 +34,12 @@ type EmrRepository interface {
 	GetIntakeLabelByID(id string) (*entities.IntakeLabels, error)
 	GetIntakeLabelByName(labelName string) (*entities.IntakeLabels, error)
 	GetAllIntakeLabels() ([]*entities.IntakeLabels, error)
+	LabelExists(labelName string) (bool, error)
 
 	// ResidentLabel operations (many-to-many)
 	CreateIntakeLabelByResidentID(residentLabel *entities.ResidentLabels) (*entities.ResidentLabels, error)
 	GetResidentLabelsByResidentID(residentID string) ([]*entities.ResidentLabels, error)
+	ResidentLabelExists(residentID, labelID string) (bool, error)
 
 	//todo UpdateResident
 	//todo SoftDeleteResident
@@ -154,10 +156,28 @@ func (r *GormEmrRepository) GetAllIntakeLabels() ([]*entities.IntakeLabels, erro
 	return labels, nil
 }
 
+func (r *GormEmrRepository) LabelExists(labelName string) (bool, error) {
+	var count int64
+	err := r.db.Model(&entities.IntakeLabels{}).Where("label_name = ?", labelName).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 func (r *GormEmrRepository) GetResidentLabelsByResidentID(residentID string) ([]*entities.ResidentLabels, error) {
 	var residentLabels []*entities.ResidentLabels
 	if err := r.db.Preload("IntakeLabel").Where("resident_id = ?", residentID).Find(&residentLabels).Error; err != nil {
 		return nil, err
 	}
 	return residentLabels, nil
+}
+
+func (r *GormEmrRepository) ResidentLabelExists(residentID, labelID string) (bool, error) {
+	var count int64
+	err := r.db.Model(&entities.ResidentLabels{}).Where("resident_id = ? AND label_id = ?", residentID, labelID).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

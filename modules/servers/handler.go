@@ -71,7 +71,7 @@ func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa co
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	SetupUserRoutes(app, db, jwt, supa, mail)
-	SetupEmrRoutes(app, db, jwt)	
+	SetupEmrRoutes(app, db, jwt)
 
 	// API group
 	api := app.Group("/api")
@@ -107,7 +107,6 @@ func SetupUserRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.
 	userGroup.Post("/staff/files", middlewares.JWTMiddleware(jwt), userController.CreateStaffFileHandler)
 }
 
-
 func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
 	emrRepository := emrRepository.NewGormEmrRepository(db)
@@ -116,4 +115,17 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 
 	residentGroup := app.Group("/api/emr/residents")
 	residentGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateResident)
+	residentGroup.Get("/all", middlewares.JWTMiddleware(jwt), emrController.GetAllResidents)
+	residentGroup.Get("/:id", middlewares.JWTMiddleware(jwt), emrController.GetResidentByID)
+	residentGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetResidentByRoomID)
+
+	roomGroup := app.Group("/api/emr/rooms")
+	roomGroup.Get("/:id", middlewares.JWTMiddleware(jwt), emrController.GetRoomByID)
+	roomGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetAllRooms)
+
+	labelGroup := app.Group("/api/emr/intake-labels")
+	labelGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetResidentLabelsByResidentID)
+	labelGroup.Get("/all", middlewares.JWTMiddleware(jwt), emrController.GetAllIntakeLabels)
+	labelGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateIntakeLabelByResidentID)
+
 }
