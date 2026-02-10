@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	emr_constants "github.com/aikidoaikido115/New-Acis-BE/modules/emr/constants"
+	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/models"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 
 	"gorm.io/gorm"
@@ -22,12 +24,19 @@ type EmrRepository interface {
 	GetResidentByID(id string) (*entities.Resident, error)
 	GetResidentByRoomID(roomID string) ([]*entities.Resident, error)
 	GetAllResidents() ([]*entities.Resident, error)
-	GetNumberOfResidents() (int16, error)
+	UpdateResident(resident *entities.Resident) (*entities.Resident, error)
+
+	// Dashboard operations
+	GetNumberOfResidentsDashboard() (models.NumberOfResidentsDashboardResponse, error)
+	GetNumberOfResidentGender() (models.ResidentGenderStatsDashboardResponse, error)
 
 	// Room operations
 	RoomExists(id string) (bool, error)
 	GetRoomByID(id string) (*entities.Room, error)
 	GetAllRooms() ([]*entities.Room, error)
+	CreateRoom(room *entities.Room) (*entities.Room, error)
+	UpdateRoom(room *entities.Room) (*entities.Room, error)
+	RoomNumberExists(roomNumber string) (bool, error)
 
 	// IntakeLabel operations
 	CreateIntakeLabel(label *entities.IntakeLabels) (*entities.IntakeLabels, error)
@@ -35,11 +44,16 @@ type EmrRepository interface {
 	GetIntakeLabelByName(labelName string) (*entities.IntakeLabels, error)
 	GetAllIntakeLabels() ([]*entities.IntakeLabels, error)
 	LabelExists(labelName string) (bool, error)
+	DeleteIntakeLabel(id string) error
 
 	// ResidentLabel operations (many-to-many)
 	CreateIntakeLabelByResidentID(residentLabel *entities.ResidentLabels) (*entities.ResidentLabels, error)
 	GetResidentLabelsByResidentID(residentID string) ([]*entities.ResidentLabels, error)
 	ResidentLabelExists(residentID, labelID string) (bool, error)
+	DeleteResidentLabelsByResidentID(residentID string) error
+
+	// VitalSign operations
+	// CreateVitalSign(vitalSign *entities.VitalSign) (*entities.VitalSign, error)
 
 	//todo UpdateResident
 	//todo SoftDeleteResident
@@ -66,7 +80,7 @@ func (r *GormEmrRepository) RoomExists(id string) (bool, error) {
 
 func (r *GormEmrRepository) GetResidentByID(id string) (*entities.Resident, error) {
 	var resident entities.Resident
-	if err := r.db.Preload("Room").Where("id = ?", id).First(&resident).Error; err != nil {
+	if err := r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Where("id = ?", id).First(&resident).Error; err != nil {
 		return nil, err
 	}
 	return &resident, nil
@@ -74,7 +88,7 @@ func (r *GormEmrRepository) GetResidentByID(id string) (*entities.Resident, erro
 
 func (r *GormEmrRepository) GetResidentByRoomID(roomID string) ([]*entities.Resident, error) {
 	var residents []*entities.Resident
-	if err := r.db.Preload("Room").Where("room_id = ?", roomID).Find(&residents).Error; err != nil {
+	if err := r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Where("room_id = ?", roomID).Find(&residents).Error; err != nil {
 		return nil, err
 	}
 	return residents, nil
@@ -82,10 +96,17 @@ func (r *GormEmrRepository) GetResidentByRoomID(roomID string) ([]*entities.Resi
 
 func (r *GormEmrRepository) GetAllResidents() ([]*entities.Resident, error) {
 	var residents []*entities.Resident
-	if err := r.db.Preload("Room").Find(&residents).Error; err != nil {
+	if err := r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Find(&residents).Error; err != nil {
 		return nil, err
 	}
 	return residents, nil
+}
+
+func (r *GormEmrRepository) UpdateResident(resident *entities.Resident) (*entities.Resident, error) {
+	if err := r.db.Save(&resident).Error; err != nil {
+		return nil, err
+	}
+	return r.GetResidentByID(resident.ID)
 }
 
 func (r *GormEmrRepository) GetRoomByID(id string) (*entities.Room, error) {
@@ -103,12 +124,63 @@ func (r *GormEmrRepository) GetAllRooms() ([]*entities.Room, error) {
 	return rooms, nil
 }
 
-func (r *GormEmrRepository) GetNumberOfResidents() (int16, error) {
-	var count int64
-	if err := r.db.Model(&entities.Resident{}).Count(&count).Error; err != nil {
-		return 0, err
+func (r *GormEmrRepository) CreateRoom(room *entities.Room) (*entities.Room, error) {
+	if err := r.db.Create(&room).Error; err != nil {
+		return nil, err
 	}
-	return int16(count), nil
+	return room, nil
+}
+
+func (r *GormEmrRepository) UpdateRoom(room *entities.Room) (*entities.Room, error) {
+	if err := r.db.Save(&room).Error; err != nil {
+		return nil, err
+	}
+	return room, nil
+}
+
+func (r *GormEmrRepository) RoomNumberExists(roomNumber string) (bool, error) {
+	var count int64
+	err := r.db.Model(&entities.Room{}).Where("room_number = ?", roomNumber).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (r *GormEmrRepository) GetNumberOfResidentsDashboard() (models.NumberOfResidentsDashboardResponse, error) {
+	var response models.NumberOfResidentsDashboardResponse
+
+	err := r.db.Model(&entities.Resident{}).
+		Joins("LEFT JOIN resident_labels ON residents.id = resident_labels.resident_id").
+		Joins("LEFT JOIN intake_labels ON resident_labels.label_id = intake_labels.id").
+		Select(`
+            COUNT(DISTINCT CASE WHEN intake_labels.label_name = ? THEN residents.id END) as independent_residents,
+            COUNT(DISTINCT CASE WHEN intake_labels.label_name = ? THEN residents.id END) as partial_assist_residents,
+            COUNT(DISTINCT CASE WHEN intake_labels.label_name = ? THEN residents.id END) as bedridden_residents,
+            COUNT(DISTINCT residents.id) as total_residents
+        `, emr_constants.CareLevelIndependent, emr_constants.CareLevelPartial, emr_constants.CareLevelFull).
+		Scan(&response).Error
+	if err != nil {
+		return models.NumberOfResidentsDashboardResponse{}, err
+	}
+
+	return response, nil
+}
+
+func (r *GormEmrRepository) GetNumberOfResidentGender() (models.ResidentGenderStatsDashboardResponse, error) {
+	var response models.ResidentGenderStatsDashboardResponse
+
+	err := r.db.Model(&entities.Resident{}).
+		Select(`
+			COUNT(CASE WHEN gender = 'male' THEN 1 END) as sum_of_male,
+			COUNT(CASE WHEN gender = 'female' THEN 1 END) as sum_of_female,
+			COUNT(*) as total_residents
+		`).Scan(&response).Error
+
+	if err != nil {
+		return models.ResidentGenderStatsDashboardResponse{}, err
+	}
+	return response, nil
 }
 
 func (r *GormEmrRepository) CreateIntakeLabelByResidentID(residentLabel *entities.ResidentLabels) (*entities.ResidentLabels, error) {
@@ -124,6 +196,20 @@ func (r *GormEmrRepository) CreateIntakeLabelByResidentID(residentLabel *entitie
 	}
 	return &result, nil
 }
+
+// func (r *GormEmrRepository) UpdateIntakeLabelByResidentID(residentLabel *entities.ResidentLabels) (*entities.ResidentLabels, error) {
+// 	if err := r.db.Save(&residentLabel).Error; err != nil {
+// 		return nil, err
+// 	}
+
+// 	var result entities.ResidentLabels
+// 	if err := r.db.Preload("Resident").Preload("IntakeLabel").
+// 		Where("resident_id = ? AND label_id = ?", residentLabel.ResidentID, residentLabel.LabelID).
+// 		First(&result).Error; err != nil {
+// 		return nil, err
+// 	}
+// 	return &result, nil
+// }
 
 func (r *GormEmrRepository) GetIntakeLabelByName(labelName string) (*entities.IntakeLabels, error) {
 	var label entities.IntakeLabels
@@ -165,6 +251,13 @@ func (r *GormEmrRepository) LabelExists(labelName string) (bool, error) {
 	return count > 0, nil
 }
 
+func (r *GormEmrRepository) DeleteIntakeLabel(id string) error {
+	if err := r.db.Delete(&entities.IntakeLabels{}, "id = ?", id).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r *GormEmrRepository) GetResidentLabelsByResidentID(residentID string) ([]*entities.ResidentLabels, error) {
 	var residentLabels []*entities.ResidentLabels
 	if err := r.db.Preload("IntakeLabel").Where("resident_id = ?", residentID).Find(&residentLabels).Error; err != nil {
@@ -180,4 +273,11 @@ func (r *GormEmrRepository) ResidentLabelExists(residentID, labelID string) (boo
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (r *GormEmrRepository) DeleteResidentLabelsByResidentID(residentID string) error {
+	if err := r.db.Where("resident_id = ?", residentID).Delete(&entities.ResidentLabels{}).Error; err != nil {
+		return err
+	}
+	return nil
 }

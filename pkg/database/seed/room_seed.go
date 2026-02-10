@@ -10,7 +10,7 @@ import (
 )
 
 // SeedRoles creates default roles in the database
-func Seedrooms(db *gorm.DB) {
+func SeedRooms(db *gorm.DB) {
 	log.Println("Seeding rooms...")
 
 	rooms := []entities.Room{

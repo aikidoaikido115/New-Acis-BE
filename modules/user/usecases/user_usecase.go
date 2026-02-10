@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/configs"
+	audit_constants "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/constants"
 	audit_repo "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
@@ -148,7 +149,7 @@ func (u *UserUseCaseImpl) Register(user *entities.User, roleName string, file mu
 		TableName: "users",
 		RecordID:  createdUser.ID,
 		UserID:    createdUser.ID,
-		Action:    utils.AuditActionInsert,
+		Action:    audit_constants.AuditActionInsert,
 		OldValue:  "",
 		NewValue:  string(newUserData),
 	}
@@ -232,9 +233,9 @@ func (u *UserUseCaseImpl) ResetPassword(userID, oldPassword, newPassword string)
 		TableName: "users",
 		RecordID:  user.ID,
 		UserID:    userID,
-		Action:    utils.AuditActionUpdate,
-		OldValue:  utils.AuditOldNewValuePassword,
-		NewValue:  utils.AuditOldNewValuePassword,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  audit_constants.AuditOldNewValuePassword,
+		NewValue:  audit_constants.AuditOldNewValuePassword,
 	}
 
 	_, err = u.auditlogrepo.CreateAuditLog(auditLog)
@@ -345,7 +346,7 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 		TableName: "users",
 		RecordID:  existingUser.ID,
 		UserID:    id,
-		Action:    utils.AuditActionUpdate,
+		Action:    audit_constants.AuditActionUpdate,
 		OldValue:  string(oldUserData),
 		NewValue:  string(newUserData),
 	}
@@ -517,9 +518,9 @@ func (u *UserUseCaseImpl) ChangePassword(email, newPassword string) error {
 		TableName: "users",
 		RecordID:  user.ID,
 		UserID:    user.ID,
-		Action:    utils.AuditActionUpdate,
+		Action:    audit_constants.AuditActionUpdate,
 		OldValue:  "password_reset_via_forgot_password",
-		NewValue:  utils.AuditOldNewValuePassword,
+		NewValue:  audit_constants.AuditOldNewValuePassword,
 	}
 
 	_, err = u.auditlogrepo.CreateAuditLog(auditLog)

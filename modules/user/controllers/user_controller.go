@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	"github.com/aikidoaikido115/New-Acis-BE/modules/user/models"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/user/usecases"
 
 	"github.com/gofiber/fiber/v2"
@@ -161,11 +162,7 @@ func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/auth/login [post]
 func (c *UserController) LoginHandler(ctx *fiber.Ctx) error {
-	var req struct {
-		Username string `json:"username"`
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
+	var req models.LoginRequest
 
 	if err := ctx.BodyParser(&req); err != nil {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
@@ -231,12 +228,9 @@ func (c *UserController) LoginHandler(ctx *fiber.Ctx) error {
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
 // @Failure 404 {object} object{status=string,status_code=int,message=string,result=any} "User not found"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
-// @Router /api/auth/resetpassword [put]
+// @Router /api/auth/resetpassword [patch]
 func (c *UserController) ResetPasswordHandler(ctx *fiber.Ctx) error {
-	var req struct {
-		OldPassword string `json:"old_password"`
-		NewPassword string `json:"new_password"`
-	}
+	var req models.ResetPasswordRequest
 
 	if err := ctx.BodyParser(&req); err != nil {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
@@ -312,11 +306,8 @@ func (c *UserController) ResetPasswordHandler(ctx *fiber.Ctx) error {
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/auth/forgotpassword [post]
 func (c *UserController) ForgotPasswordHandler(ctx *fiber.Ctx) error {
-	type ForgotPasswordRequest struct {
-		Email string `json:"email" validate:"required,email"`
-	}
+	var req models.ForgotPasswordRequest
 
-	var req ForgotPasswordRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -364,12 +355,8 @@ func (c *UserController) ForgotPasswordHandler(ctx *fiber.Ctx) error {
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/auth/forgotpassword/otp [post]
 func (c *UserController) VerifyOTPHandler(ctx *fiber.Ctx) error {
-	type OTPRequest struct {
-		Email string `json:"email" validate:"required,email"`
-		OTP   string `json:"otp"`
-	}
+	var req models.VerifyOTPRequest
 
-	var req OTPRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -424,14 +411,10 @@ func (c *UserController) VerifyOTPHandler(ctx *fiber.Ctx) error {
 // @Success 200 {object} object{status=string,status_code=int,message=string} "Password changed successfully"
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Email or new password is missing"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
-// @Router /api/auth/forgotpassword/changepassword [put]
+// @Router /api/auth/forgotpassword/changepassword [patch]
 func (c *UserController) ChangePasswordHandler(ctx *fiber.Ctx) error {
-	type OTPRequest struct {
-		Email       string `json:"email" validate:"required,email"`
-		NewPassword string `json:"new_password"`
-	}
+	var req models.ChangePasswordRequest
 
-	var req OTPRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -536,7 +519,7 @@ func (c *UserController) LogoutHandler(ctx *fiber.Ctx) error {
 
 // UpdateUserByIDHandler godoc
 // @Summary Update User Information
-// @Description Update authenticated user's profile including username, first name, last name, nickname, gender, and profile image
+// @Description Partially update authenticated user's profile. Only send fields that need to be updated.
 // @Tags User
 // @Accept multipart/form-data
 // @Produce json
@@ -551,7 +534,7 @@ func (c *UserController) LogoutHandler(ctx *fiber.Ctx) error {
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Invalid form data"
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
-// @Router /api/user [put]
+// @Router /api/user [patch]
 func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {

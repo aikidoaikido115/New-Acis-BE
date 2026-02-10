@@ -97,13 +97,13 @@ func SetupUserRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.
 	authGroup.Post("/login", userController.LoginHandler)
 	authGroup.Post("/forgotpassword", userController.ForgotPasswordHandler)
 	authGroup.Post("/forgotpassword/otp", userController.VerifyOTPHandler)
-	authGroup.Put("/forgotpassword/changepassword", userController.ChangePasswordHandler)
-	authGroup.Put("/resetpassword", middlewares.JWTMiddleware(jwt), userController.ResetPasswordHandler)
+	authGroup.Patch("/forgotpassword/changepassword", userController.ChangePasswordHandler)
+	authGroup.Patch("/resetpassword", middlewares.JWTMiddleware(jwt), userController.ResetPasswordHandler)
 	authGroup.Post("/logout", middlewares.JWTMiddleware(jwt), userController.LogoutHandler)
 
 	userGroup := app.Group("/api/user")
 	userGroup.Get("/", middlewares.JWTMiddleware(jwt), userController.GetUserByIDHandler)
-	userGroup.Put("/", middlewares.JWTMiddleware(jwt), userController.UpdateUserByIDHandler)
+	userGroup.Patch("/", middlewares.JWTMiddleware(jwt), userController.UpdateUserByIDHandler)
 	userGroup.Post("/staff/files", middlewares.JWTMiddleware(jwt), userController.CreateStaffFileHandler)
 }
 
@@ -118,10 +118,17 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	residentGroup.Get("/all", middlewares.JWTMiddleware(jwt), emrController.GetAllResidents)
 	residentGroup.Get("/:id", middlewares.JWTMiddleware(jwt), emrController.GetResidentByID)
 	residentGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetResidentByRoomID)
+	residentGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateResidentByID)
 
 	roomGroup := app.Group("/api/emr/rooms")
 	roomGroup.Get("/:id", middlewares.JWTMiddleware(jwt), emrController.GetRoomByID)
 	roomGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetAllRooms)
+	roomGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateRoom)
+	roomGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateRoomByID)
+
+	dashboardGroup := app.Group("/api/emr/dashboard")
+	dashboardGroup.Get("/residents", middlewares.JWTMiddleware(jwt), emrController.GetNumberOfResidentsDashboard)
+	dashboardGroup.Get("/resident-gender-stats", middlewares.JWTMiddleware(jwt), emrController.GetResidentGenderStatsDashboard)
 
 	labelGroup := app.Group("/api/emr/intake-labels")
 	labelGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetResidentLabelsByResidentID)

@@ -12,11 +12,12 @@ import (
 	"strings"
 	"time"
 
+	audit_constants "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/constants"
 	audit_repo "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
+	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/models"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/repositories"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 
-	"github.com/aikidoaikido115/New-Acis-BE/pkg/utils"
 	"github.com/google/uuid"
 	// "golang.org/x/text/unicode/norm"
 )
@@ -28,10 +29,17 @@ type EmrUsecase interface {
 	GetResidentByID(id string) (*entities.Resident, error)
 	GetResidentByRoomID(roomID string) ([]*entities.Resident, error)
 	GetAllResidents() ([]*entities.Resident, error)
+	UpdateResidentByID(residentID string, data models.UpdateResidentRequest, userID string) (*entities.Resident, error)
+
+	// Dashboard operations
+	GetNumberOfResidentsDashboard() (models.NumberOfResidentsDashboardResponse, error)
+	GetResidentGenderStatsDashboard() (models.ResidentGenderStatsDashboardResponse, error)
 
 	// Room operations
 	GetRoomByID(id string) (*entities.Room, error)
 	GetAllRooms() ([]*entities.Room, error)
+	CreateRoom(room *entities.Room, userID string) (*entities.Room, error)
+	UpdateRoomByID(roomID string, data models.UpdateRoomRequest, userID string) (*entities.Room, error)
 
 	// IntakeLabel operations
 	CreateIntakeLabel(label *entities.IntakeLabels) (*entities.IntakeLabels, error)
@@ -40,7 +48,8 @@ type EmrUsecase interface {
 	GetAllIntakeLabels() ([]*entities.IntakeLabels, error)
 
 	// ResidentLabel operations (many-to-many)
-	CreateIntakeLabelByResidentID(residentID string, labels []IntakeLabelInput, userID string) ([]*entities.ResidentLabels, error)
+	CreateIntakeLabelByResidentID(residentID string, labels []models.IntakeLabelRequest, userID string) ([]*entities.ResidentLabels, error)
+	// UpdateIntakeLabelByResidentID(residentID string, labels []models.IntakeLabelRequest, userID string) ([]*entities.ResidentLabels, error)
 	GetResidentLabelsByResidentID(residentID string) ([]*entities.ResidentLabels, error)
 }
 
@@ -73,6 +82,11 @@ func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID str
 		return nil, errors.New("room does not exist")
 	}
 
+	resident.Gender = strings.ToLower(strings.TrimSpace(resident.Gender))
+	if resident.Gender != "male" && resident.Gender != "female" && resident.Gender != "other" {
+		return nil, errors.New("gender must be either 'male', 'female', or 'other'")
+	}
+
 	resident.ID = uuid.New().String()
 
 	createdResident, err := uc.emrrepo.CreateResident(resident)
@@ -84,13 +98,14 @@ func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID str
 		"first_name": createdResident.FirstName,
 		"last_name":  createdResident.LastName,
 		"age":        createdResident.Age,
+		"gender":     createdResident.Gender,
 	})
 	auditLog := &entities.AuditLogs{
 		ID:        uuid.New().String(),
 		TableName: "residents",
 		RecordID:  createdResident.ID,
 		UserID:    userID,
-		Action:    utils.AuditActionInsert,
+		Action:    audit_constants.AuditActionInsert,
 		OldValue:  "",
 		NewValue:  string(newResidentData),
 	}
@@ -126,6 +141,192 @@ func (uc *EmrUseCaseImpl) GetAllResidents() ([]*entities.Resident, error) {
 	return residents, nil
 }
 
+func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.UpdateResidentRequest, userID string) (*entities.Resident, error) {
+	resident, err := uc.emrrepo.GetResidentByID(residentID)
+	if err != nil {
+		return nil, errors.New("resident not found: " + err.Error())
+	}
+
+	oldResidentData, _ := json.Marshal(map[string]interface{}{
+		"room_id":    resident.RoomID,
+		"first_name": resident.FirstName,
+		"last_name":  resident.LastName,
+		"age":        resident.Age,
+		"gender":     resident.Gender,
+	})
+
+	if data.RoomID != nil {
+		roomExists, err := uc.emrrepo.RoomExists(*data.RoomID)
+		if err != nil {
+			return nil, errors.New("failed to verify room existence: " + err.Error())
+		}
+		if !roomExists {
+			return nil, errors.New("room does not exist")
+		}
+		resident.RoomID = *data.RoomID
+	}
+
+	if data.FirstName != nil {
+		resident.FirstName = *data.FirstName
+	}
+
+	if data.LastName != nil {
+		resident.LastName = *data.LastName
+	}
+
+	if data.Age != nil {
+		if *data.Age < 0 {
+			return nil, errors.New("age cannot be negative")
+		}
+		resident.Age = data.Age
+	}
+
+	if data.Gender != nil {
+		gender := strings.ToLower(strings.TrimSpace(*data.Gender))
+		if gender != "male" && gender != "female" && gender != "other" {
+			return nil, errors.New("gender must be either 'male', 'female', or 'other'")
+		}
+		resident.Gender = gender
+	}
+
+	updatedResident, err := uc.emrrepo.UpdateResident(resident)
+	if err != nil {
+		return nil, errors.New("failed to update resident: " + err.Error())
+	}
+
+	newResidentData, _ := json.Marshal(map[string]interface{}{
+		"room_id":    updatedResident.RoomID,
+		"first_name": updatedResident.FirstName,
+		"last_name":  updatedResident.LastName,
+		"age":        updatedResident.Age,
+		"gender":     updatedResident.Gender,
+	})
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "residents",
+		RecordID:  updatedResident.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  string(oldResidentData),
+		NewValue:  string(newResidentData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for resident %s: %v", updatedResident.ID, err)
+	}
+
+	if data.Labels != nil {
+		existingLabels, _ := uc.emrrepo.GetResidentLabelsByResidentID(resident.ID)
+
+		err = uc.emrrepo.DeleteResidentLabelsByResidentID(resident.ID)
+		if err != nil {
+			return nil, errors.New("failed to delete existing labels: " + err.Error())
+		}
+
+		if len(existingLabels) > 0 {
+			oldLabelsData, _ := json.Marshal(existingLabels)
+			auditLog := &entities.AuditLogs{
+				ID:        uuid.New().String(),
+				TableName: "resident_labels",
+				RecordID:  resident.ID,
+				UserID:    userID,
+				Action:    audit_constants.AuditActionDelete,
+				OldValue:  string(oldLabelsData),
+				NewValue:  "",
+			}
+			_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+			if err != nil {
+				log.Printf("[ERROR] Failed to create audit log for deleting resident labels %s: %v", resident.ID, err)
+			}
+		}
+
+		seenLabelIDs := make(map[string]bool)
+
+		for _, label := range data.Labels {
+			if len(strings.TrimSpace(label.LabelName)) == 0 {
+				return nil, errors.New("label name cannot be empty or whitespace")
+			}
+
+			labelID, err := uc.getOrCreateLabelID(label.LabelName)
+			if err != nil {
+				return nil, errors.New("failed to get or create label: " + err.Error())
+			}
+
+			if seenLabelIDs[labelID] {
+				continue
+			}
+			seenLabelIDs[labelID] = true
+
+			residentLabel := &entities.ResidentLabels{
+				ResidentID: resident.ID,
+				LabelID:    labelID,
+				NoteText:   label.NoteText,
+				NotedAt:    time.Now(), // เวลาปัจจุบัน
+			}
+			createdLabel, err := uc.emrrepo.CreateIntakeLabelByResidentID(residentLabel)
+			if err != nil {
+				return nil, errors.New("failed to create resident label: " + err.Error())
+			}
+
+			// Create audit log for each new label
+			newLabelData, _ := json.Marshal(map[string]interface{}{
+				"resident_id": createdLabel.ResidentID,
+				"label_id":    createdLabel.LabelID,
+				"label_name":  label.LabelName,
+				"note_text":   label.NoteText,
+				"noted_at":    createdLabel.NotedAt,
+			})
+			auditLog := &entities.AuditLogs{
+				ID:        uuid.New().String(),
+				TableName: "resident_labels",
+				RecordID:  createdLabel.ResidentID + "-" + createdLabel.LabelID,
+				UserID:    userID,
+				Action:    audit_constants.AuditActionInsert,
+				OldValue:  "",
+				NewValue:  string(newLabelData),
+			}
+			_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+			if err != nil {
+				log.Printf("[ERROR] Failed to create audit log for resident label %s-%s: %v", createdLabel.ResidentID, createdLabel.LabelID, err)
+			}
+		}
+
+		// Fetch resident again to get updated labels
+		finalResident, err := uc.emrrepo.GetResidentByID(resident.ID)
+		if err != nil {
+			return nil, errors.New("failed to fetch updated resident: " + err.Error())
+		}
+		return finalResident, nil
+	}
+
+	return updatedResident, nil
+}
+
+func (uc *EmrUseCaseImpl) GetNumberOfResidentsDashboard() (models.NumberOfResidentsDashboardResponse, error) {
+	response, err := uc.emrrepo.GetNumberOfResidentsDashboard()
+	if err != nil {
+		return models.NumberOfResidentsDashboardResponse{}, errors.New("failed to get dashboard data: " + err.Error())
+	}
+	return response, nil
+}
+
+func (uc *EmrUseCaseImpl) GetResidentGenderStatsDashboard() (models.ResidentGenderStatsDashboardResponse, error) {
+	response, err := uc.emrrepo.GetNumberOfResidentGender()
+	if err != nil {
+		return models.ResidentGenderStatsDashboardResponse{}, errors.New("failed to get resident gender stats: " + err.Error())
+	}
+
+	if response.TotalResidents > 0 {
+		response.MalePercentage = (float32(response.SumOfMale) / float32(response.TotalResidents)) * 100
+		response.FemalePercentage = (float32(response.SumOfFemale) / float32(response.TotalResidents)) * 100
+	} else {
+		response.MalePercentage = 0
+		response.FemalePercentage = 0
+	}
+
+	return response, nil
+}
+
 func (uc *EmrUseCaseImpl) GetRoomByID(id string) (*entities.Room, error) {
 	room, err := uc.emrrepo.GetRoomByID(id)
 	if err != nil {
@@ -140,6 +341,87 @@ func (uc *EmrUseCaseImpl) GetAllRooms() ([]*entities.Room, error) {
 		return nil, errors.New("failed to get all rooms: " + err.Error())
 	}
 	return rooms, nil
+}
+
+func (uc *EmrUseCaseImpl) CreateRoom(room *entities.Room, userID string) (*entities.Room, error) {
+	roomNumberExists, err := uc.emrrepo.RoomNumberExists(room.RoomNumber)
+	if err != nil {
+		return nil, errors.New("failed to verify room number existence: " + err.Error())
+	}
+	if roomNumberExists {
+		return nil, errors.New("room number already exists")
+	}
+	room.ID = uuid.New().String()
+	createdRoom, err := uc.emrrepo.CreateRoom(room)
+	if err != nil {
+		return nil, errors.New("failed to create room: " + err.Error())
+	}
+
+	// Create audit log
+	newRoomData, _ := json.Marshal(map[string]interface{}{
+		"room_number": createdRoom.RoomNumber,
+		"floor":       createdRoom.Floor,
+		"staff_id":    createdRoom.StaffID,
+	})
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "rooms",
+		RecordID:  createdRoom.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionInsert,
+		OldValue:  "",
+		NewValue:  string(newRoomData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for new room %s: %v", createdRoom.ID, err)
+	}
+
+	return createdRoom, nil
+}
+
+func (uc *EmrUseCaseImpl) UpdateRoomByID(roomID string, data models.UpdateRoomRequest, userID string) (*entities.Room, error) {
+	room, err := uc.emrrepo.GetRoomByID(roomID)
+	if err != nil {
+		return nil, errors.New("room not found: " + err.Error())
+	}
+
+	oldRoomData, _ := json.Marshal(map[string]interface{}{
+		"staff_id":    room.StaffID,
+		"floor":       room.Floor,
+		"room_number": room.RoomNumber,
+	})
+
+	if data.StaffID != nil {
+		room.StaffID = data.StaffID
+	}
+
+	updatedRoom, err := uc.emrrepo.UpdateRoom(room)
+	if err != nil {
+		return nil, errors.New("failed to update room: " + err.Error())
+	}
+
+	// Create audit log
+	newRoomData, _ := json.Marshal(map[string]interface{}{
+		"staff_id":    updatedRoom.StaffID,
+		"floor":       updatedRoom.Floor,
+		"room_number": updatedRoom.RoomNumber,
+	})
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "rooms",
+		RecordID:  updatedRoom.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  string(oldRoomData),
+		NewValue:  string(newRoomData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for room %s: %v", updatedRoom.ID, err)
+	}
+
+	return updatedRoom, nil
 }
 
 func (uc *EmrUseCaseImpl) CreateIntakeLabel(label *entities.IntakeLabels) (*entities.IntakeLabels, error) {
@@ -202,7 +484,7 @@ func (uc *EmrUseCaseImpl) getOrCreateLabelID(labelName string) (string, error) {
 	return newLabel.ID, err
 }
 
-func (uc *EmrUseCaseImpl) CreateIntakeLabelByResidentID(residentID string, labels []IntakeLabelInput, userID string) ([]*entities.ResidentLabels, error) {
+func (uc *EmrUseCaseImpl) CreateIntakeLabelByResidentID(residentID string, labels []models.IntakeLabelRequest, userID string) ([]*entities.ResidentLabels, error) {
 
 	resident, err := uc.emrrepo.GetResidentByID(residentID)
 	if err != nil {
@@ -256,7 +538,7 @@ func (uc *EmrUseCaseImpl) CreateIntakeLabelByResidentID(residentID string, label
 			TableName: "resident_labels",
 			RecordID:  createdLabel.ResidentID + "-" + createdLabel.LabelID,
 			UserID:    userID,
-			Action:    utils.AuditActionInsert,
+			Action:    audit_constants.AuditActionInsert,
 			OldValue:  "",
 			NewValue:  string(newLabelData),
 		}

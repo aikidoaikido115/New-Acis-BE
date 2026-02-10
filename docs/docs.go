@@ -102,7 +102,7 @@ const docTemplate = `{
             }
         },
         "/api/auth/forgotpassword/changepassword": {
-            "put": {
+            "patch": {
                 "description": "Change password after OTP verification in forgot password flow",
                 "consumes": [
                     "application/json"
@@ -559,7 +559,7 @@ const docTemplate = `{
             }
         },
         "/api/auth/resetpassword": {
-            "put": {
+            "patch": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -659,6 +659,126 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/emr/dashboard/resident-gender-stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve statistics on resident gender distribution for dashboard display",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Get Resident Gender Stats for Dashboard",
+                "responses": {
+                    "200": {
+                        "description": "Resident gender stats retrieved successfully",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "object"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/emr/dashboard/residents": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve the number of residents categorized by care levels for dashboard display",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Get Number of Residents for Dashboard",
+                "responses": {
+                    "200": {
+                        "description": "Dashboard data retrieved successfully",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "object"
+                                },
                                 "status": {
                                     "type": "string"
                                 },
@@ -1275,6 +1395,131 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Partially update an existing resident's information by their unique ID. Only send fields that need to be updated.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Resident"
+                ],
+                "summary": "Update Resident",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resident ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update (all optional)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "age": {
+                                    "type": "integer"
+                                },
+                                "first_name": {
+                                    "type": "string"
+                                },
+                                "gender": {
+                                    "type": "string"
+                                },
+                                "labels": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "label_name": {
+                                                "type": "string"
+                                            },
+                                            "note_text": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                },
+                                "last_name": {
+                                    "type": "string"
+                                },
+                                "room_id": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resident updated successfully",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "object"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Invalid data",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         },
         "/api/emr/rooms": {
@@ -1310,6 +1555,122 @@ const docTemplate = `{
                                         "type": "object"
                                     }
                                 },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new room with staff ID, floor number, and room number",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Room"
+                ],
+                "summary": "Create Room",
+                "parameters": [
+                    {
+                        "description": "Room information",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "floor": {
+                                    "type": "integer"
+                                },
+                                "room_number": {
+                                    "type": "string"
+                                },
+                                "staff_id": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Room created successfully",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "object"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Missing required fields",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Missing user ID",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
                                 "status": {
                                     "type": "string"
                                 },
@@ -1379,6 +1740,105 @@ const docTemplate = `{
                                 "result": {
                                     "type": "object"
                                 },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Partially update an existing room's information by its unique ID. Only send fields that need to be updated.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Room"
+                ],
+                "summary": "Update Room",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update (all optional)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "staff_id": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Room updated successfully",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "object"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Invalid data",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
                                 "status": {
                                     "type": "string"
                                 },
@@ -1486,13 +1946,13 @@ const docTemplate = `{
                     }
                 }
             },
-            "put": {
+            "patch": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update authenticated user's profile including username, first name, last name, nickname, gender, and profile image",
+                "description": "Partially update authenticated user's profile. Only send fields that need to be updated.",
                 "consumes": [
                     "multipart/form-data"
                 ],
