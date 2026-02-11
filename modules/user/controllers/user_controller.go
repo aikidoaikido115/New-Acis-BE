@@ -53,7 +53,7 @@ func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
 	}
 
 	// Extract values from form
-	var username, email, password, firstName, lastName, nickname, roleName string
+	var username, email, password, firstName, lastName, nickname, roleName, gender string
 
 	if usernames := form.Value["username"]; len(usernames) > 0 {
 		username = usernames[0]
@@ -75,6 +75,9 @@ func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
 	}
 	if roleNames := form.Value["role_name"]; len(roleNames) > 0 {
 		roleName = roleNames[0]
+	}
+	if genders := form.Value["gender"]; len(genders) > 0 {
+		gender = genders[0]
 	}
 
 	// Validate required fields
@@ -130,6 +133,7 @@ func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
 		FirstName: firstName,
 		LastName:  lastName,
 		Nickname:  nickname,
+		Gender:    gender,
 	}
 
 	data, err := c.userusecase.Register(user, roleName, file)
