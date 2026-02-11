@@ -53,7 +53,7 @@ type EmrRepository interface {
 	DeleteResidentLabelsByResidentID(residentID string) error
 
 	// VitalSign operations
-	// CreateVitalSign(vitalSign *entities.VitalSign) (*entities.VitalSign, error)
+	CreateVitalSign(vitalSign *entities.VitalSign) (*entities.VitalSign, error)
 
 	//todo UpdateResident
 	//todo SoftDeleteResident
@@ -280,4 +280,12 @@ func (r *GormEmrRepository) DeleteResidentLabelsByResidentID(residentID string) 
 		return err
 	}
 	return nil
+}
+
+
+func (r *GormEmrRepository) CreateVitalSign(vitalSign *entities.VitalSign) (*entities.VitalSign, error) {
+	if err := r.db.Create(&vitalSign).Error; err != nil {
+		return nil, err
+	}
+	return vitalSign, nil
 }

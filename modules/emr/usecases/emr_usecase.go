@@ -49,8 +49,10 @@ type EmrUsecase interface {
 
 	// ResidentLabel operations (many-to-many)
 	CreateIntakeLabelByResidentID(residentID string, labels []models.IntakeLabelRequest, userID string) ([]*entities.ResidentLabels, error)
-	// UpdateIntakeLabelByResidentID(residentID string, labels []models.IntakeLabelRequest, userID string) ([]*entities.ResidentLabels, error)
 	GetResidentLabelsByResidentID(residentID string) ([]*entities.ResidentLabels, error)
+
+	// VitalSign operations
+	// CreateVitalSign(vitalSign *entities.VitalSign) (*entities.VitalSign, error)
 }
 
 type EmrUseCaseImpl struct {
