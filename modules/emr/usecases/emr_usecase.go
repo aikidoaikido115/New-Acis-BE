@@ -14,9 +14,12 @@ import (
 
 	audit_constants "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/constants"
 	audit_repo "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
+	emr_constants "github.com/aikidoaikido115/New-Acis-BE/modules/emr/constants"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/models"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/repositories"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	user_constants "github.com/aikidoaikido115/New-Acis-BE/modules/user/constants"
+	user_repo "github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
 
 	"github.com/google/uuid"
 	// "golang.org/x/text/unicode/norm"
@@ -52,21 +55,23 @@ type EmrUsecase interface {
 	GetResidentLabelsByResidentID(residentID string) ([]*entities.ResidentLabels, error)
 
 	// VitalSign operations
-	// CreateVitalSign(vitalSign *entities.VitalSign) (*entities.VitalSign, error)
+	CreateVitalSign(vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error)
 }
 
 type EmrUseCaseImpl struct {
 	emrrepo      repositories.EmrRepository
 	auditlogrepo audit_repo.AuditLogRepository
+	userrepo     user_repo.UserRepository
 }
 
 func NewEmrUseCase(
 	emrrepo repositories.EmrRepository,
-	auditlogrepo audit_repo.AuditLogRepository) EmrUsecase {
-
+	auditlogrepo audit_repo.AuditLogRepository,
+	userrepo user_repo.UserRepository) EmrUsecase {
 	return &EmrUseCaseImpl{
 		emrrepo:      emrrepo,
 		auditlogrepo: auditlogrepo,
+		userrepo:     userrepo,
 	}
 }
 
@@ -564,4 +569,82 @@ func (uc *EmrUseCaseImpl) GetResidentLabelsByResidentID(residentID string) ([]*e
 		return nil, errors.New("failed to get resident labels: " + err.Error())
 	}
 	return residentLabels, nil
+}
+
+func (uc *EmrUseCaseImpl) CreateVitalSign(vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error) {
+
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can create vital signs")
+	}
+
+	staff, err := uc.userrepo.GetStaffByUserID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get staff ID: " + err.Error())
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(vitalSign.ResidentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident does not exist")
+	}
+
+	if vitalSign.Temperature == nil &&
+		vitalSign.HeartRate == nil &&
+		vitalSign.BreathingRate == nil &&
+		vitalSign.BloodPressureSystolic == nil &&
+		vitalSign.BloodPressureDiastolic == nil &&
+		vitalSign.OxygenSaturation == nil {
+		return nil, errors.New("at least one vital sign must be provided")
+	}
+
+	if (vitalSign.BloodPressureSystolic != nil && vitalSign.BloodPressureDiastolic == nil) ||
+		(vitalSign.BloodPressureSystolic == nil && vitalSign.BloodPressureDiastolic != nil) {
+		return nil, errors.New("blood pressure systolic and diastolic must be provided together")
+	}
+
+	if vitalSign.Temperature != nil && (*vitalSign.Temperature < emr_constants.MinTemperature || *vitalSign.Temperature > emr_constants.MaxTemperature) {
+		return nil, errors.New("temperature must be between 30 and 45 Celsius")
+	}
+	if vitalSign.HeartRate != nil && (*vitalSign.HeartRate < emr_constants.MinHeartRate || *vitalSign.HeartRate > emr_constants.MaxHeartRate) {
+		return nil, errors.New("heart rate must be between 20 and 250 bpm")
+	}
+	if vitalSign.BreathingRate != nil && (*vitalSign.BreathingRate < emr_constants.MinBreathingRate || *vitalSign.BreathingRate > emr_constants.MaxBreathingRate) {
+		return nil, errors.New("breathing rate must be between 5 and 60 breaths per minute")
+	}
+
+	if vitalSign.BloodPressureSystolic != nil && (*vitalSign.BloodPressureSystolic < emr_constants.MinBloodPressureSystolic || *vitalSign.BloodPressureSystolic > emr_constants.MaxBloodPressureSystolic) {
+		return nil, errors.New("blood pressure systolic must be between 50 and 300 mmHg")
+	}
+	if vitalSign.BloodPressureDiastolic != nil && (*vitalSign.BloodPressureDiastolic < emr_constants.MinBloodPressureDiastolic || *vitalSign.BloodPressureDiastolic > emr_constants.MaxBloodPressureDiastolic) {
+		return nil, errors.New("blood pressure diastolic must be between 30 and 200 mmHg")
+	}
+
+	if vitalSign.BloodPressureSystolic != nil && vitalSign.BloodPressureDiastolic != nil && *vitalSign.BloodPressureSystolic < *vitalSign.BloodPressureDiastolic {
+		return nil, errors.New("blood pressure systolic cannot be less than diastolic")
+	}
+
+	if vitalSign.OxygenSaturation != nil && (*vitalSign.OxygenSaturation < emr_constants.MinOxygenSaturation || *vitalSign.OxygenSaturation > emr_constants.MaxOxygenSaturation) {
+		return nil, errors.New("oxygen saturation must be between 50 and 100 percent")
+	}
+
+	vitalSign.ID = uuid.New().String()
+	vitalSign.CreatedByStaffID = staff.ID
+
+	createdVitalSign, err := uc.emrrepo.CreateVitalSign(vitalSign)
+	if err != nil {
+		return nil, errors.New("failed to create vital sign: " + err.Error())
+	}
+	return createdVitalSign, nil
 }

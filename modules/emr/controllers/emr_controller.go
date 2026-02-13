@@ -580,3 +580,65 @@ func (c *EmrController) CreateIntakeLabelByResidentID(ctx *fiber.Ctx) error {
 		"result":      result,
 	})
 }
+
+// CreateVitalSign godoc
+// @Summary Create Vital Sign
+// @Description Create a new vital sign entry for a resident
+// @Tags VitalSign
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body object{resident_id=string,label_name=string,value=float64,unit=string,timestamp=string} true "Vital sign information"
+// @Success 201 {object} object{status=string,status_code=int,message=string,result=object} "Vital sign created successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing required fields"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/vital-signs [post]
+func (c *EmrController) CreateVitalSign(ctx *fiber.Ctx) error {
+	var req models.CreateVitalSignRequest
+
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	vitalSign := &entities.VitalSign{
+		ResidentID:             req.ResidentID,
+		Temperature:            req.Temperature,
+		HeartRate:              req.HeartRate,
+		BreathingRate:          req.BreathingRate,
+		BloodPressureSystolic:  req.BloodPressureSystolic,
+		BloodPressureDiastolic: req.BloodPressureDiastolic,
+		OxygenSaturation:       req.OxygenSaturation,
+	}
+	createdVitalSign, err := c.emrUsecase.CreateVitalSign(vitalSign, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusCreated,
+		"message":     "vital sign created successfully",
+		"result":      createdVitalSign,
+	})
+
+}

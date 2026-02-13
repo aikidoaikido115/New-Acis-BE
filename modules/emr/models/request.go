@@ -36,3 +36,14 @@ type CreateRoomRequest struct {
 	Floor      int16   `json:"floor" binding:"required"`
 	RoomNumber string  `json:"room_number" binding:"required"`
 }
+
+type CreateVitalSignRequest struct {
+	ResidentID             string   `json:"resident_id" binding:"required"`
+	Temperature            *float64 `json:"temperature"`
+	HeartRate              *int16    `json:"heart_rate" gorm:"type:text"`
+	BreathingRate          *int16    `json:"breathing_rate" gorm:"type:text"`
+	BloodPressureSystolic  *int16    `json:"blood_pressure_systolic" gorm:"type:text"`
+	BloodPressureDiastolic *int16    `json:"blood_pressure_diastolic" gorm:"type:text"`
+	OxygenSaturation       *int16    `json:"oxygen_saturation" gorm:"type:text"`
+	CreatedByStaffID       string    `json:"created_by_staff_id" gorm:"type:text"`
+}

@@ -109,8 +109,10 @@ func SetupUserRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.
 
 func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
+	userRepository := userRepository.NewGormUserRepository(db)
+
 	emrRepository := emrRepository.NewGormEmrRepository(db)
-	emrUsecase := emrUsecase.NewEmrUseCase(emrRepository, auditLogRepository)
+	emrUsecase := emrUsecase.NewEmrUseCase(emrRepository, auditLogRepository, userRepository)
 	emrController := emrController.NewEmrController(emrUsecase)
 
 	residentGroup := app.Group("/api/emr/residents")
@@ -135,4 +137,6 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	labelGroup.Get("/all", middlewares.JWTMiddleware(jwt), emrController.GetAllIntakeLabels)
 	labelGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateIntakeLabelByResidentID)
 
+	vitalSignGroup := app.Group("/api/emr/vital-signs")
+	vitalSignGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateVitalSign)
 }

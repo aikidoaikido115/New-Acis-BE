@@ -25,6 +25,7 @@ type EmrRepository interface {
 	GetResidentByRoomID(roomID string) ([]*entities.Resident, error)
 	GetAllResidents() ([]*entities.Resident, error)
 	UpdateResident(resident *entities.Resident) (*entities.Resident, error)
+	ResidentExists(id string) (bool, error)
 
 	// Dashboard operations
 	GetNumberOfResidentsDashboard() (models.NumberOfResidentsDashboardResponse, error)
@@ -54,6 +55,12 @@ type EmrRepository interface {
 
 	// VitalSign operations
 	CreateVitalSign(vitalSign *entities.VitalSign) (*entities.VitalSign, error)
+	//Vital sign By RoomID ล่าสุด
+	//Vital sign By ResidentID ล่าสุด
+	//Vital sign all ล่าสุด
+	//Vital sigm custom (query params) ล่าสุด
+	//Vital sign By ResidentID ไม่ล่าสุด(ประวัติ)
+	//Vital sigm custom (query params)
 
 	//todo UpdateResident
 	//todo SoftDeleteResident
@@ -107,6 +114,15 @@ func (r *GormEmrRepository) UpdateResident(resident *entities.Resident) (*entiti
 		return nil, err
 	}
 	return r.GetResidentByID(resident.ID)
+}
+
+func (r *GormEmrRepository) ResidentExists(id string) (bool, error) {
+	var count int64
+	err := r.db.Model(&entities.Resident{}).Where("id = ?", id).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (r *GormEmrRepository) GetRoomByID(id string) (*entities.Room, error) {

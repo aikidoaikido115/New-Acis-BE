@@ -1214,6 +1214,87 @@ paths:
       summary: Update Room
       tags:
       - Room
+  /api/emr/vital-signs:
+    post:
+      consumes:
+      - application/json
+      description: Create a new vital sign entry for a resident
+      parameters:
+      - description: Vital sign information
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            label_name:
+              type: string
+            resident_id:
+              type: string
+            timestamp:
+              type: string
+            unit:
+              type: string
+            value:
+              format: float64
+              type: number
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Vital sign created successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Missing required fields
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized - Missing user ID
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Vital Sign
+      tags:
+      - VitalSign
   /api/user:
     get:
       consumes:

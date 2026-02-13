@@ -15,6 +15,7 @@ import (
 	audit_constants "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/constants"
 	audit_repo "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	user_constants "github.com/aikidoaikido115/New-Acis-BE/modules/user/constants"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
 	"github.com/aikidoaikido115/New-Acis-BE/pkg/utils"
 	"github.com/golang-jwt/jwt/v5"
@@ -126,7 +127,7 @@ func (u *UserUseCaseImpl) Register(user *entities.User, roleName string, file mu
 		return nil, errors.New("failed to create user: " + err.Error())
 	}
 
-	if role.Name == "Medical Staff" || role.Name == "Kitchen Staff" {
+	if role.Name == user_constants.RoleMedicalStaff || role.Name == user_constants.RoleKitchenStaff {
 		staff := &entities.Staff{
 			ID:     uuid.New().String(),
 			UserID: createdUser.ID}
@@ -536,7 +537,7 @@ func (u *UserUseCaseImpl) CreateStaffFile(userID string, files []*multipart.File
 	if err != nil {
 		return nil, errors.New("user not found: " + err.Error())
 	}
-	if existingUser.Role.Name != "Medical Staff" && existingUser.Role.Name != "Kitchen Staff" {
+	if existingUser.Role.Name != user_constants.RoleMedicalStaff && existingUser.Role.Name != user_constants.RoleKitchenStaff {
 		return nil, errors.New("user is not staff")
 	}
 

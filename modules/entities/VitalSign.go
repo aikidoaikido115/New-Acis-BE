@@ -11,6 +11,7 @@ type VitalSign struct {
 	BloodPressureSystolic  *int16    `json:"blood_pressure_systolic" gorm:"type:text"`
 	BloodPressureDiastolic *int16    `json:"blood_pressure_diastolic" gorm:"type:text"`
 	OxygenSaturation       *int16    `json:"oxygen_saturation" gorm:"type:text"`
+	CreatedByStaffID       string    `json:"created_by_staff_id" gorm:"type:text"`
 	CreatedAt              time.Time `json:"created_at" gorm:"not null"`
 	UpdatedAt              time.Time `json:"updated_at" gorm:"not null"`
 

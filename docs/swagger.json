@@ -1865,6 +1865,131 @@
                 }
             }
         },
+        "/api/emr/vital-signs": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new vital sign entry for a resident",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "VitalSign"
+                ],
+                "summary": "Create Vital Sign",
+                "parameters": [
+                    {
+                        "description": "Vital sign information",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "label_name": {
+                                    "type": "string"
+                                },
+                                "resident_id": {
+                                    "type": "string"
+                                },
+                                "timestamp": {
+                                    "type": "string"
+                                },
+                                "unit": {
+                                    "type": "string"
+                                },
+                                "value": {
+                                    "type": "number",
+                                    "format": "float64"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Vital sign created successfully",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "object"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Missing required fields",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Missing user ID",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/user": {
             "get": {
                 "security": [

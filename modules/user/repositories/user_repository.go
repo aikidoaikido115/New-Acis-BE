@@ -29,6 +29,7 @@ type UserRepository interface {
 	GetStaffFileByID(id string) (*entities.StaffsFiles, error)
 	GetUserByUsername(username string) (*entities.User, error)
 	GetRoleByName(roleName string) (*entities.Role, error)
+	GetRoleByID(roleID string) (*entities.Role, error)
 	UsernameExists(username string) (bool, error)
 	EmailExists(email string) (bool, error)
 	GetAllUsers() ([]*entities.User, error)
@@ -137,6 +138,14 @@ func (r *GormUserRepository) GetUserByUsername(username string) (*entities.User,
 func (r *GormUserRepository) GetRoleByName(roleName string) (*entities.Role, error) {
 	var role entities.Role
 	if err := r.db.First(&role, "name = ?", roleName).Error; err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
+func (r *GormUserRepository) GetRoleByID(roleID string) (*entities.Role, error) {
+	var role entities.Role
+	if err := r.db.First(&role, "id = ?", roleID).Error; err != nil {
 		return nil, err
 	}
 	return &role, nil
