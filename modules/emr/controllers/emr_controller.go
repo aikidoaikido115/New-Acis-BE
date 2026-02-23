@@ -588,8 +588,8 @@ func (c *EmrController) CreateIntakeLabelByResidentID(ctx *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body object{resident_id=string,label_name=string,value=float64,unit=string,timestamp=string} true "Vital sign information"
-// @Success 201 {object} object{status=string,status_code=int,message=string,result=object} "Vital sign created successfully"
+// @Param request body models.CreateVitalSignRequest true "Vital sign information"
+// @Success 201 {object} object{status=string,status_code=int,message=string,result=entities.VitalSign} "Vital sign created successfully"
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing required fields"
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"

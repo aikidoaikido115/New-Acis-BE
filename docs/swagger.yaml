@@ -1,4 +1,49 @@
 basePath: /
+definitions:
+  entities.VitalSign:
+    properties:
+      blood_pressure_diastolic:
+        type: integer
+      blood_pressure_systolic:
+        type: integer
+      breathing_rate:
+        type: integer
+      created_at:
+        type: string
+      created_by_staff_id:
+        type: string
+      heart_rate:
+        type: integer
+      oxygen_saturation:
+        type: integer
+      resident_id:
+        type: string
+      temperature:
+        type: number
+      updated_at:
+        type: string
+      vital_sign_id:
+        type: string
+    type: object
+  models.CreateVitalSignRequest:
+    properties:
+      blood_pressure_diastolic:
+        type: integer
+      blood_pressure_systolic:
+        type: integer
+      breathing_rate:
+        type: integer
+      heart_rate:
+        type: integer
+      oxygen_saturation:
+        type: integer
+      resident_id:
+        type: string
+      temperature:
+        type: number
+    required:
+    - resident_id
+    type: object
 host: localhost:8000
 info:
   contact: {}
@@ -1225,19 +1270,7 @@ paths:
         name: request
         required: true
         schema:
-          properties:
-            label_name:
-              type: string
-            resident_id:
-              type: string
-            timestamp:
-              type: string
-            unit:
-              type: string
-            value:
-              format: float64
-              type: number
-          type: object
+          $ref: '#/definitions/models.CreateVitalSignRequest'
       produces:
       - application/json
       responses:
@@ -1248,7 +1281,7 @@ paths:
               message:
                 type: string
               result:
-                type: object
+                $ref: '#/definitions/entities.VitalSign'
               status:
                 type: string
               status_code:

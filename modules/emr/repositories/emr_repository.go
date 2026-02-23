@@ -55,17 +55,20 @@ type EmrRepository interface {
 
 	// VitalSign operations
 	CreateVitalSign(vitalSign *entities.VitalSign) (*entities.VitalSign, error)
-	//Vital sign By RoomID ล่าสุด
-	//Vital sign By ResidentID ล่าสุด
-	//Vital sign all ล่าสุด
-	//Vital sigm custom (query params) ล่าสุด
-	//Vital sign By ResidentID ไม่ล่าสุด(ประวัติ)
-	//Vital sigm custom (query params)
 
-	//todo UpdateResident
-	//todo SoftDeleteResident
+	GetVitalSignsByRoomIDToday(roomID string, isLatest bool) ([]*entities.VitalSign, error)
+	GetVitalSignsByFloorToday(floor int16, isLatest bool) ([]*entities.VitalSign, error)
+	GetVitalSignsByResidentIDToday(residentID string, isLatest bool) ([]*entities.VitalSign, error)
+	GetVitalSignsHistoryByResidentID(residentID string) ([]*entities.VitalSign, error)
+	GetVitalSignsToday(isLatest bool) ([]*entities.VitalSign, error)
+	GetVitalSignsCustom(params models.VitalSignQueryParams) ([]*entities.VitalSign, error)
+
+	// todo เพราะมันเจาะจงว่า ค่าไหนของ vital sign อีกทีนึง
+	// GetLatestVitalSignsGreaterThanCustom(params models.VitalSignQueryParams, greaterThan float64) ([]*entities.VitalSign, error)
+	// GetLatestVitalSignsLessThanCustom(params models.VitalSignQueryParams, lessThan float64) ([]*entities.VitalSign, error)
+	
 	//todo Allergy
-	//todo get vital sign เพื่อเอาไป dashboard อันผิดปกติ
+	//todo get vital sign เพื่อเอาไป dashboard อันผิดปกติ ย้ายไปทำ usecase ดีกว่า
 }
 
 func (r *GormEmrRepository) CreateResident(resident *entities.Resident) (*entities.Resident, error) {
@@ -298,10 +301,201 @@ func (r *GormEmrRepository) DeleteResidentLabelsByResidentID(residentID string) 
 	return nil
 }
 
-
 func (r *GormEmrRepository) CreateVitalSign(vitalSign *entities.VitalSign) (*entities.VitalSign, error) {
 	if err := r.db.Create(&vitalSign).Error; err != nil {
 		return nil, err
 	}
 	return vitalSign, nil
+}
+
+func (r *GormEmrRepository) GetVitalSignsHistoryByResidentID(residentID string) ([]*entities.VitalSign, error) {
+	var vitalSigns []*entities.VitalSign
+	if err := r.db.Where("resident_id = ?", residentID).Find(&vitalSigns).Error; err != nil {
+		return nil, err
+	}
+	return vitalSigns, nil
+}
+
+func (r *GormEmrRepository) GetVitalSignsByRoomIDToday(roomID string, isLatest bool) ([]*entities.VitalSign, error) {
+	var vitalSigns []*entities.VitalSign
+
+	query := r.db
+
+	if isLatest {
+		query = query.Table("vital_signs").
+			Select("DISTINCT ON (vital_signs.resident_id) vital_signs.*")
+	}
+
+	query = query.Joins("JOIN residents ON vital_signs.resident_id = residents.id").
+		Where("residents.room_id = ?", roomID).
+		Where("vital_signs.created_at >= CURRENT_DATE").
+		Where("vital_signs.created_at < CURRENT_DATE + INTERVAL '1 day'")
+
+	if isLatest {
+		query = query.Order("vital_signs.resident_id, vital_signs.created_at DESC")
+	} else {
+		query = query.Order("vital_signs.created_at DESC")
+	}
+
+	err := query.Find(&vitalSigns).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return vitalSigns, nil
+}
+
+func (r *GormEmrRepository) GetVitalSignsByFloorToday(floor int16, isLatest bool) ([]*entities.VitalSign, error) {
+	var vitalSigns []*entities.VitalSign
+
+	query := r.db
+
+	if isLatest {
+		query = query.Table("vital_signs").
+			Select("DISTINCT ON (vital_signs.resident_id) vital_signs.*")
+	}
+
+	query = query.Joins("JOIN residents ON vital_signs.resident_id = residents.id").
+		Joins("JOIN rooms ON residents.room_id = rooms.id").
+		Where("rooms.floor = ?", floor).
+		Where("vital_signs.created_at >= CURRENT_DATE").
+		Where("vital_signs.created_at < CURRENT_DATE + INTERVAL '1 day'")
+
+	if isLatest {
+		query = query.Order("vital_signs.resident_id, vital_signs.created_at DESC")
+	} else {
+		query = query.Order("vital_signs.created_at DESC")
+	}
+
+	err := query.Find(&vitalSigns).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return vitalSigns, nil
+}
+
+func (r *GormEmrRepository) GetVitalSignsByResidentIDToday(residentID string, isLatest bool) ([]*entities.VitalSign, error) {
+	var vitalSigns []*entities.VitalSign
+
+	query := r.db.
+		Where("resident_id = ?", residentID).
+		Where("created_at >= CURRENT_DATE").
+		Where("created_at < CURRENT_DATE + INTERVAL '1 day'").
+		Order("created_at DESC")
+
+	if isLatest {
+		query = query.Limit(1)
+	}
+
+	err := query.Find(&vitalSigns).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return vitalSigns, nil
+}
+
+func (r *GormEmrRepository) GetVitalSignsToday(isLatest bool) ([]*entities.VitalSign, error) {
+	var vitalSigns []*entities.VitalSign
+
+	query := r.db
+
+	if isLatest {
+		query = query.Table("vital_signs").
+			Select("DISTINCT ON (vital_signs.resident_id) vital_signs.*")
+	}
+
+	query = query.Where("vital_signs.created_at >= CURRENT_DATE").
+		Where("vital_signs.created_at < CURRENT_DATE + INTERVAL '1 day'")
+
+	if isLatest {
+		query = query.Order("vital_signs.resident_id, vital_signs.created_at DESC")
+	} else {
+		query = query.Order("vital_signs.created_at DESC")
+	}
+
+	err := query.Find(&vitalSigns).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return vitalSigns, nil
+}
+
+func (r *GormEmrRepository) GetVitalSignsCustom(params models.VitalSignQueryParams) ([]*entities.VitalSign, error) {
+	var vitalSigns []*entities.VitalSign
+
+	var query *gorm.DB
+
+	if params.IsLatest {
+		query = r.db.Table("vital_signs").Select("DISTINCT ON (vital_signs.resident_id) vital_signs.*")
+	} else {
+		query = r.db.Model(&entities.VitalSign{})
+	}
+
+	needResidentsJoin := false
+	needRoomsJoin := false
+	needLabelsJoin := false
+
+	if params.ResidentID != nil && *params.ResidentID != "" {
+		query = query.Where("vital_signs.resident_id = ?", *params.ResidentID)
+	}
+
+	if params.RoomID != nil && *params.RoomID != "" {
+		needResidentsJoin = true
+		query = query.Where("residents.room_id = ?", *params.RoomID)
+	}
+
+	if params.Floor != nil {
+		needResidentsJoin = true
+		needRoomsJoin = true
+		query = query.Where("rooms.floor = ?", *params.Floor)
+	}
+
+	if len(params.LabelIDs) > 0 {
+		needResidentsJoin = true
+		needLabelsJoin = true
+		query = query.Where("resident_labels.label_id IN ?", params.LabelIDs)
+	}
+
+	if needResidentsJoin {
+		query = query.Joins("JOIN residents ON vital_signs.resident_id = residents.id")
+	}
+	if needRoomsJoin {
+		query = query.Joins("JOIN rooms ON residents.room_id = rooms.id")
+	}
+	if needLabelsJoin {
+		query = query.Joins("JOIN resident_labels ON residents.id = resident_labels.resident_id")
+	}
+
+	if params.StartDate != nil {
+		query = query.Where("vital_signs.created_at >= ?", *params.StartDate)
+	}
+	if params.EndDate != nil {
+		endDateInclusive := params.EndDate.AddDate(0, 0, 1)
+		query = query.Where("vital_signs.created_at < ?", endDateInclusive)
+	}
+
+	// Order: สำหรับ Latest จะเรียง resident_id ก่อน, แล้ว created_at DESC (สำคัญสำหรับ DISTINCT ON)
+	if params.IsLatest {
+		query = query.Order("vital_signs.resident_id, vital_signs.created_at DESC")
+	} else {
+		query = query.Order("vital_signs.created_at DESC")
+	}
+
+	// Pagination
+	if params.Limit > 0 {
+		query = query.Limit(params.Limit)
+	}
+	if params.Offset > 0 {
+		query = query.Offset(params.Offset)
+	}
+
+	err := query.Find(&vitalSigns).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return vitalSigns, nil
 }

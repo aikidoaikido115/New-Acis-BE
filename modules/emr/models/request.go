@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type CreateResidentRequest struct {
 	RoomID    string `json:"room_id" binding:"required"`
 	FirstName string `json:"first_name" binding:"required"`
@@ -40,10 +42,21 @@ type CreateRoomRequest struct {
 type CreateVitalSignRequest struct {
 	ResidentID             string   `json:"resident_id" binding:"required"`
 	Temperature            *float64 `json:"temperature"`
-	HeartRate              *int16    `json:"heart_rate" gorm:"type:text"`
-	BreathingRate          *int16    `json:"breathing_rate" gorm:"type:text"`
-	BloodPressureSystolic  *int16    `json:"blood_pressure_systolic" gorm:"type:text"`
-	BloodPressureDiastolic *int16    `json:"blood_pressure_diastolic" gorm:"type:text"`
-	OxygenSaturation       *int16    `json:"oxygen_saturation" gorm:"type:text"`
-	CreatedByStaffID       string    `json:"created_by_staff_id" gorm:"type:text"`
+	HeartRate              *int16   `json:"heart_rate"`
+	BreathingRate          *int16   `json:"breathing_rate"`
+	BloodPressureSystolic  *int16   `json:"blood_pressure_systolic"`
+	BloodPressureDiastolic *int16   `json:"blood_pressure_diastolic"`
+	OxygenSaturation       *int16   `json:"oxygen_saturation"`
+}
+
+type VitalSignQueryParams struct {
+	ResidentID *string    `json:"resident_id" form:"resident_id"`
+	RoomID     *string    `json:"room_id" form:"room_id"`
+	Floor      *int16     `json:"floor" form:"floor"`         // nil = ทุกชั้น, มีค่า = ชั้นนั้น
+	LabelIDs   []string   `json:"label_ids" form:"label_ids"` // empty = ทุกกลุ่ม, มีค่า = กรองตาม label
+	StartDate  *time.Time `json:"start_date" form:"start_date"`
+	EndDate    *time.Time `json:"end_date" form:"end_date"`
+	IsLatest   bool       `json:"is_latest" form:"is_latest"` // true = Latest (DISTINCT ON resident_id), false = All
+	Limit      int        `json:"limit" form:"limit"`         // default 100
+	Offset     int        `json:"offset" form:"offset"`       // default 0
 }

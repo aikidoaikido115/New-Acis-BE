@@ -56,6 +56,11 @@ type EmrUsecase interface {
 
 	// VitalSign operations
 	CreateVitalSign(vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error)
+
+	GetVitalSignsForEMR(req VitalSignEMRRequest) (*VitalSignEMRResponse, error)
+    // GetResidentVitalSigns(residentID string, period string) (*ResidentVitalSignsResponse, error)
+    // GetRoomVitalSigns(roomID string, viewMode string) (*RoomResponse, error)
+    // SearchVitalSigns(req SearchRequest) (*SearchResponse, error)
 }
 
 type EmrUseCaseImpl struct {
@@ -597,7 +602,7 @@ func (uc *EmrUseCaseImpl) CreateVitalSign(vitalSign *entities.VitalSign, userID 
 		return nil, errors.New("failed to verify resident existence: " + err.Error())
 	}
 	if !residentExists {
-		return nil, errors.New("resident does not exist")
+		return nil, errors.New("resident does not exist or missing resident ID")
 	}
 
 	if vitalSign.Temperature == nil &&
@@ -647,4 +652,24 @@ func (uc *EmrUseCaseImpl) CreateVitalSign(vitalSign *entities.VitalSign, userID 
 		return nil, errors.New("failed to create vital sign: " + err.Error())
 	}
 	return createdVitalSign, nil
+}
+
+func (uc *EmrUseCaseImpl) GetVitalSignsForEMR(req VitalSignEMRRequest) ([]*entities.VitalSign, error) {
+
+    
+    // กรณีธรรมดา: ทั้งหมด วันนี้
+    if req.Floor == nil && len(req.LabelIDs) == 0 {
+        vitalSigns, err := uc.emrrepo.GetVitalSignsToday(true) // isLatest = true
+        return vitalSigns, err
+    }
+    
+    // กรณีมี filter: ใช้ Custom
+    params := models.VitalSignQueryParams{
+        Floor:    req.Floor,
+        LabelIDs: req.LabelIDs,
+        IsLatest: true,
+        Limit:    100,
+    }
+    vitalSigns, err := uc.emrrepo.GetVitalSignsCustom(params)
+    return vitalSigns, err
 }

@@ -1894,25 +1894,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "properties": {
-                                "label_name": {
-                                    "type": "string"
-                                },
-                                "resident_id": {
-                                    "type": "string"
-                                },
-                                "timestamp": {
-                                    "type": "string"
-                                },
-                                "unit": {
-                                    "type": "string"
-                                },
-                                "value": {
-                                    "type": "number",
-                                    "format": "float64"
-                                }
-                            }
+                            "$ref": "#/definitions/models.CreateVitalSignRequest"
                         }
                     }
                 ],
@@ -1926,7 +1908,7 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "result": {
-                                    "type": "object"
+                                    "$ref": "#/definitions/entities.VitalSign"
                                 },
                                 "status": {
                                     "type": "string"
@@ -2306,6 +2288,75 @@ const docTemplate = `{
                             }
                         }
                     }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "entities.VitalSign": {
+            "type": "object",
+            "properties": {
+                "blood_pressure_diastolic": {
+                    "type": "integer"
+                },
+                "blood_pressure_systolic": {
+                    "type": "integer"
+                },
+                "breathing_rate": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by_staff_id": {
+                    "type": "string"
+                },
+                "heart_rate": {
+                    "type": "integer"
+                },
+                "oxygen_saturation": {
+                    "type": "integer"
+                },
+                "resident_id": {
+                    "type": "string"
+                },
+                "temperature": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "vital_sign_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.CreateVitalSignRequest": {
+            "type": "object",
+            "required": [
+                "resident_id"
+            ],
+            "properties": {
+                "blood_pressure_diastolic": {
+                    "type": "integer"
+                },
+                "blood_pressure_systolic": {
+                    "type": "integer"
+                },
+                "breathing_rate": {
+                    "type": "integer"
+                },
+                "heart_rate": {
+                    "type": "integer"
+                },
+                "oxygen_saturation": {
+                    "type": "integer"
+                },
+                "resident_id": {
+                    "type": "string"
+                },
+                "temperature": {
+                    "type": "number"
                 }
             }
         }
