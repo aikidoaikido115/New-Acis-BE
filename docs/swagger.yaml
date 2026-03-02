@@ -1328,6 +1328,306 @@ paths:
       summary: Create Vital Sign
       tags:
       - VitalSign
+  /api/emr/vital-signs/abnormal:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of residents with abnormal vital signs today, with
+        optional floor filter and option to get only the latest entry per resident.
+        is_latest must be 'true' or 'false'
+      parameters:
+      - description: Filter by floor
+        in: query
+        name: floor
+        type: integer
+      - description: Retrieve only the latest abnormal vital sign entry per resident
+          ('true' or 'false')
+        enum:
+        - "true"
+        - "false"
+        in: query
+        name: is_latest
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Abnormal Vital Signs
+      tags:
+      - VitalSign
+  /api/emr/vital-signs/history/{resident_id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the full history of vital signs for a specific resident
+      parameters:
+      - description: Resident ID
+        in: path
+        name: resident_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Vital Signs History by Resident ID
+      tags:
+      - VitalSign
+  /api/emr/vital-signs/overview:
+    get:
+      consumes:
+      - application/json
+      description: Get today's latest vital signs with optional floor or label filters
+      parameters:
+      - description: Filter by floor
+        in: query
+        name: floor
+        type: integer
+      - collectionFormat: csv
+        description: Filter by label IDs
+        in: query
+        items:
+          type: string
+        name: label_ids
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Vital Signs Overview
+      tags:
+      - VitalSign
+  /api/emr/vital-signs/resident:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve vital signs today for a specific resident, with an option
+        to get only the latest entry. is_latest must be 'true' or 'false'
+      parameters:
+      - description: Resident ID
+        in: query
+        name: resident_id
+        required: true
+        type: string
+      - description: Retrieve only the latest vital sign entry ('true' or 'false')
+        enum:
+        - "true"
+        - "false"
+        in: query
+        name: is_latest
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Vital Signs by Resident ID
+      tags:
+      - VitalSign
+  /api/emr/vital-signs/room:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve vital signs today for all residents in a specific room,
+        with an option to get only the latest entry per resident. is_latest must be
+        'true' or 'false'
+      parameters:
+      - description: Room ID
+        in: query
+        name: room_id
+        required: true
+        type: string
+      - description: Retrieve only the latest vital sign entry per resident ('true'
+          or 'false')
+        enum:
+        - "true"
+        - "false"
+        in: query
+        name: is_latest
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Vital Signs by Room ID
+      tags:
+      - VitalSign
   /api/user:
     get:
       consumes:

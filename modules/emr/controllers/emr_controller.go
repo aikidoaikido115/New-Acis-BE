@@ -35,7 +35,7 @@ func NewEmrController(emrUsecase usecases.EmrUsecase) *EmrController {
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing required fields"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/residents [post]
-func (c *EmrController) CreateResident(ctx *fiber.Ctx) error {
+func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
 	var req models.CreateResidentRequest
 
 	if err := ctx.BodyParser(&req); err != nil {
@@ -93,7 +93,7 @@ func (c *EmrController) CreateResident(ctx *fiber.Ctx) error {
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "Resident retrieved successfully"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/residents/{id} [get]
-func (c *EmrController) GetResidentByID(ctx *fiber.Ctx) error {
+func (c *EmrController) GetResidentByIDHandler(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	resident, err := c.emrUsecase.GetResidentByID(id)
 	if err != nil {
@@ -124,7 +124,7 @@ func (c *EmrController) GetResidentByID(ctx *fiber.Ctx) error {
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing room_id query parameter"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/residents [get]
-func (c *EmrController) GetResidentByRoomID(ctx *fiber.Ctx) error {
+func (c *EmrController) GetResidentByRoomIDHandler(ctx *fiber.Ctx) error {
 	roomID := ctx.Query("room_id")
 
 	if roomID == "" {
@@ -163,7 +163,7 @@ func (c *EmrController) GetResidentByRoomID(ctx *fiber.Ctx) error {
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "All residents retrieved successfully"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/residents/all [get]
-func (c *EmrController) GetAllResidents(ctx *fiber.Ctx) error {
+func (c *EmrController) GetAllResidentsHandler(ctx *fiber.Ctx) error {
 	residents, err := c.emrUsecase.GetAllResidents()
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
@@ -194,7 +194,7 @@ func (c *EmrController) GetAllResidents(ctx *fiber.Ctx) error {
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Invalid data"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/residents/{id} [patch]
-func (c *EmrController) UpdateResidentByID(ctx *fiber.Ctx) error {
+func (c *EmrController) UpdateResidentByIDHandler(ctx *fiber.Ctx) error {
 	var req models.UpdateResidentRequest
 
 	if err := ctx.BodyParser(&req); err != nil {
@@ -246,7 +246,7 @@ func (c *EmrController) UpdateResidentByID(ctx *fiber.Ctx) error {
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "Room retrieved successfully"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/rooms/{id} [get]
-func (c *EmrController) GetRoomByID(ctx *fiber.Ctx) error {
+func (c *EmrController) GetRoomByIDHandler(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	room, err := c.emrUsecase.GetRoomByID(id)
 	if err != nil {
@@ -275,7 +275,7 @@ func (c *EmrController) GetRoomByID(ctx *fiber.Ctx) error {
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "Rooms retrieved successfully"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/rooms [get]
-func (c *EmrController) GetAllRooms(ctx *fiber.Ctx) error {
+func (c *EmrController) GetAllRoomsHandler(ctx *fiber.Ctx) error {
 	rooms, err := c.emrUsecase.GetAllRooms()
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
@@ -306,7 +306,7 @@ func (c *EmrController) GetAllRooms(ctx *fiber.Ctx) error {
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/rooms [post]
-func (c *EmrController) CreateRoom(ctx *fiber.Ctx) error {
+func (c *EmrController) CreateRoomHandler(ctx *fiber.Ctx) error {
 	var req models.CreateRoomRequest
 
 	if err := ctx.BodyParser(&req); err != nil {
@@ -364,7 +364,7 @@ func (c *EmrController) CreateRoom(ctx *fiber.Ctx) error {
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Invalid data"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/rooms/{id} [patch]
-func (c *EmrController) UpdateRoomByID(ctx *fiber.Ctx) error {
+func (c *EmrController) UpdateRoomByIDHandler(ctx *fiber.Ctx) error {
 	var req models.UpdateRoomRequest
 
 	if err := ctx.BodyParser(&req); err != nil {
@@ -415,7 +415,7 @@ func (c *EmrController) UpdateRoomByID(ctx *fiber.Ctx) error {
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "Dashboard data retrieved successfully"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/dashboard/residents [get]
-func (c *EmrController) GetNumberOfResidentsDashboard(ctx *fiber.Ctx) error {
+func (c *EmrController) GetNumberOfResidentsDashboardHandler(ctx *fiber.Ctx) error {
 	response, err := c.emrUsecase.GetNumberOfResidentsDashboard()
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
@@ -443,7 +443,7 @@ func (c *EmrController) GetNumberOfResidentsDashboard(ctx *fiber.Ctx) error {
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "Resident gender stats retrieved successfully"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/dashboard/resident-gender-stats [get]
-func (c *EmrController) GetResidentGenderStatsDashboard(ctx *fiber.Ctx) error {
+func (c *EmrController) GetResidentGenderStatsDashboardHandler(ctx *fiber.Ctx) error {
 	response, err := c.emrUsecase.GetResidentGenderStatsDashboard()
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
@@ -471,7 +471,7 @@ func (c *EmrController) GetResidentGenderStatsDashboard(ctx *fiber.Ctx) error {
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "Intake labels retrieved successfully"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/intake-labels/all [get]
-func (c *EmrController) GetAllIntakeLabels(ctx *fiber.Ctx) error {
+func (c *EmrController) GetAllIntakeLabelsHandler(ctx *fiber.Ctx) error {
 	labels, err := c.emrUsecase.GetAllIntakeLabels()
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
@@ -500,7 +500,7 @@ func (c *EmrController) GetAllIntakeLabels(ctx *fiber.Ctx) error {
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "Resident labels retrieved successfully"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/intake-labels [get]
-func (c *EmrController) GetResidentLabelsByResidentID(ctx *fiber.Ctx) error {
+func (c *EmrController) GetResidentLabelsByResidentIDHandler(ctx *fiber.Ctx) error {
 	residentID := ctx.Query("resident_id")
 
 	if residentID == "" {
@@ -541,7 +541,7 @@ func (c *EmrController) GetResidentLabelsByResidentID(ctx *fiber.Ctx) error {
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing or invalid authentication"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/intake-labels [post]
-func (c *EmrController) CreateIntakeLabelByResidentID(ctx *fiber.Ctx) error {
+func (c *EmrController) CreateIntakeLabelByResidentIDHandler(ctx *fiber.Ctx) error {
 	var req models.CreateIntakeLabelByResidentRequest
 
 	if err := ctx.BodyParser(&req); err != nil {
@@ -594,7 +594,7 @@ func (c *EmrController) CreateIntakeLabelByResidentID(ctx *fiber.Ctx) error {
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/vital-signs [post]
-func (c *EmrController) CreateVitalSign(ctx *fiber.Ctx) error {
+func (c *EmrController) CreateVitalSignHandler(ctx *fiber.Ctx) error {
 	var req models.CreateVitalSignRequest
 
 	if err := ctx.BodyParser(&req); err != nil {
@@ -641,4 +641,221 @@ func (c *EmrController) CreateVitalSign(ctx *fiber.Ctx) error {
 		"result":      createdVitalSign,
 	})
 
+}
+
+// @Summary Get Vital Signs Overview
+// @Description Get today's latest vital signs with optional floor or label filters
+// @Tags VitalSign
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param floor query int false "Filter by floor"
+// @Param label_ids query []string false "Filter by label IDs"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/vital-signs/overview [get]
+func (c *EmrController) GetVitalSignsOverviewHandler(ctx *fiber.Ctx) error {
+	var req models.VitalSignQueryParams
+	if err := ctx.QueryParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	response, err := c.emrUsecase.GetVitalSignsOverview(req, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "vital signs overview retrieved successfully",
+		"result":      response,
+	})
+}
+
+// @Summary Get Vital Signs by Resident ID
+// @Description Retrieve vital signs today for a specific resident, with an option to get only the latest entry. is_latest must be 'true' or 'false'
+// @Tags VitalSign
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param resident_id query string true "Resident ID"
+// @Param is_latest query string true "Retrieve only the latest vital sign entry ('true' or 'false')" Enums(true, false)
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/vital-signs/resident [get]
+func (c *EmrController) GetVitalSignsByResidentHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Query("resident_id")
+	isLatest := ctx.Query("is_latest")
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	vitalSigns, err := c.emrUsecase.GetVitalSignsByResident(residentID, isLatest, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "vital signs retrieved successfully",
+		"result":      vitalSigns,
+	})
+}
+
+// @Summary Get Vital Signs by Room ID
+// @Description Retrieve vital signs today for all residents in a specific room, with an option to get only the latest entry per resident. is_latest must be 'true' or 'false'
+// @Tags VitalSign
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param room_id query string true "Room ID"
+// @Param is_latest query string true "Retrieve only the latest vital sign entry per resident ('true' or 'false')" Enums(true, false)
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/vital-signs/room [get]
+func (c *EmrController) GetRoomVitalSignsHandler(ctx *fiber.Ctx) error {
+	roomID := ctx.Query("room_id")
+	isLatest := ctx.Query("is_latest")
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	vitalSigns, err := c.emrUsecase.GetRoomVitalSigns(roomID, isLatest, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "vital signs retrieved successfully",
+		"result":      vitalSigns,
+	})
+}
+
+// @Summary Get Vital Signs History by Resident ID
+// @Description Retrieve the full history of vital signs for a specific resident
+// @Tags VitalSign
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param resident_id path string true "Resident ID"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/vital-signs/history/{resident_id} [get]
+func (c *EmrController) GetVitalSignsHistoryHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Params("resident_id")
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	vitalSigns, err := c.emrUsecase.GetVitalSignsHistory(residentID, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "vital signs history retrieved successfully",
+		"result":      vitalSigns,
+	})
+}
+
+// @Summary Get Abnormal Vital Signs
+// @Description Retrieve a list of residents with abnormal vital signs today, with optional floor filter and option to get only the latest entry per resident. is_latest must be 'true' or 'false'
+// @Tags VitalSign
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param floor query int false "Filter by floor"
+// @Param is_latest query string true "Retrieve only the latest abnormal vital sign entry per resident ('true' or 'false')" Enums(true, false)
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/vital-signs/abnormal [get]
+func (c *EmrController) GetAbnormalVitalSignsHandler(ctx *fiber.Ctx) error {
+	floor := ctx.Query("floor")
+	isLatest := ctx.Query("is_latest")
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+	vitalSigns, err := c.emrUsecase.GetAbnormalVitalSigns(floor, isLatest, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "abnormal vital signs retrieved successfully",
+		"result":      vitalSigns,
+	})
 }

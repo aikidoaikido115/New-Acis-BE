@@ -6,6 +6,8 @@ import (
 
 	// "io"
 	"log"
+	"strconv"
+
 	// "mime/multipart"
 	// "os"
 	// "sync"
@@ -57,10 +59,11 @@ type EmrUsecase interface {
 	// VitalSign operations
 	CreateVitalSign(vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error)
 
-	GetVitalSignsForEMR(req VitalSignEMRRequest) (*VitalSignEMRResponse, error)
-    // GetResidentVitalSigns(residentID string, period string) (*ResidentVitalSignsResponse, error)
-    // GetRoomVitalSigns(roomID string, viewMode string) (*RoomResponse, error)
-    // SearchVitalSigns(req SearchRequest) (*SearchResponse, error)
+	GetVitalSignsOverview(req models.VitalSignQueryParams, userID string) ([]*entities.VitalSign, error)
+	GetVitalSignsByResident(residentID string, isLatest string, userID string) ([]*entities.VitalSign, error)
+	GetRoomVitalSigns(roomID string, isLatest string, userID string) ([]*entities.VitalSign, error)
+	GetVitalSignsHistory(residentID string, userID string) ([]*entities.VitalSign, error)
+	GetAbnormalVitalSigns(floor string, isLatest string, userID string) ([]*entities.VitalSign, error)
 }
 
 type EmrUseCaseImpl struct {
@@ -654,22 +657,214 @@ func (uc *EmrUseCaseImpl) CreateVitalSign(vitalSign *entities.VitalSign, userID 
 	return createdVitalSign, nil
 }
 
-func (uc *EmrUseCaseImpl) GetVitalSignsForEMR(req VitalSignEMRRequest) ([]*entities.VitalSign, error) {
+func (uc *EmrUseCaseImpl) GetVitalSignsOverview(req models.VitalSignQueryParams, userID string) ([]*entities.VitalSign, error) {
 
-    
-    // กรณีธรรมดา: ทั้งหมด วันนี้
-    if req.Floor == nil && len(req.LabelIDs) == 0 {
-        vitalSigns, err := uc.emrrepo.GetVitalSignsToday(true) // isLatest = true
-        return vitalSigns, err
-    }
-    
-    // กรณีมี filter: ใช้ Custom
-    params := models.VitalSignQueryParams{
-        Floor:    req.Floor,
-        LabelIDs: req.LabelIDs,
-        IsLatest: true,
-        Limit:    100,
-    }
-    vitalSigns, err := uc.emrrepo.GetVitalSignsCustom(params)
-    return vitalSigns, err
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can view vital signs overview")
+	}
+
+	// กรณีธรรมดา: ทั้งหมด วันนี้
+	if req.Floor == nil && len(req.LabelIDs) == 0 {
+		vitalSigns, err := uc.emrrepo.GetVitalSignsToday(true) // isLatest = true
+		return vitalSigns, err
+	}
+
+	// กรณีมี filter: ใช้ Custom
+	params := models.VitalSignQueryParams{
+		Floor:    req.Floor,
+		LabelIDs: req.LabelIDs,
+		IsLatest: true,
+		Limit:    100,
+	}
+	vitalSigns, err := uc.emrrepo.GetVitalSignsCustom(params)
+	return vitalSigns, err
+}
+
+func (uc *EmrUseCaseImpl) GetVitalSignsByResident(residentID string, isLatest string, userID string) ([]*entities.VitalSign, error) {
+
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can view vital signs by resident")
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(residentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident not found")
+	}
+
+	isLatestBool, err := strconv.ParseBool(isLatest)
+	if err != nil {
+		return nil, errors.New("invalid isLatest parameter you must provide a boolean value: " + err.Error())
+	}
+
+	vitalSigns, err := uc.emrrepo.GetVitalSignsByResidentIDToday(residentID, isLatestBool)
+	if err != nil {
+		return nil, errors.New("failed to get vital signs: " + err.Error())
+	}
+	return vitalSigns, nil
+}
+
+func (uc *EmrUseCaseImpl) GetRoomVitalSigns(roomID string, isLatest string, userID string) ([]*entities.VitalSign, error) {
+
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can view vital signs by room")
+	}
+
+	roomExists, err := uc.emrrepo.RoomExists(roomID)
+	if err != nil {
+		return nil, errors.New("failed to verify room existence: " + err.Error())
+	}
+	if !roomExists {
+		return nil, errors.New("room not found")
+	}
+
+	isLatestBool, err := strconv.ParseBool(isLatest)
+	if err != nil {
+		return nil, errors.New("invalid isLatest parameter you must provide a boolean value: " + err.Error())
+	}
+
+	vitalSigns, err := uc.emrrepo.GetVitalSignsByRoomIDToday(roomID, isLatestBool)
+	if err != nil {
+		return nil, errors.New("failed to get vital signs: " + err.Error())
+	}
+	return vitalSigns, nil
+}
+
+func (uc *EmrUseCaseImpl) GetVitalSignsHistory(residentID string, userID string) ([]*entities.VitalSign, error) {
+
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can view vital signs history")
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(residentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident not found")
+	}
+
+	vitalSigns, err := uc.emrrepo.GetVitalSignsHistory(residentID)
+	if err != nil {
+		return nil, errors.New("failed to get vital signs history: " + err.Error())
+	}
+	return vitalSigns, nil
+}
+
+func (uc *EmrUseCaseImpl) GetAbnormalVitalSigns(floor string, isLatest string, userID string) ([]*entities.VitalSign, error) {
+
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can view abnormal vital signs")
+	}
+
+	var vitalSigns []*entities.VitalSign
+	var isLatestBool bool
+	// var err error
+
+	var floor_pointer_int16 *int16
+	if floor != "" {
+		floor64, err := strconv.ParseInt(floor, 10, 16)
+		if err != nil {
+			return nil, errors.New("invalid floor parameter")
+		}
+		f := int16(floor64)
+		floor_pointer_int16 = &f
+	}
+
+	isLatestBool, err = strconv.ParseBool(isLatest)
+	if err != nil {
+		return nil, errors.New("invalid isLatest parameter you must provide a boolean value: " + err.Error())
+	}
+
+	// ถ้าไม่ระบุ floor → ดึงทั้งหมด, ถ้าระบุ → ดึงเฉพาะชั้นนั้น
+	if floor_pointer_int16 == nil {
+		vitalSigns, err = uc.emrrepo.GetVitalSignsToday(isLatestBool)
+	} else {
+		vitalSigns, err = uc.emrrepo.GetVitalSignsByFloorToday(*floor_pointer_int16, isLatestBool)
+	}
+	if err != nil {
+		return nil, errors.New("failed to get vital signs: " + err.Error())
+	}
+
+	abnormalVitalSigns := make([]*entities.VitalSign, 0)
+	for _, vs := range vitalSigns {
+		isAbnormal := false
+
+		if vs.Temperature != nil && (*vs.Temperature < emr_constants.NormalTempLow || *vs.Temperature > emr_constants.NormalTempHigh) {
+			isAbnormal = true
+		}
+		if vs.HeartRate != nil && (*vs.HeartRate < emr_constants.NormalHeartRateLow || *vs.HeartRate > emr_constants.NormalHeartRateHigh) {
+			isAbnormal = true
+		}
+		if vs.BreathingRate != nil && (*vs.BreathingRate < emr_constants.NormalBreathingRateLow || *vs.BreathingRate > emr_constants.NormalBreathingRateHigh) {
+			isAbnormal = true
+		}
+		if vs.BloodPressureSystolic != nil && (*vs.BloodPressureSystolic < emr_constants.NormalSystolicLow || *vs.BloodPressureSystolic > emr_constants.NormalSystolicHigh) {
+			isAbnormal = true
+		}
+		if vs.BloodPressureDiastolic != nil && (*vs.BloodPressureDiastolic < emr_constants.NormalDiastolicLow || *vs.BloodPressureDiastolic > emr_constants.NormalDiastolicHigh) {
+			isAbnormal = true
+		}
+		if vs.OxygenSaturation != nil && *vs.OxygenSaturation < emr_constants.NormalOxygenSaturationLow {
+			isAbnormal = true
+		}
+
+		if isAbnormal {
+			abnormalVitalSigns = append(abnormalVitalSigns, vs)
+		}
+	}
+
+	return abnormalVitalSigns, nil
 }

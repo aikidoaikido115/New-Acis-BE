@@ -1,6 +1,7 @@
 package repositories
 
 import (
+
 	emr_constants "github.com/aikidoaikido115/New-Acis-BE/modules/emr/constants"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/models"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
@@ -59,7 +60,7 @@ type EmrRepository interface {
 	GetVitalSignsByRoomIDToday(roomID string, isLatest bool) ([]*entities.VitalSign, error)
 	GetVitalSignsByFloorToday(floor int16, isLatest bool) ([]*entities.VitalSign, error)
 	GetVitalSignsByResidentIDToday(residentID string, isLatest bool) ([]*entities.VitalSign, error)
-	GetVitalSignsHistoryByResidentID(residentID string) ([]*entities.VitalSign, error)
+	GetVitalSignsHistory(residentID string) ([]*entities.VitalSign, error)
 	GetVitalSignsToday(isLatest bool) ([]*entities.VitalSign, error)
 	GetVitalSignsCustom(params models.VitalSignQueryParams) ([]*entities.VitalSign, error)
 
@@ -308,7 +309,7 @@ func (r *GormEmrRepository) CreateVitalSign(vitalSign *entities.VitalSign) (*ent
 	return vitalSign, nil
 }
 
-func (r *GormEmrRepository) GetVitalSignsHistoryByResidentID(residentID string) ([]*entities.VitalSign, error) {
+func (r *GormEmrRepository) GetVitalSignsHistory(residentID string) ([]*entities.VitalSign, error) {
 	var vitalSigns []*entities.VitalSign
 	if err := r.db.Where("resident_id = ?", residentID).Find(&vitalSigns).Error; err != nil {
 		return nil, err
@@ -406,8 +407,8 @@ func (r *GormEmrRepository) GetVitalSignsToday(isLatest bool) ([]*entities.Vital
 			Select("DISTINCT ON (vital_signs.resident_id) vital_signs.*")
 	}
 
-	query = query.Where("vital_signs.created_at >= CURRENT_DATE").
-		Where("vital_signs.created_at < CURRENT_DATE + INTERVAL '1 day'")
+	query = query.Where("vital_signs.created_at >= (CURRENT_DATE AT TIME ZONE 'Asia/Bangkok')").
+		Where("vital_signs.created_at < (CURRENT_DATE AT TIME ZONE 'Asia/Bangkok') + INTERVAL '1 day'")
 
 	if isLatest {
 		query = query.Order("vital_signs.resident_id, vital_signs.created_at DESC")
@@ -471,10 +472,14 @@ func (r *GormEmrRepository) GetVitalSignsCustom(params models.VitalSignQueryPara
 
 	if params.StartDate != nil {
 		query = query.Where("vital_signs.created_at >= ?", *params.StartDate)
+	}else {
+		query = query.Where("vital_signs.created_at >= (CURRENT_DATE AT TIME ZONE 'Asia/Bangkok')")
 	}
 	if params.EndDate != nil {
 		endDateInclusive := params.EndDate.AddDate(0, 0, 1)
 		query = query.Where("vital_signs.created_at < ?", endDateInclusive)
+	}else {
+		query = query.Where("vital_signs.created_at < (CURRENT_DATE AT TIME ZONE 'Asia/Bangkok') + INTERVAL '1 day'")
 	}
 
 	// Order: สำหรับ Latest จะเรียง resident_id ก่อน, แล้ว created_at DESC (สำคัญสำหรับ DISTINCT ON)
