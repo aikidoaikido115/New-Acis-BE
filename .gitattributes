@@ -1,0 +1,7 @@
+# Ensure consistent line endings for migration files and Atlas config
+migrations/*.sql text eol=lf
+migrations/atlas.sum text eol=lf
+atlas.hcl text eol=lf
+
+# Keep PowerShell scripts with CRLF (Windows standard)
+*.ps1 text eol=crlf

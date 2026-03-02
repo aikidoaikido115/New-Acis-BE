@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/configs"
+	audit_constants "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/constants"
 	audit_repo "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	user_constants "github.com/aikidoaikido115/New-Acis-BE/modules/user/constants"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
 	"github.com/aikidoaikido115/New-Acis-BE/pkg/utils"
 	"github.com/golang-jwt/jwt/v5"
@@ -23,8 +25,8 @@ import (
 )
 
 type UserUsecase interface {
-	Register(user *entities.User, roleName string) (*entities.User, error)
-	Login(username, password string) (string, *entities.User, error)
+	Register(user *entities.User, roleName string, file multipart.File) (*entities.User, error)
+	Login(username, email, password string) (string, *entities.User, error)
 	ResetPassword(userID, oldPassword, newPassword string) error
 
 	GetUserByID(id string) (*entities.User, error)
@@ -62,15 +64,15 @@ func NewUserUseCase(
 	}
 }
 
-func (u *UserUseCaseImpl) Register(user *entities.User, roleName string) (*entities.User, error) {
+func (u *UserUseCaseImpl) Register(user *entities.User, roleName string, file multipart.File) (*entities.User, error) {
 	normalizedEmail, err := utils.NormalizeEmail(user.Email)
 	if err != nil {
-		return nil, errors.New("invalid email format")
+		return nil, errors.New("invalid email format: " + err.Error())
 	}
 
 	role, err := u.userrepo.GetRoleByName(roleName)
 	if err != nil {
-		return nil, errors.New("role not found")
+		return nil, errors.New("role not found: " + err.Error())
 	}
 
 	user.Email = normalizedEmail
@@ -94,9 +96,30 @@ func (u *UserUseCaseImpl) Register(user *entities.User, roleName string) (*entit
 
 	user.ID = uuid.New().String()
 	user.RoleID = role.ID
+
+	// Upload profile image if provided
+	if file != nil {
+		fileExtension, err := utils.DetectFileType(file)
+		if err != nil {
+			return nil, errors.New("invalid file: " + err.Error())
+		}
+
+		// Reset file pointer to beginning after DetectFileType
+		file.Seek(0, io.SeekStart)
+
+		fileName := uuid.New().String() + fileExtension
+
+		profileURL, err := utils.UploadFile2Supa(file, fileName, "profiles/", u.supa)
+		if err != nil {
+			return nil, errors.New("failed to upload profile image: " + err.Error())
+		}
+
+		user.ProfileImage = profileURL
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, errors.New("failed to hash password")
+		return nil, errors.New("failed to hash password: " + err.Error())
 	}
 	user.Password = string(hashedPassword)
 	createdUser, err := u.userrepo.CreateUser(user)
@@ -104,7 +127,7 @@ func (u *UserUseCaseImpl) Register(user *entities.User, roleName string) (*entit
 		return nil, errors.New("failed to create user: " + err.Error())
 	}
 
-	if role.Name == "Medical Staff" || role.Name == "Kitchen Staff" {
+	if role.Name == user_constants.RoleMedicalStaff || role.Name == user_constants.RoleKitchenStaff {
 		staff := &entities.Staff{
 			ID:     uuid.New().String(),
 			UserID: createdUser.ID}
@@ -114,13 +137,52 @@ func (u *UserUseCaseImpl) Register(user *entities.User, roleName string) (*entit
 		}
 	}
 
+	newUserData, _ := json.Marshal(map[string]interface{}{
+		"username":   createdUser.Username,
+		"email":      createdUser.Email,
+		"role_id":    createdUser.RoleID,
+		"first_name": createdUser.FirstName,
+		"last_name":  createdUser.LastName,
+	})
+
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "users",
+		RecordID:  createdUser.ID,
+		UserID:    createdUser.ID,
+		Action:    audit_constants.AuditActionInsert,
+		OldValue:  "",
+		NewValue:  string(newUserData),
+	}
+
+	_, err = u.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for new user %s: %v", createdUser.ID, err)
+	}
+
 	return createdUser, nil
 }
 
-func (u *UserUseCaseImpl) Login(username, password string) (string, *entities.User, error) {
-	user, err := u.userrepo.GetUserByUsername(username)
+func (u *UserUseCaseImpl) Login(username, email, password string) (string, *entities.User, error) {
+	if username != "" && email != "" {
+		return "", nil, errors.New("please provide either username or email, not both")
+	}
+
+	if username == "" && email == "" {
+		return "", nil, errors.New("username or email is required")
+	}
+
+	var user *entities.User
+	var err error
+
+	if username != "" {
+		user, err = u.userrepo.GetUserByUsername(username)
+	} else {
+		user, err = u.userrepo.GetUserByEmail(email)
+	}
+
 	if err != nil {
-		return "", nil, errors.New("invalid username")
+		return "", nil, errors.New("invalid username or email: " + err.Error())
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
@@ -136,7 +198,7 @@ func (u *UserUseCaseImpl) Login(username, password string) (string, *entities.Us
 
 	tokenString, err := token.SignedString([]byte(u.jwtSecret))
 	if err != nil {
-		return "", nil, errors.New("failed to generate token")
+		return "", nil, errors.New("failed to generate token: " + err.Error())
 	}
 
 	return tokenString, user, nil
@@ -145,21 +207,41 @@ func (u *UserUseCaseImpl) Login(username, password string) (string, *entities.Us
 func (u *UserUseCaseImpl) ResetPassword(userID, oldPassword, newPassword string) error {
 	user, err := u.userrepo.GetUserByID(userID)
 	if err != nil {
-		return errors.New("user invalid")
+		return errors.New("user invalid: " + err.Error())
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(oldPassword)); err != nil {
 		return errors.New("old password invalid")
 	}
 
+	// ตรวจสอบว่ารหัสผ่านใหม่ไม่ซ้ำกับรหัสผ่านเดิม
+	if oldPassword == newPassword {
+		return errors.New("new password cannot be the same as current password")
+	}
+
 	hashedNewPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return errors.New("failed to hash new password")
+		return errors.New("failed to hash new password: " + err.Error())
 	}
 	user.Password = string(hashedNewPassword)
 
 	if err := u.userrepo.UpdateUserByID(user); err != nil {
-		return errors.New("failed to update password")
+		return errors.New("failed to update password: " + err.Error())
+	}
+
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "users",
+		RecordID:  user.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  audit_constants.AuditOldNewValuePassword,
+		NewValue:  audit_constants.AuditOldNewValuePassword,
+	}
+
+	_, err = u.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for password reset %s: %v", userID, err)
 	}
 
 	return nil
@@ -168,7 +250,7 @@ func (u *UserUseCaseImpl) ResetPassword(userID, oldPassword, newPassword string)
 func (u *UserUseCaseImpl) GetUserByID(id string) (*entities.User, error) {
 	user, err := u.userrepo.GetUserByID(id)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, errors.New("user not found: " + err.Error())
 	}
 	return user, nil
 }
@@ -176,7 +258,7 @@ func (u *UserUseCaseImpl) GetUserByID(id string) (*entities.User, error) {
 func (u *UserUseCaseImpl) GetAllUsers() ([]*entities.User, error) {
 	users, err := u.userrepo.GetAllUsers()
 	if err != nil {
-		return nil, errors.New("failed to retrieve all users")
+		return nil, errors.New("failed to retrieve all users: " + err.Error())
 	}
 	return users, nil
 }
@@ -184,7 +266,7 @@ func (u *UserUseCaseImpl) GetAllUsers() ([]*entities.User, error) {
 func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file multipart.File) (*entities.User, error) {
 	existingUser, err := u.userrepo.GetUserByID(id)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, errors.New("user not found: " + err.Error())
 	}
 
 	oldUserData, _ := json.Marshal(map[string]interface{}{
@@ -208,12 +290,6 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 			if usernameExists {
 				return nil, errors.New("username already taken")
 			}
-
-			if existingUser.NumberOfUsernames >= 1 {
-				return nil, errors.New("username can change only once")
-			}
-
-			existingUser.NumberOfUsernames++ //นับจำนวนครั้งที่เปลี่ยน username
 			existingUser.Username = user.Username
 		}
 	}
@@ -254,7 +330,7 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 	}
 
 	if err := u.userrepo.UpdateUserByID(existingUser); err != nil {
-		return nil, errors.New("failed to update user")
+		return nil, errors.New("failed to update user: " + err.Error())
 	}
 
 	newUserData, _ := json.Marshal(map[string]interface{}{
@@ -271,7 +347,7 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 		TableName: "users",
 		RecordID:  existingUser.ID,
 		UserID:    id,
-		Action:    utils.AuditActionUpdate,
+		Action:    audit_constants.AuditActionUpdate,
 		OldValue:  string(oldUserData),
 		NewValue:  string(newUserData),
 	}
@@ -288,12 +364,12 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 func (u *UserUseCaseImpl) ForgotPassword(email string) error {
 	user, err := u.userrepo.GetUserByEmail(email)
 	if err != nil {
-		return errors.New("user not found")
+		return errors.New("user not found: " + err.Error())
 	}
 	userID := user.ID
 	otpCode, err := utils.GenerateRandomOTP(6)
 	if err != nil {
-		return errors.New("failed to generate OTP")
+		return errors.New("failed to generate OTP: " + err.Error())
 	}
 
 	expiresAt := time.Now().Add(5 * time.Minute)
@@ -301,7 +377,7 @@ func (u *UserUseCaseImpl) ForgotPassword(email string) error {
 
 	if err == nil && otp != nil {
 		if err := u.userrepo.DeleteOTP(userID); err != nil {
-			return errors.New("failed to delete existing OTP")
+			return errors.New("failed to delete existing OTP: " + err.Error())
 		}
 	}
 
@@ -334,12 +410,15 @@ func (u *UserUseCaseImpl) ForgotPassword(email string) error {
 func (u *UserUseCaseImpl) VerifyOTP(email, otpCode string) error {
 	user, err := u.userrepo.GetUserByEmail(email)
 	if err != nil {
-		return errors.New("user not found")
+		return errors.New("user not found: " + err.Error())
 	}
 
 	userID := user.ID
 	otp, err := u.userrepo.GetOTPByUserID(userID)
 	if err != nil || otp == nil {
+		if err != nil {
+			return errors.New("OTP not found for user: " + err.Error())
+		}
 		return errors.New("OTP not found for user")
 	}
 
@@ -355,7 +434,7 @@ func (u *UserUseCaseImpl) VerifyOTP(email, otpCode string) error {
 	}
 
 	if err := u.userrepo.DeleteOTP(userID); err != nil {
-		return errors.New("failed to delete existing OTP")
+		return errors.New("failed to delete existing OTP: " + err.Error())
 	}
 
 	tempToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -367,7 +446,7 @@ func (u *UserUseCaseImpl) VerifyOTP(email, otpCode string) error {
 
 	tempTokenString, err := tempToken.SignedString([]byte(u.jwtSecret))
 	if err != nil {
-		return errors.New("failed to generate token")
+		return errors.New("failed to generate token: " + err.Error())
 	}
 
 	tempTokenTable := &entities.TempToken{
@@ -376,7 +455,7 @@ func (u *UserUseCaseImpl) VerifyOTP(email, otpCode string) error {
 	}
 
 	if err := u.userrepo.StoreResetToken(tempTokenTable); err != nil {
-		return errors.New("failed to store resetToken")
+		return errors.New("failed to store resetToken: " + err.Error())
 	}
 
 	return nil
@@ -385,12 +464,12 @@ func (u *UserUseCaseImpl) VerifyOTP(email, otpCode string) error {
 func (u *UserUseCaseImpl) ChangePassword(email, newPassword string) error {
 	user, err := u.userrepo.GetUserByEmail(email)
 	if err != nil {
-		return errors.New("user not found")
+		return errors.New("user not found: " + err.Error())
 	}
 
 	tokenString, err := u.userrepo.GetResetToken(user.ID)
 	if err != nil {
-		return errors.New("reset token not found")
+		return errors.New("reset token not found: " + err.Error())
 	}
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
@@ -416,6 +495,11 @@ func (u *UserUseCaseImpl) ChangePassword(email, newPassword string) error {
 		return errors.New("token does not match user")
 	}
 
+	// ตรวจสอบว่ารหัสผ่านใหม่ไม่ซ้ำกับรหัสผ่านเดิม
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(newPassword)); err == nil {
+		return errors.New("new password cannot be the same as current password")
+	}
+
 	hashedNewPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return errors.New("failed to hash new password")
@@ -423,11 +507,26 @@ func (u *UserUseCaseImpl) ChangePassword(email, newPassword string) error {
 
 	user.Password = string(hashedNewPassword)
 	if err := u.userrepo.UpdateUserByID(user); err != nil {
-		return errors.New("failed to update password")
+		return errors.New("failed to update password: " + err.Error())
 	}
 
 	if err := u.userrepo.DeleteResetToken(user.ID); err != nil {
-		return errors.New("failed to delete reset token")
+		return errors.New("failed to delete reset token: " + err.Error())
+	}
+
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "users",
+		RecordID:  user.ID,
+		UserID:    user.ID,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  "password_reset_via_forgot_password",
+		NewValue:  audit_constants.AuditOldNewValuePassword,
+	}
+
+	_, err = u.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for password reset via forgot password %s: %v", user.ID, err)
 	}
 
 	return nil
@@ -436,15 +535,15 @@ func (u *UserUseCaseImpl) ChangePassword(email, newPassword string) error {
 func (u *UserUseCaseImpl) CreateStaffFile(userID string, files []*multipart.FileHeader) ([]*entities.StaffsFiles, error) {
 	existingUser, err := u.userrepo.GetUserByID(userID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, errors.New("user not found: " + err.Error())
 	}
-	if existingUser.Role.Name != "Medical Staff" && existingUser.Role.Name != "Kitchen Staff" {
+	if existingUser.Role.Name != user_constants.RoleMedicalStaff && existingUser.Role.Name != user_constants.RoleKitchenStaff {
 		return nil, errors.New("user is not staff")
 	}
 
 	staff, err := u.userrepo.GetStaffByUserID(existingUser.ID)
 	if err != nil {
-		return nil, errors.New("staff not found")
+		return nil, errors.New("staff not found: " + err.Error())
 	}
 
 	if len(files) == 0 {

@@ -12,10 +12,8 @@ func RunAll(db *gorm.DB) {
 
 	// เรียก seeder แต่ละตัวตามลำดับ
 	SeedRoles(db)
-
-	// อนาคตเพิ่ม seeder อื่นๆ ตรงนี้
-	// SeedUsers(db)
-	// SeedCategories(db)
+	SeedRooms(db)
+	SeedIntakeLabels(db)
 
 	log.Println("Database seeding completed!")
 }

@@ -1,0 +1,1844 @@
+basePath: /
+definitions:
+  entities.VitalSign:
+    properties:
+      blood_pressure_diastolic:
+        type: integer
+      blood_pressure_systolic:
+        type: integer
+      breathing_rate:
+        type: integer
+      created_at:
+        type: string
+      created_by_staff_id:
+        type: string
+      heart_rate:
+        type: integer
+      oxygen_saturation:
+        type: integer
+      resident_id:
+        type: string
+      temperature:
+        type: number
+      updated_at:
+        type: string
+      vital_sign_id:
+        type: string
+    type: object
+  models.CreateVitalSignRequest:
+    properties:
+      blood_pressure_diastolic:
+        type: integer
+      blood_pressure_systolic:
+        type: integer
+      breathing_rate:
+        type: integer
+      heart_rate:
+        type: integer
+      oxygen_saturation:
+        type: integer
+      resident_id:
+        type: string
+      temperature:
+        type: number
+    required:
+    - resident_id
+    type: object
+host: localhost:8000
+info:
+  contact: {}
+  description: This is a sample for New-Acis API.
+  title: New-Acis API
+paths:
+  /api/auth/forgotpassword:
+    post:
+      consumes:
+      - application/json
+      description: Send OTP to user's email for password recovery
+      parameters:
+      - description: User email
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Sent OTP successfully
+          schema:
+            properties:
+              message:
+                type: string
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Email is missing
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      summary: Forgot Password - Request OTP
+      tags:
+      - Authentication
+  /api/auth/forgotpassword/changepassword:
+    patch:
+      consumes:
+      - application/json
+      description: Change password after OTP verification in forgot password flow
+      parameters:
+      - description: Email and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+            new_password:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password changed successfully
+          schema:
+            properties:
+              message:
+                type: string
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Email or new password is missing
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      summary: Change Password (Forgot Password Flow)
+      tags:
+      - Authentication
+  /api/auth/forgotpassword/otp:
+    post:
+      consumes:
+      - application/json
+      description: Verify the OTP sent to user's email for password recovery
+      parameters:
+      - description: Email and OTP
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+            otp:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OTP is correct
+          schema:
+            properties:
+              message:
+                type: string
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Email or OTP is missing
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      summary: Verify OTP
+      tags:
+      - Authentication
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Login with username or email and password to get access token.
+        You must provide EITHER username OR email, not both
+      parameters:
+      - description: Login credentials (provide EITHER username OR email with password,
+          not both)
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+            password:
+              type: string
+            username:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                properties:
+                  email:
+                    type: string
+                  profile_image:
+                    type: string
+                  token:
+                    type: string
+                  user_id:
+                    type: string
+                  username:
+                    type: string
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Missing credentials, sent both username and email,
+            or missing password
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      summary: User Login
+      tags:
+      - Authentication
+  /api/auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Logout authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logout successful
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: User Logout
+      tags:
+      - Authentication
+  /api/auth/register:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Register a new user with username, email, password, and role
+      parameters:
+      - description: Username
+        in: formData
+        name: username
+        required: true
+        type: string
+      - description: Email
+        in: formData
+        name: email
+        required: true
+        type: string
+      - description: Password
+        in: formData
+        name: password
+        required: true
+        type: string
+      - description: First Name
+        in: formData
+        name: first_name
+        type: string
+      - description: Last Name
+        in: formData
+        name: last_name
+        type: string
+      - description: Nickname
+        in: formData
+        name: nickname
+        type: string
+      - description: Role Name
+        in: formData
+        name: role_name
+        required: true
+        type: string
+      - description: Profile Image
+        in: formData
+        name: profile_image
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User created successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Missing required fields
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      summary: User Registration
+      tags:
+      - Authentication
+  /api/auth/resetpassword:
+    patch:
+      consumes:
+      - application/json
+      description: Reset password for authenticated user with old password verification
+      parameters:
+      - description: Password reset information
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            new_password:
+              type: string
+            old_password:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password reset successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Old password invalid or passwords are the same
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized - Missing user ID
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: User not found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Reset Password (Authenticated)
+      tags:
+      - Authentication
+  /api/emr/dashboard/resident-gender-stats:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve statistics on resident gender distribution for dashboard
+        display
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resident gender stats retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Resident Gender Stats for Dashboard
+      tags:
+      - Dashboard
+  /api/emr/dashboard/residents:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the number of residents categorized by care levels for
+        dashboard display
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Dashboard data retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Number of Residents for Dashboard
+      tags:
+      - Dashboard
+  /api/emr/intake-labels:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all intake labels associated with a specific resident
+        using their resident ID
+      parameters:
+      - description: Resident ID
+        in: query
+        name: resident_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resident labels retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Resident Labels by Resident ID
+      tags:
+      - Intake
+    post:
+      consumes:
+      - application/json
+      description: Create one or more intake labels (vital signs, notes, etc.) for
+        a specific resident
+      parameters:
+      - description: Resident ID and array of labels
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            labels:
+              items:
+                properties:
+                  label_name:
+                    type: string
+                  note_text:
+                    type: string
+                type: object
+              type: array
+            resident_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Intake labels created successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Missing required fields or invalid data
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized - Missing or invalid authentication
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Intake Labels for Resident
+      tags:
+      - Intake
+  /api/emr/intake-labels/all:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all available intake label types (e.g., Blood
+        Pressure, Temperature, Heart Rate)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Intake labels retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get All Intake Labels
+      tags:
+      - Intake
+  /api/emr/residents:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all residents assigned to a specific room using room_id
+        query parameter
+      parameters:
+      - description: Room ID
+        in: query
+        name: room_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Residents retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Missing room_id query parameter
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Residents by Room ID
+      tags:
+      - Resident
+    post:
+      consumes:
+      - application/json
+      description: Create a new resident with room ID, first name, last name, age,
+        and gender
+      parameters:
+      - description: Resident information
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            age:
+              type: integer
+            first_name:
+              type: string
+            gender:
+              type: string
+            last_name:
+              type: string
+            room_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Resident created successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Missing required fields
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Resident
+      tags:
+      - Resident
+  /api/emr/residents/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a single resident's information by their unique ID
+      parameters:
+      - description: Resident ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resident retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Resident by ID
+      tags:
+      - Resident
+    patch:
+      consumes:
+      - application/json
+      description: Partially update an existing resident's information by their unique
+        ID. Only send fields that need to be updated.
+      parameters:
+      - description: Resident ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update (all optional)
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            age:
+              type: integer
+            first_name:
+              type: string
+            gender:
+              type: string
+            labels:
+              items:
+                properties:
+                  label_name:
+                    type: string
+                  note_text:
+                    type: string
+                type: object
+              type: array
+            last_name:
+              type: string
+            room_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resident updated successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Invalid data
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Resident
+      tags:
+      - Resident
+  /api/emr/residents/all:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all residents in the system
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: All residents retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get All Residents
+      tags:
+      - Resident
+  /api/emr/rooms:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all rooms in the facility
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Rooms retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get All Rooms
+      tags:
+      - Room
+    post:
+      consumes:
+      - application/json
+      description: Create a new room with staff ID, floor number, and room number
+      parameters:
+      - description: Room information
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            floor:
+              type: integer
+            room_number:
+              type: string
+            staff_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Room created successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Missing required fields
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized - Missing user ID
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Room
+      tags:
+      - Room
+  /api/emr/rooms/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve room information by room ID
+      parameters:
+      - description: Room ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Room retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Room by ID
+      tags:
+      - Room
+    patch:
+      consumes:
+      - application/json
+      description: Partially update an existing room's information by its unique ID.
+        Only send fields that need to be updated.
+      parameters:
+      - description: Room ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update (all optional)
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            staff_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Room updated successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Invalid data
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Room
+      tags:
+      - Room
+  /api/emr/vital-signs:
+    post:
+      consumes:
+      - application/json
+      description: Create a new vital sign entry for a resident
+      parameters:
+      - description: Vital sign information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateVitalSignRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Vital sign created successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.VitalSign'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Missing required fields
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized - Missing user ID
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Vital Sign
+      tags:
+      - VitalSign
+  /api/emr/vital-signs/abnormal:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of residents with abnormal vital signs today, with
+        optional floor filter and option to get only the latest entry per resident.
+        is_latest must be 'true' or 'false'
+      parameters:
+      - description: Filter by floor
+        in: query
+        name: floor
+        type: integer
+      - description: Retrieve only the latest abnormal vital sign entry per resident
+          ('true' or 'false')
+        enum:
+        - "true"
+        - "false"
+        in: query
+        name: is_latest
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Abnormal Vital Signs
+      tags:
+      - VitalSign
+  /api/emr/vital-signs/history/{resident_id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the full history of vital signs for a specific resident
+      parameters:
+      - description: Resident ID
+        in: path
+        name: resident_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Vital Signs History by Resident ID
+      tags:
+      - VitalSign
+  /api/emr/vital-signs/overview:
+    get:
+      consumes:
+      - application/json
+      description: Get today's latest vital signs with optional floor or label filters
+      parameters:
+      - description: Filter by floor
+        in: query
+        name: floor
+        type: integer
+      - collectionFormat: csv
+        description: Filter by label IDs
+        in: query
+        items:
+          type: string
+        name: label_ids
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Vital Signs Overview
+      tags:
+      - VitalSign
+  /api/emr/vital-signs/resident:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve vital signs today for a specific resident, with an option
+        to get only the latest entry. is_latest must be 'true' or 'false'
+      parameters:
+      - description: Resident ID
+        in: query
+        name: resident_id
+        required: true
+        type: string
+      - description: Retrieve only the latest vital sign entry ('true' or 'false')
+        enum:
+        - "true"
+        - "false"
+        in: query
+        name: is_latest
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Vital Signs by Resident ID
+      tags:
+      - VitalSign
+  /api/emr/vital-signs/room:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve vital signs today for all residents in a specific room,
+        with an option to get only the latest entry per resident. is_latest must be
+        'true' or 'false'
+      parameters:
+      - description: Room ID
+        in: query
+        name: room_id
+        required: true
+        type: string
+      - description: Retrieve only the latest vital sign entry per resident ('true'
+          or 'false')
+        enum:
+        - "true"
+        - "false"
+        in: query
+        name: is_latest
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Vital Signs by Room ID
+      tags:
+      - VitalSign
+  /api/user:
+    get:
+      consumes:
+      - application/json
+      description: Get authenticated user's information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User Info retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized - Missing user ID
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: User not found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get User Information
+      tags:
+      - User
+    patch:
+      consumes:
+      - multipart/form-data
+      description: Partially update authenticated user's profile. Only send fields
+        that need to be updated.
+      parameters:
+      - description: Username
+        in: formData
+        name: username
+        type: string
+      - description: First Name
+        in: formData
+        name: first_name
+        type: string
+      - description: Last Name
+        in: formData
+        name: last_name
+        type: string
+      - description: Nickname
+        in: formData
+        name: nickname
+        type: string
+      - description: Gender
+        in: formData
+        name: gender
+        type: string
+      - description: Profile Image
+        in: formData
+        name: profile_image
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User updated successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Invalid form data
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized - Missing user ID
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update User Information
+      tags:
+      - User
+  /api/user/staff/files:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload multiple files for staff member
+      parameters:
+      - description: Files to upload (can select multiple)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Staff files created successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - No files provided or invalid form data
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized - Missing user ID
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Upload Staff Files
+      tags:
+      - User
+schemes:
+- http
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

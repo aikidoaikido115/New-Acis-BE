@@ -29,6 +29,7 @@ type UserRepository interface {
 	GetStaffFileByID(id string) (*entities.StaffsFiles, error)
 	GetUserByUsername(username string) (*entities.User, error)
 	GetRoleByName(roleName string) (*entities.Role, error)
+	GetRoleByID(roleID string) (*entities.Role, error)
 	UsernameExists(username string) (bool, error)
 	EmailExists(email string) (bool, error)
 	GetAllUsers() ([]*entities.User, error)
@@ -142,6 +143,14 @@ func (r *GormUserRepository) GetRoleByName(roleName string) (*entities.Role, err
 	return &role, nil
 }
 
+func (r *GormUserRepository) GetRoleByID(roleID string) (*entities.Role, error) {
+	var role entities.Role
+	if err := r.db.First(&role, "id = ?", roleID).Error; err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
 func (r *GormUserRepository) UsernameExists(username string) (bool, error) {
 	var count int64
 	err := r.db.Model(&entities.User{}).Where("username = ?", username).Count(&count).Error
@@ -201,11 +210,11 @@ func (r *GormUserRepository) StoreResetToken(tempToken *entities.TempToken) erro
 		}
 
 		// Create new token
-		tempToken := &entities.TempToken{
+		newTempToken := &entities.TempToken{
 			UserID: tempToken.UserID,
 			Token:  tempToken.Token,
 		}
-		return tx.Create(tempToken).Error
+		return tx.Create(newTempToken).Error
 	})
 }
 

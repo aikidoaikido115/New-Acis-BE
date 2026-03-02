@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	user_constants "github.com/aikidoaikido115/New-Acis-BE/modules/user/constants"
 	"gorm.io/gorm"
 )
 
@@ -14,15 +15,15 @@ func SeedRoles(db *gorm.DB) {
 	roles := []entities.Role{
 		{
 			ID:   "1",
-			Name: "Medical Staff",
+			Name: user_constants.RoleMedicalStaff,
 		},
 		{
 			ID:   "2",
-			Name: "Kitchen Staff",
+			Name: user_constants.RoleKitchenStaff,
 		},
 		{
 			ID:   "3",
-			Name: "Relative",
+			Name: user_constants.RoleRelative,
 		},
 	}
 

@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	"github.com/aikidoaikido115/New-Acis-BE/modules/user/models"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/user/usecases"
 
 	"github.com/gofiber/fiber/v2"
@@ -22,57 +23,120 @@ func NewUserController(userusecase usecases.UserUsecase) *UserController {
 	}
 }
 
+// RegisterHandler godoc
+// @Summary User Registration
+// @Description Register a new user with username, email, password, and role
+// @Tags Authentication
+// @Accept multipart/form-data
+// @Produce json
+// @Param username formData string true "Username"
+// @Param email formData string true "Email"
+// @Param password formData string true "Password"
+// @Param first_name formData string false "First Name"
+// @Param last_name formData string false "Last Name"
+// @Param nickname formData string false "Nickname"
+// @Param role_name formData string true "Role Name"
+// @Param profile_image formData file false "Profile Image"
+// @Success 201 {object} object{status=string,status_code=int,message=string,result=object} "User created successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing required fields"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/auth/register [post]
 func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
-	var req struct {
-		Username string `json:"username"`
-		Email    string `json:"email"`
-		Password string `json:"password"`
-		RoleName string `json:"role_name"`
-	}
-
-	if err := ctx.BodyParser(&req); err != nil {
+	form, err := ctx.MultipartForm()
+	if err != nil {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
 			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
-			"message":     err.Error(),
+			"message":     "Invalid form data: " + err.Error(),
 			"result":      nil,
 		})
 	}
 
-	if req.Username == "" {
+	// Extract values from form
+	var username, email, password, firstName, lastName, nickname, roleName, gender string
+
+	if usernames := form.Value["username"]; len(usernames) > 0 {
+		username = usernames[0]
+	}
+	if emails := form.Value["email"]; len(emails) > 0 {
+		email = emails[0]
+	}
+	if passwords := form.Value["password"]; len(passwords) > 0 {
+		password = passwords[0]
+	}
+	if firstNames := form.Value["first_name"]; len(firstNames) > 0 {
+		firstName = firstNames[0]
+	}
+	if lastNames := form.Value["last_name"]; len(lastNames) > 0 {
+		lastName = lastNames[0]
+	}
+	if nicknames := form.Value["nickname"]; len(nicknames) > 0 {
+		nickname = nicknames[0]
+	}
+	if roleNames := form.Value["role_name"]; len(roleNames) > 0 {
+		roleName = roleNames[0]
+	}
+	if genders := form.Value["gender"]; len(genders) > 0 {
+		gender = genders[0]
+	}
+
+	// Validate required fields
+	if username == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "Username is missing",
 			"result":      nil,
 		})
 	}
 
-	if req.Email == "" {
+	if email == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "Email is missing",
 			"result":      nil,
 		})
 	}
 
-	if req.Password == "" {
+	if password == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "Password is missing",
 			"result":      nil,
 		})
 	}
 
-	user := &entities.User{
-		Username: req.Username,
-		Email:    req.Email,
-		Password: req.Password,
+	// Get profile image file (optional)
+	files := form.File["profile_image"]
+	var file multipart.File
+
+	if len(files) > 0 {
+		fileHeader := files[0]
+		file, err = fileHeader.Open()
+		if err != nil {
+			return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"status":      fiber.ErrBadRequest.Message,
+				"status_code": fiber.ErrBadRequest.Code,
+				"message":     "Failed to open uploaded file: " + err.Error(),
+				"result":      nil,
+			})
+		}
+		defer file.Close()
 	}
 
-	data, err := c.userusecase.Register(user, req.RoleName)
+	user := &entities.User{
+		Username:  username,
+		Email:     email,
+		Password:  password,
+		FirstName: firstName,
+		LastName:  lastName,
+		Nickname:  nickname,
+		Gender:    gender,
+	}
+
+	data, err := c.userusecase.Register(user, roleName, file)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -84,17 +148,25 @@ func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
 
 	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"status":      "Success",
-		"status_code": fiber.StatusOK,
+		"status_code": fiber.StatusCreated,
 		"message":     "user created successfully",
 		"result":      data,
 	})
 }
 
+// LoginHandler godoc
+// @Summary User Login
+// @Description Login with username or email and password to get access token. You must provide EITHER username OR email, not both
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body object{username=string,email=string,password=string} true "Login credentials (provide EITHER username OR email with password, not both)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object{token=string,user_id=string,username=string,email=string,profile_image=string}} "Login successful"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing credentials, sent both username and email, or missing password"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/auth/login [post]
 func (c *UserController) LoginHandler(ctx *fiber.Ctx) error {
-	var req struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
+	var req models.LoginRequest
 
 	if err := ctx.BodyParser(&req); err != nil {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
@@ -105,25 +177,25 @@ func (c *UserController) LoginHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	if req.Username == "" {
+	if req.Username == "" && req.Email == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
-			"message":     "Username is missing",
+			"message":     "Username or Email is missing",
 			"result":      nil,
 		})
 	}
 
 	if req.Password == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "Password is missing",
 			"result":      nil,
 		})
 	}
 
-	token, user, err := c.userusecase.Login(req.Username, req.Password)
+	token, user, err := c.userusecase.Login(req.Username, req.Email, req.Password)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -147,16 +219,26 @@ func (c *UserController) LoginHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// ResetPasswordHandler godoc
+// @Summary Reset Password (Authenticated)
+// @Description Reset password for authenticated user with old password verification
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body object{old_password=string,new_password=string} true "Password reset information"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=any} "Password reset successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Old password invalid or passwords are the same"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 404 {object} object{status=string,status_code=int,message=string,result=any} "User not found"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/auth/resetpassword [patch]
 func (c *UserController) ResetPasswordHandler(ctx *fiber.Ctx) error {
-	var req struct {
-		Email       string `json:"email"`
-		OldPassword string `json:"old_password"`
-		NewPassword string `json:"new_password"`
-	}
+	var req models.ResetPasswordRequest
 
 	if err := ctx.BodyParser(&req); err != nil {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     err.Error(),
 			"result":      nil,
@@ -165,7 +247,7 @@ func (c *UserController) ResetPasswordHandler(ctx *fiber.Ctx) error {
 
 	if req.OldPassword == "" || req.NewPassword == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "Old password and new password is missing",
 			"result":      nil,
@@ -175,9 +257,9 @@ func (c *UserController) ResetPasswordHandler(ctx *fiber.Ctx) error {
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
 		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrUnauthorized.Message,
 			"status_code": fiber.ErrUnauthorized.Code,
-			"message":     "Unauthorized Missing user ID",
+			"message":     "Unauthorized: Missing user ID",
 			"result":      nil,
 		})
 	}
@@ -187,21 +269,21 @@ func (c *UserController) ResetPasswordHandler(ctx *fiber.Ctx) error {
 		// Return more specific status codes based on error type
 		if err.Error() == "user invalid" {
 			return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"status":      "Error",
+				"status":      fiber.ErrNotFound.Message,
 				"status_code": fiber.StatusNotFound,
 				"message":     err.Error(),
 				"result":      nil,
 			})
 		} else if err.Error() == "old password invalid" {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":      "Error",
+				"status":      fiber.ErrBadRequest.Message,
 				"status_code": fiber.StatusBadRequest,
 				"message":     err.Error(),
 				"result":      nil,
 			})
 		} else {
 			return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
-				"status":      "Error",
+				"status":      fiber.ErrInternalServerError.Message,
 				"status_code": fiber.ErrInternalServerError.Code,
 				"message":     err.Error(),
 				"result":      nil,
@@ -216,12 +298,20 @@ func (c *UserController) ResetPasswordHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// ForgotPasswordHandler godoc
+// @Summary Forgot Password - Request OTP
+// @Description Send OTP to user's email for password recovery
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body object{email=string} true "User email"
+// @Success 200 {object} object{status=string,status_code=int,message=string} "Sent OTP successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Email is missing"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/auth/forgotpassword [post]
 func (c *UserController) ForgotPasswordHandler(ctx *fiber.Ctx) error {
-	type ForgotPasswordRequest struct {
-		Email string `json:"email" validate:"required,email"`
-	}
+	var req models.ForgotPasswordRequest
 
-	var req ForgotPasswordRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -233,7 +323,7 @@ func (c *UserController) ForgotPasswordHandler(ctx *fiber.Ctx) error {
 
 	if req.Email == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "Email is missing",
 			"result":      nil,
@@ -257,13 +347,20 @@ func (c *UserController) ForgotPasswordHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// VerifyOTPHandler godoc
+// @Summary Verify OTP
+// @Description Verify the OTP sent to user's email for password recovery
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body object{email=string,otp=string} true "Email and OTP"
+// @Success 200 {object} object{status=string,status_code=int,message=string} "OTP is correct"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Email or OTP is missing"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/auth/forgotpassword/otp [post]
 func (c *UserController) VerifyOTPHandler(ctx *fiber.Ctx) error {
-	type OTPRequest struct {
-		Email string `json:"email" validate:"required,email"`
-		OTP   string `json:"otp"`
-	}
+	var req models.VerifyOTPRequest
 
-	var req OTPRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -275,7 +372,7 @@ func (c *UserController) VerifyOTPHandler(ctx *fiber.Ctx) error {
 
 	if req.Email == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "Email is missing",
 			"result":      nil,
@@ -284,7 +381,7 @@ func (c *UserController) VerifyOTPHandler(ctx *fiber.Ctx) error {
 
 	if req.OTP == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "OTP is missing",
 			"result":      nil,
@@ -308,13 +405,20 @@ func (c *UserController) VerifyOTPHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// ChangePasswordHandler godoc
+// @Summary Change Password (Forgot Password Flow)
+// @Description Change password after OTP verification in forgot password flow
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body object{email=string,new_password=string} true "Email and new password"
+// @Success 200 {object} object{status=string,status_code=int,message=string} "Password changed successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Email or new password is missing"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/auth/forgotpassword/changepassword [patch]
 func (c *UserController) ChangePasswordHandler(ctx *fiber.Ctx) error {
-	type OTPRequest struct {
-		Email       string `json:"email" validate:"required,email"`
-		NewPassword string `json:"new_password"`
-	}
+	var req models.ChangePasswordRequest
 
-	var req OTPRequest
 	if err := ctx.BodyParser(&req); err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -326,7 +430,7 @@ func (c *UserController) ChangePasswordHandler(ctx *fiber.Ctx) error {
 
 	if req.Email == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "Email is missing",
 			"result":      nil,
@@ -335,7 +439,7 @@ func (c *UserController) ChangePasswordHandler(ctx *fiber.Ctx) error {
 
 	if req.NewPassword == "" {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "New password is missing",
 			"result":      nil,
@@ -359,11 +463,22 @@ func (c *UserController) ChangePasswordHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// GetUserByIDHandler godoc
+// @Summary Get User Information
+// @Description Get authenticated user's information
+// @Tags User
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "User Info retrieved successfully"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 404 {object} object{status=string,status_code=int,message=string,result=any} "User not found"
+// @Router /api/user [get]
 func (c *UserController) GetUserByIDHandler(ctx *fiber.Ctx) error {
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrUnauthorized.Message,
 			"status_code": fiber.StatusUnauthorized,
 			"message":     "Unauthorized: Missing user ID",
 			"result":      nil,
@@ -388,6 +503,15 @@ func (c *UserController) GetUserByIDHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// LogoutHandler godoc
+// @Summary User Logout
+// @Description Logout authenticated user
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=any} "Logout successful"
+// @Router /api/auth/logout [post]
 func (c *UserController) LogoutHandler(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":      "Success",
@@ -397,31 +521,46 @@ func (c *UserController) LogoutHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// UpdateUserByIDHandler godoc
+// @Summary Update User Information
+// @Description Partially update authenticated user's profile. Only send fields that need to be updated.
+// @Tags User
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param username formData string false "Username"
+// @Param first_name formData string false "First Name"
+// @Param last_name formData string false "Last Name"
+// @Param nickname formData string false "Nickname"
+// @Param gender formData string false "Gender"
+// @Param profile_image formData file false "Profile Image"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "User updated successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Invalid form data"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/user [patch]
 func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrUnauthorized.Message,
 			"status_code": fiber.StatusUnauthorized,
 			"message":     "Unauthorized: Missing user ID",
 			"result":      nil,
 		})
 	}
 
-
 	form, err := ctx.MultipartForm()
 	if err != nil {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
-			"message":     "Invalid form data",
+			"message":     "Invalid form data: " + err.Error(),
 			"result":      nil,
 		})
 	}
 
-
 	user := &entities.User{}
-
 
 	if usernames := form.Value["username"]; len(usernames) > 0 {
 		user.Username = usernames[0]
@@ -438,7 +577,6 @@ func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 	if genders := form.Value["gender"]; len(genders) > 0 {
 		user.Gender = genders[0]
 	}
-	
 
 	// Get the profile image files (optional)
 	files := form.File["profile_image"]
@@ -452,9 +590,9 @@ func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 		file, err = fileHeader.Open()
 		if err != nil {
 			return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-				"status":      "Error",
+				"status":      fiber.ErrBadRequest.Message,
 				"status_code": fiber.ErrBadRequest.Code,
-				"message":     "Failed to open uploaded file",
+				"message":     "Failed to open uploaded file: " + err.Error(),
 				"result":      nil,
 			})
 		}
@@ -478,12 +616,24 @@ func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 	})
 }
 
-
+// CreateStaffFileHandler godoc
+// @Summary Upload Staff Files
+// @Description Upload multiple files for staff member
+// @Tags User
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param file formData file true "Files to upload (can select multiple)"
+// @Success 201 {object} object{status=string,status_code=int,message=string,result=array} "Staff files created successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - No files provided or invalid form data"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/user/staff/files [post]
 func (c *UserController) CreateStaffFileHandler(ctx *fiber.Ctx) error {
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrUnauthorized.Message,
 			"status_code": fiber.StatusUnauthorized,
 			"message":     "Unauthorized: Missing user ID",
 			"result":      nil,
@@ -493,9 +643,9 @@ func (c *UserController) CreateStaffFileHandler(ctx *fiber.Ctx) error {
 	form, err := ctx.MultipartForm()
 	if err != nil {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
-			"message":     "Invalid form data",
+			"message":     "Invalid form data: " + err.Error(),
 			"result":      nil,
 		})
 	}
@@ -504,7 +654,7 @@ func (c *UserController) CreateStaffFileHandler(ctx *fiber.Ctx) error {
 	files := form.File["file"]
 	if len(files) == 0 {
 		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      "Error",
+			"status":      fiber.ErrBadRequest.Message,
 			"status_code": fiber.ErrBadRequest.Code,
 			"message":     "No files provided",
 			"result":      nil,
