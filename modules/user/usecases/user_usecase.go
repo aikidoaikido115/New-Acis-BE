@@ -105,7 +105,9 @@ func (u *UserUseCaseImpl) Register(user *entities.User, roleName string, file mu
 		}
 
 		// Reset file pointer to beginning after DetectFileType
-		file.Seek(0, io.SeekStart)
+		if _, err = file.Seek(0, io.SeekStart); err != nil {
+			return nil, errors.New("failed to reset file pointer: " + err.Error())
+		}
 
 		fileName := uuid.New().String() + fileExtension
 
@@ -317,7 +319,9 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 		}
 
 		// Reset file pointer to beginning after DetectFileType
-		file.Seek(0, io.SeekStart)
+		if _, err = file.Seek(0, io.SeekStart); err != nil {
+			return nil, errors.New("failed to reset file pointer: " + err.Error())
+		}
 
 		fileName := uuid.New().String() + fileExtension
 
