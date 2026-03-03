@@ -60,3 +60,12 @@ type VitalSignQueryParams struct {
 	Limit      int        `json:"limit" form:"limit"`         // default 100
 	Offset     int        `json:"offset" form:"offset"`       // default 0
 }
+
+type UpdateVitalSignRequest struct {
+	Temperature            *float64 `json:"temperature"`
+	HeartRate              *int16   `json:"heart_rate"`
+	BreathingRate          *int16   `json:"breathing_rate"`
+	BloodPressureSystolic  *int16   `json:"blood_pressure_systolic"`
+	BloodPressureDiastolic *int16   `json:"blood_pressure_diastolic"`
+	OxygenSaturation       *int16   `json:"oxygen_saturation"`
+}

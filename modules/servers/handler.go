@@ -144,5 +144,5 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	vitalSignGroup.Get("/room", middlewares.JWTMiddleware(jwt), emrController.GetRoomVitalSignsHandler)
 	vitalSignGroup.Get("/history/:resident_id", middlewares.JWTMiddleware(jwt), emrController.GetVitalSignsHistoryHandler)
 	vitalSignGroup.Get("/abnormal", middlewares.JWTMiddleware(jwt), emrController.GetAbnormalVitalSignsHandler)
-
+	vitalSignGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateVitalSignByIDHandler)
 }

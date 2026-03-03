@@ -64,6 +64,10 @@ type EmrUsecase interface {
 	GetRoomVitalSigns(roomID string, isLatest string, userID string) ([]*entities.VitalSign, error)
 	GetVitalSignsHistory(residentID string, userID string) ([]*entities.VitalSign, error)
 	GetAbnormalVitalSigns(floor string, isLatest string, userID string) ([]*entities.VitalSign, error)
+
+	UpdateVitalSignByID(vitalSignID string, vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error)
+
+	// LaboratoryValue operations
 }
 
 type EmrUseCaseImpl struct {
@@ -654,6 +658,31 @@ func (uc *EmrUseCaseImpl) CreateVitalSign(vitalSign *entities.VitalSign, userID 
 	if err != nil {
 		return nil, errors.New("failed to create vital sign: " + err.Error())
 	}
+
+	newVitalSignData, _ := json.Marshal(map[string]interface{}{
+		"resident_id":              createdVitalSign.ResidentID,
+		"temperature":              createdVitalSign.Temperature,
+		"heart_rate":               createdVitalSign.HeartRate,
+		"breathing_rate":           createdVitalSign.BreathingRate,
+		"blood_pressure_systolic":  createdVitalSign.BloodPressureSystolic,
+		"blood_pressure_diastolic": createdVitalSign.BloodPressureDiastolic,
+		"oxygen_saturation":        createdVitalSign.OxygenSaturation,
+		"created_by_staff_id":      createdVitalSign.CreatedByStaffID,
+	})
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "vital_signs",
+		RecordID:  createdVitalSign.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionInsert,
+		OldValue:  "",
+		NewValue:  string(newVitalSignData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for new vital sign %s: %v", createdVitalSign.ID, err)
+	}
+
 	return createdVitalSign, nil
 }
 
@@ -867,4 +896,124 @@ func (uc *EmrUseCaseImpl) GetAbnormalVitalSigns(floor string, isLatest string, u
 	}
 
 	return abnormalVitalSigns, nil
+}
+
+func (uc *EmrUseCaseImpl) UpdateVitalSignByID(vitalSignID string, vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error) {
+
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can update vital signs")
+	}
+
+	existingVitalSign, err := uc.emrrepo.GetVitalSignByID(vitalSignID)
+	if err != nil {
+		return nil, errors.New("failed to get existing vital sign: " + err.Error())
+	}
+
+	oldVitalSignData, _ := json.Marshal(map[string]interface{}{
+		"resident_id":              existingVitalSign.ResidentID,
+		"temperature":              existingVitalSign.Temperature,
+		"heart_rate":               existingVitalSign.HeartRate,
+		"breathing_rate":           existingVitalSign.BreathingRate,
+		"blood_pressure_systolic":  existingVitalSign.BloodPressureSystolic,
+		"blood_pressure_diastolic": existingVitalSign.BloodPressureDiastolic,
+		"oxygen_saturation":        existingVitalSign.OxygenSaturation,
+	})
+
+	if vitalSign.Temperature == nil &&
+		vitalSign.HeartRate == nil &&
+		vitalSign.BreathingRate == nil &&
+		vitalSign.BloodPressureSystolic == nil &&
+		vitalSign.BloodPressureDiastolic == nil &&
+		vitalSign.OxygenSaturation == nil {
+		return nil, errors.New("at least one vital sign must be provided")
+	}
+
+	if (vitalSign.BloodPressureSystolic != nil && vitalSign.BloodPressureDiastolic == nil) ||
+		(vitalSign.BloodPressureSystolic == nil && vitalSign.BloodPressureDiastolic != nil) {
+		return nil, errors.New("blood pressure systolic and diastolic must be provided together")
+	}
+
+	if vitalSign.Temperature != nil && (*vitalSign.Temperature < emr_constants.MinTemperature || *vitalSign.Temperature > emr_constants.MaxTemperature) {
+		return nil, errors.New("temperature must be between 30 and 45 Celsius")
+	}
+	if vitalSign.HeartRate != nil && (*vitalSign.HeartRate < emr_constants.MinHeartRate || *vitalSign.HeartRate > emr_constants.MaxHeartRate) {
+		return nil, errors.New("heart rate must be between 20 and 250 bpm")
+	}
+	if vitalSign.BreathingRate != nil && (*vitalSign.BreathingRate < emr_constants.MinBreathingRate || *vitalSign.BreathingRate > emr_constants.MaxBreathingRate) {
+		return nil, errors.New("breathing rate must be between 5 and 60 breaths per minute")
+	}
+
+	if vitalSign.BloodPressureSystolic != nil && (*vitalSign.BloodPressureSystolic < emr_constants.MinBloodPressureSystolic || *vitalSign.BloodPressureSystolic > emr_constants.MaxBloodPressureSystolic) {
+		return nil, errors.New("blood pressure systolic must be between 50 and 300 mmHg")
+	}
+	if vitalSign.BloodPressureDiastolic != nil && (*vitalSign.BloodPressureDiastolic < emr_constants.MinBloodPressureDiastolic || *vitalSign.BloodPressureDiastolic > emr_constants.MaxBloodPressureDiastolic) {
+		return nil, errors.New("blood pressure diastolic must be between 30 and 200 mmHg")
+	}
+
+	if vitalSign.BloodPressureSystolic != nil && vitalSign.BloodPressureDiastolic != nil && *vitalSign.BloodPressureSystolic < *vitalSign.BloodPressureDiastolic {
+		return nil, errors.New("blood pressure systolic cannot be less than diastolic")
+	}
+
+	if vitalSign.OxygenSaturation != nil && (*vitalSign.OxygenSaturation < emr_constants.MinOxygenSaturation || *vitalSign.OxygenSaturation > emr_constants.MaxOxygenSaturation) {
+		return nil, errors.New("oxygen saturation must be between 50 and 100 percent")
+	}
+
+	if vitalSign.Temperature != nil {
+		existingVitalSign.Temperature = vitalSign.Temperature
+	}
+	if vitalSign.HeartRate != nil {
+		existingVitalSign.HeartRate = vitalSign.HeartRate
+	}
+	if vitalSign.BreathingRate != nil {
+		existingVitalSign.BreathingRate = vitalSign.BreathingRate
+	}
+	if vitalSign.BloodPressureSystolic != nil {
+		existingVitalSign.BloodPressureSystolic = vitalSign.BloodPressureSystolic
+	}
+	if vitalSign.BloodPressureDiastolic != nil {
+		existingVitalSign.BloodPressureDiastolic = vitalSign.BloodPressureDiastolic
+	}
+	if vitalSign.OxygenSaturation != nil {
+		existingVitalSign.OxygenSaturation = vitalSign.OxygenSaturation
+	}
+
+	updatedVitalSign, err := uc.emrrepo.UpdateVitalSignByID(existingVitalSign)
+	if err != nil {
+		return nil, errors.New("failed to update vital sign: " + err.Error())
+	}
+
+	newVitalSignData, _ := json.Marshal(map[string]interface{}{
+		"resident_id":              updatedVitalSign.ResidentID,
+		"temperature":              updatedVitalSign.Temperature,
+		"heart_rate":               updatedVitalSign.HeartRate,
+		"breathing_rate":           updatedVitalSign.BreathingRate,
+		"blood_pressure_systolic":  updatedVitalSign.BloodPressureSystolic,
+		"blood_pressure_diastolic": updatedVitalSign.BloodPressureDiastolic,
+		"oxygen_saturation":        updatedVitalSign.OxygenSaturation,
+	})
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "vital_signs",
+		RecordID:  updatedVitalSign.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  string(oldVitalSignData),
+		NewValue:  string(newVitalSignData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for vital sign %s: %v", updatedVitalSign.ID, err)
+	}
+
+	return updatedVitalSign, nil
 }
