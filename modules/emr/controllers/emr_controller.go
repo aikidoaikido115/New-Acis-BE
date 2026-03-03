@@ -859,3 +859,64 @@ func (c *EmrController) GetAbnormalVitalSignsHandler(ctx *fiber.Ctx) error {
 		"result":      vitalSigns,
 	})
 }
+
+// @Summary Update Vital Sign by ID
+// @Description Update an existing vital sign entry by its unique ID. Only send fields that need to be updated.
+// @Tags VitalSign
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Vital Sign ID"
+// @Param request body object{temperature=number,heart_rate=int,breathing_rate=int,blood_pressure_systolic=int,blood_pressure_diastolic=int,oxygen_saturation=int} true "Fields to update (all optional)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "Vital sign updated successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Invalid data"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/vital-signs/{id} [patch]
+func (c *EmrController) UpdateVitalSignByIDHandler(ctx *fiber.Ctx) error {
+	var req models.UpdateVitalSignRequest
+
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	vitalSignID := ctx.Params("id")
+	vitalSign := &entities.VitalSign{
+		Temperature:            req.Temperature,
+		HeartRate:              req.HeartRate,
+		BreathingRate:          req.BreathingRate,
+		BloodPressureSystolic:  req.BloodPressureSystolic,
+		BloodPressureDiastolic: req.BloodPressureDiastolic,
+		OxygenSaturation:       req.OxygenSaturation,
+	}
+
+	updatedVitalSign, err := c.emrUsecase.UpdateVitalSignByID(vitalSignID, vitalSign, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "vital sign updated successfully",
+		"result":      updatedVitalSign,
+	})
+}

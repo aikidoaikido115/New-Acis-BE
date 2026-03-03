@@ -1328,6 +1328,82 @@ paths:
       summary: Create Vital Sign
       tags:
       - VitalSign
+  /api/emr/vital-signs/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Update an existing vital sign entry by its unique ID. Only send
+        fields that need to be updated.
+      parameters:
+      - description: Vital Sign ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update (all optional)
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            blood_pressure_diastolic:
+              type: integer
+            blood_pressure_systolic:
+              type: integer
+            breathing_rate:
+              type: integer
+            heart_rate:
+              type: integer
+            oxygen_saturation:
+              type: integer
+            temperature:
+              type: number
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Vital sign updated successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Invalid data
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Vital Sign by ID
+      tags:
+      - VitalSign
   /api/emr/vital-signs/abnormal:
     get:
       consumes:

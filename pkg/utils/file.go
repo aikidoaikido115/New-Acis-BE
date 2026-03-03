@@ -16,7 +16,9 @@ func DetectFileType(file multipart.File) (string, error) {
 	}
 
 	// Reset file pointer กลับไปที่จุดเริ่มต้น
-	file.Seek(0, 0)
+	if _, err = file.Seek(0, 0); err != nil {
+		return "", err
+	}
 
 	// ตรวจสอบ MIME type
 	mimeType := http.DetectContentType(buffer)

@@ -105,7 +105,9 @@ func (u *UserUseCaseImpl) Register(user *entities.User, roleName string, file mu
 		}
 
 		// Reset file pointer to beginning after DetectFileType
-		file.Seek(0, io.SeekStart)
+		if _, err = file.Seek(0, io.SeekStart); err != nil {
+			return nil, errors.New("failed to reset file pointer: " + err.Error())
+		}
 
 		fileName := uuid.New().String() + fileExtension
 
@@ -317,7 +319,9 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 		}
 
 		// Reset file pointer to beginning after DetectFileType
-		file.Seek(0, io.SeekStart)
+		if _, err = file.Seek(0, io.SeekStart); err != nil {
+			return nil, errors.New("failed to reset file pointer: " + err.Error())
+		}
 
 		fileName := uuid.New().String() + fileExtension
 
@@ -586,7 +590,14 @@ func (u *UserUseCaseImpl) CreateStaffFile(userID string, files []*multipart.File
 			}
 
 			// Reset file pointer to beginning after DetectFileType
-			file.Seek(0, io.SeekStart)
+			if _, err = file.Seek(0, io.SeekStart); err != nil {
+				mu.Lock()
+				if firstError == nil {
+					firstError = errors.New("failed to reset file pointer: " + err.Error())
+				}
+				mu.Unlock()
+				return
+			}
 
 			// หาขนาดไฟล์โดย seek ไปท้ายไฟล์
 			fileSize, err := file.Seek(0, io.SeekEnd)
@@ -600,7 +611,14 @@ func (u *UserUseCaseImpl) CreateStaffFile(userID string, files []*multipart.File
 			}
 
 			// Reset file pointer กลับไปจุดเริ่มต้นก่อนอัพโหลด
-			file.Seek(0, io.SeekStart)
+			if _, err = file.Seek(0, io.SeekStart); err != nil {
+				mu.Lock()
+				if firstError == nil {
+					firstError = errors.New("failed to reset file pointer: " + err.Error())
+				}
+				mu.Unlock()
+				return
+			}
 
 			fileName := uuid.New().String() + fileExtension
 

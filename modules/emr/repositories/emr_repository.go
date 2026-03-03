@@ -1,7 +1,6 @@
 package repositories
 
 import (
-
 	emr_constants "github.com/aikidoaikido115/New-Acis-BE/modules/emr/constants"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/models"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
@@ -57,6 +56,7 @@ type EmrRepository interface {
 	// VitalSign operations
 	CreateVitalSign(vitalSign *entities.VitalSign) (*entities.VitalSign, error)
 
+	GetVitalSignByID(id string) (*entities.VitalSign, error)
 	GetVitalSignsByRoomIDToday(roomID string, isLatest bool) ([]*entities.VitalSign, error)
 	GetVitalSignsByFloorToday(floor int16, isLatest bool) ([]*entities.VitalSign, error)
 	GetVitalSignsByResidentIDToday(residentID string, isLatest bool) ([]*entities.VitalSign, error)
@@ -64,12 +64,16 @@ type EmrRepository interface {
 	GetVitalSignsToday(isLatest bool) ([]*entities.VitalSign, error)
 	GetVitalSignsCustom(params models.VitalSignQueryParams) ([]*entities.VitalSign, error)
 
+	UpdateVitalSignByID(vitalSign *entities.VitalSign) (*entities.VitalSign, error)
+
+	//LaboratoryValue operations
+	// CreateLaboratoryValue(laboratoryValue *entities.LaboratoryValue) (*entities.LaboratoryValue, error)
+
 	// todo เพราะมันเจาะจงว่า ค่าไหนของ vital sign อีกทีนึง
 	// GetLatestVitalSignsGreaterThanCustom(params models.VitalSignQueryParams, greaterThan float64) ([]*entities.VitalSign, error)
 	// GetLatestVitalSignsLessThanCustom(params models.VitalSignQueryParams, lessThan float64) ([]*entities.VitalSign, error)
-	
-	//todo Allergy
-	//todo get vital sign เพื่อเอาไป dashboard อันผิดปกติ ย้ายไปทำ usecase ดีกว่า
+
+	//todo Allergy ย้ายไป Meal repository
 }
 
 func (r *GormEmrRepository) CreateResident(resident *entities.Resident) (*entities.Resident, error) {
@@ -309,6 +313,14 @@ func (r *GormEmrRepository) CreateVitalSign(vitalSign *entities.VitalSign) (*ent
 	return vitalSign, nil
 }
 
+func (r *GormEmrRepository) GetVitalSignByID(id string) (*entities.VitalSign, error) {
+	var vitalSign entities.VitalSign
+	if err := r.db.Where("id = ?", id).First(&vitalSign).Error; err != nil {
+		return nil, err
+	}
+	return &vitalSign, nil
+}
+
 func (r *GormEmrRepository) GetVitalSignsHistory(residentID string) ([]*entities.VitalSign, error) {
 	var vitalSigns []*entities.VitalSign
 	if err := r.db.Where("resident_id = ?", residentID).Find(&vitalSigns).Error; err != nil {
@@ -472,13 +484,13 @@ func (r *GormEmrRepository) GetVitalSignsCustom(params models.VitalSignQueryPara
 
 	if params.StartDate != nil {
 		query = query.Where("vital_signs.created_at >= ?", *params.StartDate)
-	}else {
+	} else {
 		query = query.Where("vital_signs.created_at >= (CURRENT_DATE AT TIME ZONE 'Asia/Bangkok')")
 	}
 	if params.EndDate != nil {
 		endDateInclusive := params.EndDate.AddDate(0, 0, 1)
 		query = query.Where("vital_signs.created_at < ?", endDateInclusive)
-	}else {
+	} else {
 		query = query.Where("vital_signs.created_at < (CURRENT_DATE AT TIME ZONE 'Asia/Bangkok') + INTERVAL '1 day'")
 	}
 
@@ -503,4 +515,11 @@ func (r *GormEmrRepository) GetVitalSignsCustom(params models.VitalSignQueryPara
 	}
 
 	return vitalSigns, nil
+}
+
+func (r *GormEmrRepository) UpdateVitalSignByID(vitalSign *entities.VitalSign) (*entities.VitalSign, error) {
+	if err := r.db.Save(&vitalSign).Error; err != nil {
+		return nil, err
+	}
+	return vitalSign, nil
 }
