@@ -1,4 +1,4 @@
-h1:75KYDZ+nSNhx8Zkiy1xVQsumrCeSAdRrIWZm6K+vAZ8=
+h1:3bhqeGCdBYRLXJSjI974bULMgQjsxK3GOfrIg9sB/Ps=
 20251225120117_baseline.sql h1:nDGr+0dzg9CoNnMMJPnwUDoN9CMokZ2O27hxABnWQIw=
 20251225121734_add_test_col.sql h1:HulH71cfP0x27QyxLV4XK5L/2923YKgP6XNpqnl/BQs=
 20251225122058_add_test_col.sql h1:UzZ1gqFQUYlwjFADblodN5gA1O74X1tiIEC5zNa8TOU=
@@ -17,3 +17,4 @@ h1:75KYDZ+nSNhx8Zkiy1xVQsumrCeSAdRrIWZm6K+vAZ8=
 20260211153448_vital-sign.sql h1:X7OCCxFros5U4PW2WBuKc/I0i2K8FfIXy763rIZ6jKc=
 20260212033657_edit-by-staff-id.sql h1:70tPR/i898moG4UUcNhBwk5fjF+LB7S4HB9iGnDzW70=
 20260222092053_fix_vital_signs_types.sql h1:oW5DhrV9Y0lBm1HUZBvWAAd1NYfzjxprC/8pvFpjV3w=
+20260303145000_edit-resident-table-add-medical-column.sql h1:rdjq0BD1MZewoHsbg7fMnFmyykTkHS9kY/WhFQgplPQ=

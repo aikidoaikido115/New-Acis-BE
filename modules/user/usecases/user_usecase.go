@@ -193,9 +193,9 @@ func (u *UserUseCaseImpl) Login(username, email, password string) (string, *enti
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(time.Minute * 30).Unix(), // หมดอายุใน 30 นาที
-		"iat":     time.Now().Unix(),                       // เวลาที่ออก
-		"jti":     uuid.New().String(),                     // ให้ token นี้ unique
+		"exp":     time.Now().Add(time.Hour * 2).Unix(), // หมดอายุใน 2 ชั่วโมง
+		"iat":     time.Now().Unix(),                    // เวลาที่ออก
+		"jti":     uuid.New().String(),                  // ให้ token นี้ unique
 	})
 
 	tokenString, err := token.SignedString([]byte(u.jwtSecret))

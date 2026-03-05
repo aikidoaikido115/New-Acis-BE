@@ -89,8 +89,12 @@ func NewEmrUseCase(
 
 func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID string) (*entities.Resident, error) {
 
-	if resident.Age != nil && *resident.Age < 0 {
-		return nil, errors.New("age cannot be negative")
+	if resident.DateOfBirth.IsZero() {
+		return nil, errors.New("date_of_birth is required")
+	}
+
+	if resident.DateOfBirth.After(time.Now()) {
+		return nil, errors.New("date_of_birth cannot be in the future")
 	}
 
 	roomExists, err := uc.emrrepo.RoomExists(resident.RoomID)
@@ -106,6 +110,35 @@ func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID str
 		return nil, errors.New("gender must be either 'male', 'female', or 'other'")
 	}
 
+	resident.IdCardNumber = strings.TrimSpace(resident.IdCardNumber)
+	if len(resident.IdCardNumber) != 13 {
+		return nil, errors.New("ID card number must be 13 characters long or not missing")
+	}
+
+	idCardExists, err := uc.emrrepo.IdCardNumberExists(resident.IdCardNumber)
+	if err != nil {
+		return nil, errors.New("failed to verify ID card number existence: " + err.Error())
+	}
+	if idCardExists {
+		return nil, errors.New("ID card number already exists")
+	}
+
+	if resident.ExpectedCheckOutDate != nil && resident.ExpectedCheckOutDate.Before(resident.CheckInDate) {
+		return nil, errors.New("expected check-out date cannot be before check-in date")
+	}
+
+	if resident.Status != emr_constants.Active && resident.Status != emr_constants.InActive {
+		return nil, errors.New("status must be either 'active' or 'inactive' or not missing")
+	}
+
+	if resident.ResucitationStatus != nil && *resident.ResucitationStatus != emr_constants.CPR && *resident.ResucitationStatus != emr_constants.DNR {
+		return nil, errors.New("resuscitation status must be either 'CPR' or 'DNR'")
+	}
+
+	if resident.EmergencyHospitalPhone != nil && len(*resident.EmergencyHospitalPhone) != 10 {
+		return nil, errors.New("emergency hospital phone must be 10 characters long")
+	}
+
 	resident.ID = uuid.New().String()
 
 	createdResident, err := uc.emrrepo.CreateResident(resident)
@@ -114,10 +147,22 @@ func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID str
 	}
 
 	newResidentData, _ := json.Marshal(map[string]interface{}{
-		"first_name": createdResident.FirstName,
-		"last_name":  createdResident.LastName,
-		"age":        createdResident.Age,
-		"gender":     createdResident.Gender,
+		"first_name":                    createdResident.FirstName,
+		"last_name":                     createdResident.LastName,
+		"date_of_birth":                 createdResident.DateOfBirth,
+		"gender":                        createdResident.Gender,
+		"nickname":                      createdResident.Nickname,
+		"id_card_number":                createdResident.IdCardNumber,
+		"purpose_of_stay":               createdResident.PurposeOfStay,
+		"check_in_date":                 createdResident.CheckInDate,
+		"expected_check_out_date":       createdResident.ExpectedCheckOutDate,
+		"status":                        createdResident.Status,
+		"pre_existing_conditions":       createdResident.PreExistingConditions,
+		"pre_existing_conditions_notes": createdResident.PreExistingConditionsNotes,
+		"resuscitation_status":          createdResident.ResucitationStatus,
+		"surgical_history":              createdResident.SugicalHistory,
+		"preferred_emergency_hospital":  createdResident.PreferredEmergencyHospital,
+		"emergency_hospital_phone":      createdResident.EmergencyHospitalPhone,
 	})
 	auditLog := &entities.AuditLogs{
 		ID:        uuid.New().String(),
@@ -167,11 +212,23 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 	}
 
 	oldResidentData, _ := json.Marshal(map[string]interface{}{
-		"room_id":    resident.RoomID,
-		"first_name": resident.FirstName,
-		"last_name":  resident.LastName,
-		"age":        resident.Age,
-		"gender":     resident.Gender,
+		"room_id":                       resident.RoomID,
+		"first_name":                    resident.FirstName,
+		"last_name":                     resident.LastName,
+		"date_of_birth":                 resident.DateOfBirth,
+		"gender":                        resident.Gender,
+		"nickname":                      resident.Nickname,
+		"id_card_number":                resident.IdCardNumber,
+		"purpose_of_stay":               resident.PurposeOfStay,
+		"check_in_date":                 resident.CheckInDate,
+		"expected_check_out_date":       resident.ExpectedCheckOutDate,
+		"status":                        resident.Status,
+		"pre_existing_conditions":       resident.PreExistingConditions,
+		"pre_existing_conditions_notes": resident.PreExistingConditionsNotes,
+		"resuscitation_status":          resident.ResucitationStatus,
+		"surgical_history":              resident.SugicalHistory,
+		"preferred_emergency_hospital":  resident.PreferredEmergencyHospital,
+		"emergency_hospital_phone":      resident.EmergencyHospitalPhone,
 	})
 
 	if data.RoomID != nil {
@@ -193,11 +250,14 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 		resident.LastName = *data.LastName
 	}
 
-	if data.Age != nil {
-		if *data.Age < 0 {
-			return nil, errors.New("age cannot be negative")
+	if data.DateOfBirth != nil {
+		if data.DateOfBirth.IsZero() {
+			return nil, errors.New("date_of_birth cannot be zero")
 		}
-		resident.Age = data.Age
+		if data.DateOfBirth.After(time.Now()) {
+			return nil, errors.New("date_of_birth cannot be in the future")
+		}
+		resident.DateOfBirth = *data.DateOfBirth
 	}
 
 	if data.Gender != nil {
@@ -208,17 +268,101 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 		resident.Gender = gender
 	}
 
+	if data.Nickname != nil {
+		resident.Nickname = data.Nickname
+	}
+
+	if data.IdCardNumber != nil {
+		idCard := strings.TrimSpace(*data.IdCardNumber)
+		if len(idCard) != 13 {
+			return nil, errors.New("ID card number must be 13 characters long")
+		}
+		if idCard != resident.IdCardNumber {
+			idCardExists, err := uc.emrrepo.IdCardNumberExists(idCard)
+			if err != nil {
+				return nil, errors.New("failed to verify ID card number existence: " + err.Error())
+			}
+			if idCardExists {
+				return nil, errors.New("ID card number already exists")
+			}
+		}
+		resident.IdCardNumber = idCard
+	}
+
+	if data.PurposeOfStay != nil {
+		resident.PurposeOfStay = data.PurposeOfStay
+	}
+
+	if data.CheckInDate != nil {
+		resident.CheckInDate = *data.CheckInDate
+	}
+
+	if data.ExpectedCheckOutDate != nil {
+		if data.ExpectedCheckOutDate.Before(resident.CheckInDate) {
+			return nil, errors.New("expected check-out date cannot be before check-in date")
+		}
+		resident.ExpectedCheckOutDate = data.ExpectedCheckOutDate
+	}
+
+	if data.Status != nil {
+		if *data.Status != emr_constants.Active && *data.Status != emr_constants.InActive {
+			return nil, errors.New("status must be either 'active' or 'inactive'")
+		}
+		resident.Status = *data.Status
+	}
+
+	if data.PreExistingConditions != nil {
+		resident.PreExistingConditions = data.PreExistingConditions
+	}
+
+	if data.PreExistingConditionsNotes != nil {
+		resident.PreExistingConditionsNotes = data.PreExistingConditionsNotes
+	}
+
+	if data.ResucitationStatus != nil {
+		if *data.ResucitationStatus != emr_constants.CPR && *data.ResucitationStatus != emr_constants.DNR {
+			return nil, errors.New("resuscitation status must be either 'CPR' or 'DNR'")
+		}
+		resident.ResucitationStatus = data.ResucitationStatus
+	}
+
+	if data.SugicalHistory != nil {
+		resident.SugicalHistory = data.SugicalHistory
+	}
+
+	if data.PreferredEmergencyHospital != nil {
+		resident.PreferredEmergencyHospital = data.PreferredEmergencyHospital
+	}
+
+	if data.EmergencyHospitalPhone != nil {
+		if len(*data.EmergencyHospitalPhone) != 10 {
+			return nil, errors.New("emergency hospital phone must be 10 characters long")
+		}
+		resident.EmergencyHospitalPhone = data.EmergencyHospitalPhone
+	}
+
 	updatedResident, err := uc.emrrepo.UpdateResident(resident)
 	if err != nil {
 		return nil, errors.New("failed to update resident: " + err.Error())
 	}
 
 	newResidentData, _ := json.Marshal(map[string]interface{}{
-		"room_id":    updatedResident.RoomID,
-		"first_name": updatedResident.FirstName,
-		"last_name":  updatedResident.LastName,
-		"age":        updatedResident.Age,
-		"gender":     updatedResident.Gender,
+		"first_name":                    updatedResident.FirstName,
+		"last_name":                     updatedResident.LastName,
+		"date_of_birth":                 updatedResident.DateOfBirth,
+		"gender":                        updatedResident.Gender,
+		"nickname":                      updatedResident.Nickname,
+		"id_card_number":                updatedResident.IdCardNumber,
+		"purpose_of_stay":               updatedResident.PurposeOfStay,
+		"check_in_date":                 updatedResident.CheckInDate,
+		"expected_check_out_date":       updatedResident.ExpectedCheckOutDate,
+		"status":                        updatedResident.Status,
+		"pre_existing_conditions":       updatedResident.PreExistingConditions,
+		"pre_existing_conditions_notes": updatedResident.PreExistingConditionsNotes,
+		"resuscitation_status":          updatedResident.ResucitationStatus,
+		"surgical_history":              updatedResident.SugicalHistory,
+		"preferred_emergency_hospital":  updatedResident.PreferredEmergencyHospital,
+		"emergency_hospital_phone":      updatedResident.EmergencyHospitalPhone,
 	})
 	auditLog := &entities.AuditLogs{
 		ID:        uuid.New().String(),
@@ -686,6 +830,46 @@ func (uc *EmrUseCaseImpl) CreateVitalSign(vitalSign *entities.VitalSign, userID 
 	return createdVitalSign, nil
 }
 
+// filterVitalSignsByStatus filters vital signs by status: "all", "normal", or "abnormal".
+// Default (empty string or "all") returns all.
+func filterVitalSignsByStatus(vitalSigns []*entities.VitalSign, status string) []*entities.VitalSign {
+	if status == "" || status == "all" {
+		return vitalSigns
+	}
+
+	wantAbnormal := status == "abnormal"
+	log.Printf("Filtering vital signs for status '%s' (wantAbnormal=%t)", status, wantAbnormal)
+
+	result := make([]*entities.VitalSign, 0)
+	for _, vs := range vitalSigns {
+		isAbnormal := false
+
+		if vs.Temperature != nil && (*vs.Temperature < emr_constants.NormalTempLow || *vs.Temperature > emr_constants.NormalTempHigh) {
+			isAbnormal = true
+		}
+		if vs.HeartRate != nil && (*vs.HeartRate < emr_constants.NormalHeartRateLow || *vs.HeartRate > emr_constants.NormalHeartRateHigh) {
+			isAbnormal = true
+		}
+		if vs.BreathingRate != nil && (*vs.BreathingRate < emr_constants.NormalBreathingRateLow || *vs.BreathingRate > emr_constants.NormalBreathingRateHigh) {
+			isAbnormal = true
+		}
+		if vs.BloodPressureSystolic != nil && (*vs.BloodPressureSystolic < emr_constants.NormalSystolicLow || *vs.BloodPressureSystolic > emr_constants.NormalSystolicHigh) {
+			isAbnormal = true
+		}
+		if vs.BloodPressureDiastolic != nil && (*vs.BloodPressureDiastolic < emr_constants.NormalDiastolicLow || *vs.BloodPressureDiastolic > emr_constants.NormalDiastolicHigh) {
+			isAbnormal = true
+		}
+		if vs.OxygenSaturation != nil && *vs.OxygenSaturation < emr_constants.NormalOxygenSaturationLow {
+			isAbnormal = true
+		}
+
+		if isAbnormal == wantAbnormal {
+			result = append(result, vs)
+		}
+	}
+	return result
+}
+
 func (uc *EmrUseCaseImpl) GetVitalSignsOverview(req models.VitalSignQueryParams, userID string) ([]*entities.VitalSign, error) {
 
 	user, err := uc.userrepo.GetUserByID(userID)
@@ -702,21 +886,30 @@ func (uc *EmrUseCaseImpl) GetVitalSignsOverview(req models.VitalSignQueryParams,
 		return nil, errors.New("only users with 'Medical Staff' role can view vital signs overview")
 	}
 
-	// กรณีธรรมดา: ทั้งหมด วันนี้
-	if req.Floor == nil && len(req.LabelIDs) == 0 {
-		vitalSigns, err := uc.emrrepo.GetVitalSignsToday(true) // isLatest = true
-		return vitalSigns, err
+	if req.VitalSignStatus != "" && req.VitalSignStatus != "all" && req.VitalSignStatus != "normal" && req.VitalSignStatus != "abnormal" {
+		return nil, errors.New("vitalsign_status must be 'all', 'normal', or 'abnormal'")
 	}
 
-	// กรณีมี filter: ใช้ Custom
-	params := models.VitalSignQueryParams{
-		Floor:    req.Floor,
-		LabelIDs: req.LabelIDs,
-		IsLatest: true,
-		Limit:    100,
+	// กรณีธรรมดา: ทั้งหมด วันนี้
+	var vitalSigns []*entities.VitalSign
+
+	if req.Floor == nil && len(req.LabelIDs) == 0 {
+		vitalSigns, err = uc.emrrepo.GetVitalSignsToday(false)
+	} else {
+		// กรณีมี filter: ใช้ Custom
+		params := models.VitalSignQueryParams{
+			Floor:    req.Floor,
+			LabelIDs: req.LabelIDs,
+			IsLatest: false,
+			Limit:    100,
+		}
+		vitalSigns, err = uc.emrrepo.GetVitalSignsCustom(params)
 	}
-	vitalSigns, err := uc.emrrepo.GetVitalSignsCustom(params)
-	return vitalSigns, err
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("ก่อนจะกรอง vital signs ทั้งหมด: %d รายการ | vitalsign_status='%s'", len(vitalSigns), req.VitalSignStatus)
+	return filterVitalSignsByStatus(vitalSigns, req.VitalSignStatus), nil
 }
 
 func (uc *EmrUseCaseImpl) GetVitalSignsByResident(residentID string, isLatest string, userID string) ([]*entities.VitalSign, error) {
@@ -867,34 +1060,7 @@ func (uc *EmrUseCaseImpl) GetAbnormalVitalSigns(floor string, isLatest string, u
 		return nil, errors.New("failed to get vital signs: " + err.Error())
 	}
 
-	abnormalVitalSigns := make([]*entities.VitalSign, 0)
-	for _, vs := range vitalSigns {
-		isAbnormal := false
-
-		if vs.Temperature != nil && (*vs.Temperature < emr_constants.NormalTempLow || *vs.Temperature > emr_constants.NormalTempHigh) {
-			isAbnormal = true
-		}
-		if vs.HeartRate != nil && (*vs.HeartRate < emr_constants.NormalHeartRateLow || *vs.HeartRate > emr_constants.NormalHeartRateHigh) {
-			isAbnormal = true
-		}
-		if vs.BreathingRate != nil && (*vs.BreathingRate < emr_constants.NormalBreathingRateLow || *vs.BreathingRate > emr_constants.NormalBreathingRateHigh) {
-			isAbnormal = true
-		}
-		if vs.BloodPressureSystolic != nil && (*vs.BloodPressureSystolic < emr_constants.NormalSystolicLow || *vs.BloodPressureSystolic > emr_constants.NormalSystolicHigh) {
-			isAbnormal = true
-		}
-		if vs.BloodPressureDiastolic != nil && (*vs.BloodPressureDiastolic < emr_constants.NormalDiastolicLow || *vs.BloodPressureDiastolic > emr_constants.NormalDiastolicHigh) {
-			isAbnormal = true
-		}
-		if vs.OxygenSaturation != nil && *vs.OxygenSaturation < emr_constants.NormalOxygenSaturationLow {
-			isAbnormal = true
-		}
-
-		if isAbnormal {
-			abnormalVitalSigns = append(abnormalVitalSigns, vs)
-		}
-	}
-
+	abnormalVitalSigns := filterVitalSignsByStatus(vitalSigns, "abnormal")
 	return abnormalVitalSigns, nil
 }
 

@@ -26,6 +26,7 @@ type EmrRepository interface {
 	GetAllResidents() ([]*entities.Resident, error)
 	UpdateResident(resident *entities.Resident) (*entities.Resident, error)
 	ResidentExists(id string) (bool, error)
+	IdCardNumberExists(idCardNumber string) (bool, error)
 
 	// Dashboard operations
 	GetNumberOfResidentsDashboard() (models.NumberOfResidentsDashboardResponse, error)
@@ -127,6 +128,15 @@ func (r *GormEmrRepository) UpdateResident(resident *entities.Resident) (*entiti
 func (r *GormEmrRepository) ResidentExists(id string) (bool, error) {
 	var count int64
 	err := r.db.Model(&entities.Resident{}).Where("id = ?", id).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (r *GormEmrRepository) IdCardNumberExists(idCardNumber string) (bool, error) {
+	var count int64
+	err := r.db.Model(&entities.Resident{}).Where("id_card_number = ?", idCardNumber).Count(&count).Error
 	if err != nil {
 		return false, err
 	}
@@ -341,8 +351,8 @@ func (r *GormEmrRepository) GetVitalSignsByRoomIDToday(roomID string, isLatest b
 
 	query = query.Joins("JOIN residents ON vital_signs.resident_id = residents.id").
 		Where("residents.room_id = ?", roomID).
-		Where("vital_signs.created_at >= CURRENT_DATE").
-		Where("vital_signs.created_at < CURRENT_DATE + INTERVAL '1 day'")
+		Where("vital_signs.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
+		Where("vital_signs.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
 
 	if isLatest {
 		query = query.Order("vital_signs.resident_id, vital_signs.created_at DESC")
@@ -371,8 +381,8 @@ func (r *GormEmrRepository) GetVitalSignsByFloorToday(floor int16, isLatest bool
 	query = query.Joins("JOIN residents ON vital_signs.resident_id = residents.id").
 		Joins("JOIN rooms ON residents.room_id = rooms.id").
 		Where("rooms.floor = ?", floor).
-		Where("vital_signs.created_at >= CURRENT_DATE").
-		Where("vital_signs.created_at < CURRENT_DATE + INTERVAL '1 day'")
+		Where("vital_signs.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
+		Where("vital_signs.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
 
 	if isLatest {
 		query = query.Order("vital_signs.resident_id, vital_signs.created_at DESC")
@@ -393,8 +403,8 @@ func (r *GormEmrRepository) GetVitalSignsByResidentIDToday(residentID string, is
 
 	query := r.db.
 		Where("resident_id = ?", residentID).
-		Where("created_at >= CURRENT_DATE").
-		Where("created_at < CURRENT_DATE + INTERVAL '1 day'").
+		Where("created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
+		Where("created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'").
 		Order("created_at DESC")
 
 	if isLatest {
@@ -419,8 +429,8 @@ func (r *GormEmrRepository) GetVitalSignsToday(isLatest bool) ([]*entities.Vital
 			Select("DISTINCT ON (vital_signs.resident_id) vital_signs.*")
 	}
 
-	query = query.Where("vital_signs.created_at >= (CURRENT_DATE AT TIME ZONE 'Asia/Bangkok')").
-		Where("vital_signs.created_at < (CURRENT_DATE AT TIME ZONE 'Asia/Bangkok') + INTERVAL '1 day'")
+	query = query.Where("vital_signs.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
+		Where("vital_signs.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
 
 	if isLatest {
 		query = query.Order("vital_signs.resident_id, vital_signs.created_at DESC")
@@ -485,13 +495,13 @@ func (r *GormEmrRepository) GetVitalSignsCustom(params models.VitalSignQueryPara
 	if params.StartDate != nil {
 		query = query.Where("vital_signs.created_at >= ?", *params.StartDate)
 	} else {
-		query = query.Where("vital_signs.created_at >= (CURRENT_DATE AT TIME ZONE 'Asia/Bangkok')")
+		query = query.Where("vital_signs.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'")
 	}
 	if params.EndDate != nil {
 		endDateInclusive := params.EndDate.AddDate(0, 0, 1)
 		query = query.Where("vital_signs.created_at < ?", endDateInclusive)
 	} else {
-		query = query.Where("vital_signs.created_at < (CURRENT_DATE AT TIME ZONE 'Asia/Bangkok') + INTERVAL '1 day'")
+		query = query.Where("vital_signs.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
 	}
 
 	// Order: สำหรับ Latest จะเรียง resident_id ก่อน, แล้ว created_at DESC (สำคัญสำหรับ DISTINCT ON)

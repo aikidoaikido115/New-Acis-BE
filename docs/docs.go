@@ -1166,7 +1166,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a new resident with room ID, first name, last name, age, and gender",
+                "description": "Create a new resident. Required: room_id, first_name, last_name, gender, id_card_number (13 digits), date_of_birth, check_in_date, status (active/inactive). Optional: nickname, purpose_of_stay, expected_check_out_date, pre_existing_conditions, pre_existing_conditions_notes, resuscitation_status (CPR/DNR), surgical_history, preferred_emergency_hospital, emergency_hospital_phone (10 digits)",
                 "consumes": [
                     "application/json"
                 ],
@@ -1186,8 +1186,17 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "age": {
-                                    "type": "integer"
+                                "check_in_date": {
+                                    "type": "string"
+                                },
+                                "date_of_birth": {
+                                    "type": "string"
+                                },
+                                "emergency_hospital_phone": {
+                                    "type": "string"
+                                },
+                                "expected_check_out_date": {
+                                    "type": "string"
                                 },
                                 "first_name": {
                                     "type": "string"
@@ -1195,10 +1204,37 @@ const docTemplate = `{
                                 "gender": {
                                     "type": "string"
                                 },
+                                "id_card_number": {
+                                    "type": "string"
+                                },
                                 "last_name": {
                                     "type": "string"
                                 },
+                                "nickname": {
+                                    "type": "string"
+                                },
+                                "pre_existing_conditions": {
+                                    "type": "string"
+                                },
+                                "pre_existing_conditions_notes": {
+                                    "type": "string"
+                                },
+                                "preferred_emergency_hospital": {
+                                    "type": "string"
+                                },
+                                "purpose_of_stay": {
+                                    "type": "string"
+                                },
+                                "resuscitation_status": {
+                                    "type": "string"
+                                },
                                 "room_id": {
+                                    "type": "string"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "surgical_history": {
                                     "type": "string"
                                 }
                             }
@@ -1227,7 +1263,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request - Missing required fields",
+                        "description": "Bad Request - Missing or invalid fields",
                         "schema": {
                             "type": "object",
                             "properties": {
@@ -1402,7 +1438,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Partially update an existing resident's information by their unique ID. Only send fields that need to be updated.",
+                "description": "Partially update an existing resident's information by their unique ID. All fields are optional — only send fields that need to be updated.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1425,17 +1461,28 @@ const docTemplate = `{
                         "description": "Fields to update (all optional)",
                         "name": "request",
                         "in": "body",
-                        "required": true,
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "age": {
-                                    "type": "integer"
+                                "check_in_date": {
+                                    "type": "string"
+                                },
+                                "date_of_birth": {
+                                    "type": "string"
+                                },
+                                "emergency_hospital_phone": {
+                                    "type": "string"
+                                },
+                                "expected_check_out_date": {
+                                    "type": "string"
                                 },
                                 "first_name": {
                                     "type": "string"
                                 },
                                 "gender": {
+                                    "type": "string"
+                                },
+                                "id_card_number": {
                                     "type": "string"
                                 },
                                 "labels": {
@@ -1455,7 +1502,31 @@ const docTemplate = `{
                                 "last_name": {
                                     "type": "string"
                                 },
+                                "nickname": {
+                                    "type": "string"
+                                },
+                                "pre_existing_conditions": {
+                                    "type": "string"
+                                },
+                                "pre_existing_conditions_notes": {
+                                    "type": "string"
+                                },
+                                "preferred_emergency_hospital": {
+                                    "type": "string"
+                                },
+                                "purpose_of_stay": {
+                                    "type": "string"
+                                },
+                                "resuscitation_status": {
+                                    "type": "string"
+                                },
                                 "room_id": {
+                                    "type": "string"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "surgical_history": {
                                     "type": "string"
                                 }
                             }
@@ -2155,7 +2226,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get today's latest vital signs with optional floor or label filters",
+                "description": "Get today's vital signs with optional filters. vitalsign_status: 'all' (default), 'normal', or 'abnormal'",
                 "consumes": [
                     "application/json"
                 ],
@@ -2182,6 +2253,17 @@ const docTemplate = `{
                         "description": "Filter by label IDs",
                         "name": "label_ids",
                         "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "all",
+                            "normal",
+                            "abnormal"
+                        ],
+                        "type": "string",
+                        "description": "Filter by vital sign status",
+                        "name": "vitalsign_status",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2196,6 +2278,24 @@ const docTemplate = `{
                                 "result": {
                                     "type": "object"
                                 },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
                                 "status": {
                                     "type": "string"
                                 },
@@ -2942,9 +3042,9 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "",
-	Host:             "localhost:8000",
+	Host:             "",
 	BasePath:         "/",
-	Schemes:          []string{"http"},
+	Schemes:          []string{"https", "http"},
 	Title:            "New-Acis API",
 	Description:      "This is a sample for New-Acis API.",
 	InfoInstanceName: "swagger",
