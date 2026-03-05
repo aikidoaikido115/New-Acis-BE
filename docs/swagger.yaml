@@ -44,7 +44,6 @@ definitions:
     required:
     - resident_id
     type: object
-host: localhost:8000
 info:
   contact: {}
   description: This is a sample for New-Acis API.
@@ -804,8 +803,11 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new resident with room ID, first name, last name, age,
-        and gender
+      description: 'Create a new resident. Required: room_id, first_name, last_name,
+        gender, id_card_number (13 digits), date_of_birth, check_in_date, status (active/inactive).
+        Optional: nickname, purpose_of_stay, expected_check_out_date, pre_existing_conditions,
+        pre_existing_conditions_notes, resuscitation_status (CPR/DNR), surgical_history,
+        preferred_emergency_hospital, emergency_hospital_phone (10 digits)'
       parameters:
       - description: Resident information
         in: body
@@ -813,15 +815,39 @@ paths:
         required: true
         schema:
           properties:
-            age:
-              type: integer
+            check_in_date:
+              type: string
+            date_of_birth:
+              type: string
+            emergency_hospital_phone:
+              type: string
+            expected_check_out_date:
+              type: string
             first_name:
               type: string
             gender:
               type: string
+            id_card_number:
+              type: string
             last_name:
               type: string
+            nickname:
+              type: string
+            pre_existing_conditions:
+              type: string
+            pre_existing_conditions_notes:
+              type: string
+            preferred_emergency_hospital:
+              type: string
+            purpose_of_stay:
+              type: string
+            resuscitation_status:
+              type: string
             room_id:
+              type: string
+            status:
+              type: string
+            surgical_history:
               type: string
           type: object
       produces:
@@ -841,7 +867,7 @@ paths:
                 type: integer
             type: object
         "400":
-          description: Bad Request - Missing required fields
+          description: Bad Request - Missing or invalid fields
           schema:
             properties:
               message:
@@ -917,7 +943,7 @@ paths:
       consumes:
       - application/json
       description: Partially update an existing resident's information by their unique
-        ID. Only send fields that need to be updated.
+        ID. All fields are optional — only send fields that need to be updated.
       parameters:
       - description: Resident ID
         in: path
@@ -927,14 +953,21 @@ paths:
       - description: Fields to update (all optional)
         in: body
         name: request
-        required: true
         schema:
           properties:
-            age:
-              type: integer
+            check_in_date:
+              type: string
+            date_of_birth:
+              type: string
+            emergency_hospital_phone:
+              type: string
+            expected_check_out_date:
+              type: string
             first_name:
               type: string
             gender:
+              type: string
+            id_card_number:
               type: string
             labels:
               items:
@@ -947,7 +980,23 @@ paths:
               type: array
             last_name:
               type: string
+            nickname:
+              type: string
+            pre_existing_conditions:
+              type: string
+            pre_existing_conditions_notes:
+              type: string
+            preferred_emergency_hospital:
+              type: string
+            purpose_of_stay:
+              type: string
+            resuscitation_status:
+              type: string
             room_id:
+              type: string
+            status:
+              type: string
+            surgical_history:
               type: string
           type: object
       produces:
@@ -1522,7 +1571,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get today's latest vital signs with optional floor or label filters
+      description: 'Get today''s vital signs with optional filters. vitalsign_status:
+        ''all'' (default), ''normal'', or ''abnormal'''
       parameters:
       - description: Filter by floor
         in: query
@@ -1535,6 +1585,14 @@ paths:
           type: string
         name: label_ids
         type: array
+      - description: Filter by vital sign status
+        enum:
+        - all
+        - normal
+        - abnormal
+        in: query
+        name: vitalsign_status
+        type: string
       produces:
       - application/json
       responses:
@@ -1546,6 +1604,18 @@ paths:
                 type: string
               result:
                 type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
               status:
                 type: string
               status_code:
@@ -1910,6 +1980,7 @@ paths:
       tags:
       - User
 schemes:
+- https
 - http
 securityDefinitions:
   BearerAuth:

@@ -25,14 +25,14 @@ func NewEmrController(emrUsecase usecases.EmrUsecase) *EmrController {
 
 // CreateResidentHandler godoc
 // @Summary Create Resident
-// @Description Create a new resident with room ID, first name, last name, age, and gender
+// @Description Create a new resident. Required: room_id, first_name, last_name, gender, id_card_number (13 digits), date_of_birth, check_in_date, status (active/inactive). Optional: nickname, purpose_of_stay, expected_check_out_date, pre_existing_conditions, pre_existing_conditions_notes, resuscitation_status (CPR/DNR), surgical_history, preferred_emergency_hospital, emergency_hospital_phone (10 digits)
 // @Tags Resident
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body object{room_id=string,first_name=string,last_name=string,age=int,gender=string} true "Resident information"
+// @Param request body object{room_id=string,first_name=string,last_name=string,gender=string,nickname=string,id_card_number=string,date_of_birth=string,purpose_of_stay=string,check_in_date=string,expected_check_out_date=string,status=string,pre_existing_conditions=string,pre_existing_conditions_notes=string,resuscitation_status=string,surgical_history=string,preferred_emergency_hospital=string,emergency_hospital_phone=string} true "Resident information"
 // @Success 201 {object} object{status=string,status_code=int,message=string,result=object} "Resident created successfully"
-// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing required fields"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing or invalid fields"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/residents [post]
 func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
@@ -58,11 +58,23 @@ func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
 	}
 
 	resident := &entities.Resident{
-		RoomID:    req.RoomID,
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-		Age:       req.Age,
-		Gender:    req.Gender,
+		RoomID:                     req.RoomID,
+		FirstName:                  req.FirstName,
+		LastName:                   req.LastName,
+		Gender:                     req.Gender,
+		Nickname:                   req.Nickname,
+		IdCardNumber:               req.IdCardNumber,
+		DateOfBirth:                req.DateOfBirth,
+		PurposeOfStay:              req.PurposeOfStay,
+		CheckInDate:                req.CheckInDate,
+		ExpectedCheckOutDate:       req.ExpectedCheckOutDate,
+		Status:                     req.Status,
+		PreExistingConditions:      req.PreExistingConditions,
+		PreExistingConditionsNotes: req.PreExistingConditionsNotes,
+		ResucitationStatus:         req.ResucitationStatus,
+		SugicalHistory:             req.SugicalHistory,
+		PreferredEmergencyHospital: req.PreferredEmergencyHospital,
+		EmergencyHospitalPhone:     req.EmergencyHospitalPhone,
 	}
 
 	createdResident, err := c.emrUsecase.CreateResident(resident, userID)
@@ -183,13 +195,13 @@ func (c *EmrController) GetAllResidentsHandler(ctx *fiber.Ctx) error {
 
 // UpdateResident godoc
 // @Summary Update Resident
-// @Description Partially update an existing resident's information by their unique ID. Only send fields that need to be updated.
+// @Description Partially update an existing resident's information by their unique ID. All fields are optional — only send fields that need to be updated.
 // @Tags Resident
 // @Accept json
 // @Produce json
 // @Security BearerAuth
 // @Param id path string true "Resident ID"
-// @Param request body object{room_id=string,first_name=string,last_name=string,age=int,gender=string,labels=[]object{label_name=string,note_text=string}} true "Fields to update (all optional)"
+// @Param request body object{room_id=string,first_name=string,last_name=string,gender=string,nickname=string,id_card_number=string,date_of_birth=string,purpose_of_stay=string,check_in_date=string,expected_check_out_date=string,status=string,pre_existing_conditions=string,pre_existing_conditions_notes=string,resuscitation_status=string,surgical_history=string,preferred_emergency_hospital=string,emergency_hospital_phone=string,labels=[]object{label_name=string,note_text=string}} false "Fields to update (all optional)"
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "Resident updated successfully"
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Invalid data"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
@@ -644,14 +656,16 @@ func (c *EmrController) CreateVitalSignHandler(ctx *fiber.Ctx) error {
 }
 
 // @Summary Get Vital Signs Overview
-// @Description Get today's latest vital signs with optional floor or label filters
+// @Description Get today's vital signs with optional filters. vitalsign_status: 'all' (default), 'normal', or 'abnormal'
 // @Tags VitalSign
 // @Accept json
 // @Produce json
 // @Security BearerAuth
 // @Param floor query int false "Filter by floor"
 // @Param label_ids query []string false "Filter by label IDs"
+// @Param vitalsign_status query string false "Filter by vital sign status" Enums(all, normal, abnormal)
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
 // @Router /api/emr/vital-signs/overview [get]
 func (c *EmrController) GetVitalSignsOverviewHandler(ctx *fiber.Ctx) error {
