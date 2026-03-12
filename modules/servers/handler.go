@@ -118,6 +118,7 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	residentGroup := app.Group("/api/emr/residents")
 	residentGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateResidentHandler)
 	residentGroup.Get("/all", middlewares.JWTMiddleware(jwt), emrController.GetAllResidentsHandler)
+	residentGroup.Get("/overview", middlewares.JWTMiddleware(jwt), emrController.GetResidentOverviewHandler)
 	residentGroup.Get("/:id", middlewares.JWTMiddleware(jwt), emrController.GetResidentByIDHandler)
 	residentGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetResidentByRoomIDHandler)
 	residentGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateResidentByIDHandler)
@@ -145,4 +146,14 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	vitalSignGroup.Get("/history/:resident_id", middlewares.JWTMiddleware(jwt), emrController.GetVitalSignsHistoryHandler)
 	vitalSignGroup.Get("/abnormal", middlewares.JWTMiddleware(jwt), emrController.GetAbnormalVitalSignsHandler)
 	vitalSignGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateVitalSignByIDHandler)
+
+	laboratoryValueGroup := app.Group("/api/emr/laboratory-values")
+	laboratoryValueGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateLaboratoryValueHandler)
+	laboratoryValueGroup.Get("/overview", middlewares.JWTMiddleware(jwt), emrController.GetLaboratoryValuesOverviewHandler)
+	laboratoryValueGroup.Get("/resident", middlewares.JWTMiddleware(jwt), emrController.GetLaboratoryValuesByResidentHandler)
+	laboratoryValueGroup.Get("/room", middlewares.JWTMiddleware(jwt), emrController.GetRoomLaboratoryValuesHandler)
+	laboratoryValueGroup.Get("/history/:resident_id", middlewares.JWTMiddleware(jwt), emrController.GetLaboratoryValuesHistoryHandler)
+	laboratoryValueGroup.Get("/urine-output-sum/:resident_id", middlewares.JWTMiddleware(jwt), emrController.GetUrineOutputSumByResidentIDHandler)
+	laboratoryValueGroup.Get("/abnormal", middlewares.JWTMiddleware(jwt), emrController.GetAbnormalLaboratoryValuesHandler)
+	laboratoryValueGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateLaboratoryValueByIDHandler)
 }

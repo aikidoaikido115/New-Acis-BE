@@ -193,6 +193,47 @@ func (c *EmrController) GetAllResidentsHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// GetResidentOverview godoc
+// @Summary Get Resident Overview
+// @Description Retrieve an overview of residents with optional filtering by floor, labels, and status for dashboard display
+// @Tags Resident
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param floor query int false "Floor number (optional)"
+// @Param label_ids query []string false "List of label IDs (optional)"
+// @Param status query string false "Resident status (optional)"
+// @Param search query string false "Search by first name, last name, or nickname (optional)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "Resident overview retrieved successfully"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/residents/overview [get]
+func (c *EmrController) GetResidentOverviewHandler(ctx *fiber.Ctx) error {
+	var req models.ResidentQueryParams
+	if err := ctx.QueryParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	response, err := c.emrUsecase.GetResidentOverview(req)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "resident overview retrieved successfully",
+		"result":      response,
+	})
+}
+
 // UpdateResident godoc
 // @Summary Update Resident
 // @Description Partially update an existing resident's information by their unique ID. All fields are optional — only send fields that need to be updated.
@@ -932,5 +973,403 @@ func (c *EmrController) UpdateVitalSignByIDHandler(ctx *fiber.Ctx) error {
 		"status_code": fiber.StatusOK,
 		"message":     "vital sign updated successfully",
 		"result":      updatedVitalSign,
+	})
+}
+
+// CreateLaboratoryValue godoc
+// @Summary Create Laboratory Value
+// @Description Create a new laboratory value entry for a resident. urine_type must be 'ml' or 'times' and must be provided together with urine_output.
+// @Tags LaboratoryValue
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body models.CreateLaboratoryValueRequest true "Laboratory value information"
+// @Success 201 {object} object{status=string,status_code=int,message=string,result=entities.LaboratoryValue} "Laboratory value created successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing required fields"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/laboratory-values [post]
+func (c *EmrController) CreateLaboratoryValueHandler(ctx *fiber.Ctx) error {
+	var req models.CreateLaboratoryValueRequest
+
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	laboratoryValue := &entities.LaboratoryValue{
+		ResidentID:   req.ResidentID,
+		BloodGlucose: req.BloodGlucose,
+		FluidIn:      req.FluidIn,
+		FluidOut:     req.FluidOut,
+		UrineOutput:  req.UrineOutput,
+		UrineType:    req.UrineType,
+		Stool:        req.Stool,
+		DiaperChange: req.DiaperChange,
+	}
+
+	createdLaboratoryValue, err := c.emrUsecase.CreateLaboratoryValue(laboratoryValue, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusCreated,
+		"message":     "laboratory value created successfully",
+		"result":      createdLaboratoryValue,
+	})
+}
+
+// @Summary Get Laboratory Values Overview
+// @Description Get today's laboratory values with optional filters. laboratory_value_status: 'all' (default), 'normal', or 'abnormal'. urine_type must be 'ml' or 'times' and must be provided together with urine_output.
+// @Tags LaboratoryValue
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param floor query int false "Filter by floor"
+// @Param label_ids query []string false "Filter by label IDs"
+// @Param urine_type query string false "Filter by urine type (must be 'ml' or 'times' if urine_output is provided)" Enums(ml, times)
+// @Param laboratory_value_status query string false "Filter by laboratory value status" Enums(all, normal, abnormal)
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/laboratory-values/overview [get]
+func (c *EmrController) GetLaboratoryValuesOverviewHandler(ctx *fiber.Ctx) error {
+	var req models.LaboratoryValueQueryParams
+	if err := ctx.QueryParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	response, err := c.emrUsecase.GetLaboratoryValuesOverview(req, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "laboratory values overview retrieved successfully",
+		"result":      response,
+	})
+}
+
+// @Summary Get Laboratory Values by Resident ID
+// @Description Retrieve laboratory values today for a specific resident, with an option to get only the latest entry. is_latest must be 'true' or 'false'
+// @Tags LaboratoryValue
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param resident_id query string true "Resident ID"
+// @Param is_latest query string true "Retrieve only the latest laboratory value entry ('true' or 'false')" Enums(true, false)
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/laboratory-values/resident [get]
+func (c *EmrController) GetLaboratoryValuesByResidentHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Query("resident_id")
+	isLatest := ctx.Query("is_latest")
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	laboratoryValues, err := c.emrUsecase.GetLaboratoryValuesByResident(residentID, isLatest, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "laboratory values retrieved successfully",
+		"result":      laboratoryValues,
+	})
+}
+
+// @Summary Get Laboratory Values by Room ID
+// @Description Retrieve laboratory values today for all residents in a specific room, with an option to get only the latest entry per resident. is_latest must be 'true' or 'false'
+// @Tags LaboratoryValue
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param room_id query string true "Room ID"
+// @Param is_latest query string true "Retrieve only the latest laboratory value entry per resident ('true' or 'false')" Enums(true, false)
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/laboratory-values/room [get]
+func (c *EmrController) GetRoomLaboratoryValuesHandler(ctx *fiber.Ctx) error {
+	roomID := ctx.Query("room_id")
+	isLatest := ctx.Query("is_latest")
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	laboratoryValues, err := c.emrUsecase.GetRoomLaboratoryValues(roomID, isLatest, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "laboratory values retrieved successfully",
+		"result":      laboratoryValues,
+	})
+}
+
+// @Summary Get Laboratory Values History by Resident ID
+// @Description Retrieve the full history of laboratory values for a specific resident
+// @Tags LaboratoryValue
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param resident_id path string true "Resident ID"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/laboratory-values/history/{resident_id} [get]
+func (c *EmrController) GetLaboratoryValuesHistoryHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Params("resident_id")
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	laboratoryValues, err := c.emrUsecase.GetLaboratoryValuesHistory(residentID, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "laboratory values history retrieved successfully",
+		"result":      laboratoryValues,
+	})
+}
+
+// @Summary Get Abnormal Laboratory Values
+// @Description Retrieve a list of residents with abnormal laboratory values today, with optional floor filter and option to get only the latest entry per resident. is_latest must be 'true' or 'false'
+// @Tags LaboratoryValue
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param floor query int false "Filter by floor"
+// @Param is_latest query string true "Retrieve only the latest abnormal laboratory value entry per resident ('true' or 'false')" Enums(true, false)
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/laboratory-values/abnormal [get]
+func (c *EmrController) GetAbnormalLaboratoryValuesHandler(ctx *fiber.Ctx) error {
+	floor := ctx.Query("floor")
+	isLatest := ctx.Query("is_latest")
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+	laboratoryValues, err := c.emrUsecase.GetAbnormalLaboratoryValues(floor, isLatest, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "abnormal laboratory values retrieved successfully",
+		"result":      laboratoryValues,
+	})
+}
+
+// @Summary Get Urine Output Sum by Resident ID
+// @Description Calculate the total urine output (ml and times) for a specific resident. Always returns both total_ml and total_times regardless of how data was recorded. Optional filters: start_date, end_date.
+// @Tags LaboratoryValue
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param resident_id path string true "Resident ID"
+// @Param start_date query string false "Filter from date (RFC3339)"
+// @Param end_date query string false "Filter to date (RFC3339)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object{resident_id=string,total_ml=number,total_times=number}} "Urine output sum retrieved successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Invalid parameters"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/laboratory-values/urine-output-sum/{resident_id} [get]
+func (c *EmrController) GetUrineOutputSumByResidentIDHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Params("resident_id")
+
+	var req models.LaboratoryValueQueryParams
+	if err := ctx.QueryParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+	urineOutputSum, err := c.emrUsecase.GetUrineOutputSumByResidentID(residentID, req, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "urine output sum retrieved successfully",
+		"result":      urineOutputSum,
+	})
+}
+
+// @Summary Update Laboratory Value by ID
+// @Description Update an existing laboratory value entry by its unique ID. Only send fields that need to be updated. urine_type must be 'ml' or 'times' and must be provided together with urine_output.
+// @Tags LaboratoryValue
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Laboratory Value ID"
+// @Param request body object{blood_glucose=number,fluid_in=number,fluid_out=number,urine_output=number,urine_type=string,stool=string,diaper_change=boolean} true "Fields to update (all optional)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "Laboratory value updated successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Invalid data"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/laboratory-values/{id} [patch]
+func (c *EmrController) UpdateLaboratoryValueByIDHandler(ctx *fiber.Ctx) error {
+	var req models.UpdateLaboratoryValueRequest
+
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	laboratoryValueID := ctx.Params("id")
+	laboratoryValue := &entities.LaboratoryValue{
+		BloodGlucose: req.BloodGlucose,
+		FluidIn:      req.FluidIn,
+		FluidOut:     req.FluidOut,
+		UrineOutput:  req.UrineOutput,
+		UrineType:    req.UrineType,
+		Stool:        req.Stool,
+		DiaperChange: req.DiaperChange,
+	}
+
+	updatedLaboratoryValue, err := c.emrUsecase.UpdateLaboratoryValueByID(laboratoryValueID, laboratoryValue, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "laboratory value updated successfully",
+		"result":      updatedLaboratoryValue,
 	})
 }

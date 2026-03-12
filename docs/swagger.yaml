@@ -1,5 +1,32 @@
 basePath: /
 definitions:
+  entities.LaboratoryValue:
+    properties:
+      blood_glucose:
+        type: number
+      created_at:
+        type: string
+      created_by_staff_id:
+        type: string
+      diaper_change:
+        type: integer
+      fluid_in:
+        type: number
+      fluid_out:
+        type: number
+      laboratory_value_id:
+        type: string
+      resident_id:
+        type: string
+      stool:
+        type: integer
+      updated_at:
+        type: string
+      urine_output:
+        type: number
+      urine_type:
+        type: string
+    type: object
   entities.VitalSign:
     properties:
       blood_pressure_diastolic:
@@ -24,6 +51,28 @@ definitions:
         type: string
       vital_sign_id:
         type: string
+    type: object
+  models.CreateLaboratoryValueRequest:
+    properties:
+      blood_glucose:
+        type: number
+      diaper_change:
+        type: integer
+      fluid_in:
+        type: number
+      fluid_out:
+        type: number
+      resident_id:
+        type: string
+      stool:
+        type: integer
+      urine_output:
+        type: number
+      urine_type:
+        description: '"ml" หรือ "times"'
+        type: string
+    required:
+    - resident_id
     type: object
   models.CreateVitalSignRequest:
     properties:
@@ -741,6 +790,570 @@ paths:
       summary: Get All Intake Labels
       tags:
       - Intake
+  /api/emr/laboratory-values:
+    post:
+      consumes:
+      - application/json
+      description: Create a new laboratory value entry for a resident. urine_type
+        must be 'ml' or 'times' and must be provided together with urine_output.
+      parameters:
+      - description: Laboratory value information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateLaboratoryValueRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Laboratory value created successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.LaboratoryValue'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Missing required fields
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized - Missing user ID
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Laboratory Value
+      tags:
+      - LaboratoryValue
+  /api/emr/laboratory-values/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Update an existing laboratory value entry by its unique ID. Only
+        send fields that need to be updated. urine_type must be 'ml' or 'times' and
+        must be provided together with urine_output.
+      parameters:
+      - description: Laboratory Value ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update (all optional)
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            blood_glucose:
+              type: number
+            diaper_change:
+              type: boolean
+            fluid_in:
+              type: number
+            fluid_out:
+              type: number
+            stool:
+              type: string
+            urine_output:
+              type: number
+            urine_type:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Laboratory value updated successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Invalid data
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Laboratory Value by ID
+      tags:
+      - LaboratoryValue
+  /api/emr/laboratory-values/abnormal:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of residents with abnormal laboratory values today,
+        with optional floor filter and option to get only the latest entry per resident.
+        is_latest must be 'true' or 'false'
+      parameters:
+      - description: Filter by floor
+        in: query
+        name: floor
+        type: integer
+      - description: Retrieve only the latest abnormal laboratory value entry per
+          resident ('true' or 'false')
+        enum:
+        - "true"
+        - "false"
+        in: query
+        name: is_latest
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Abnormal Laboratory Values
+      tags:
+      - LaboratoryValue
+  /api/emr/laboratory-values/history/{resident_id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the full history of laboratory values for a specific resident
+      parameters:
+      - description: Resident ID
+        in: path
+        name: resident_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Laboratory Values History by Resident ID
+      tags:
+      - LaboratoryValue
+  /api/emr/laboratory-values/overview:
+    get:
+      consumes:
+      - application/json
+      description: 'Get today''s laboratory values with optional filters. laboratory_value_status:
+        ''all'' (default), ''normal'', or ''abnormal''. urine_type must be ''ml''
+        or ''times'' and must be provided together with urine_output.'
+      parameters:
+      - description: Filter by floor
+        in: query
+        name: floor
+        type: integer
+      - collectionFormat: csv
+        description: Filter by label IDs
+        in: query
+        items:
+          type: string
+        name: label_ids
+        type: array
+      - description: Filter by urine type (must be 'ml' or 'times' if urine_output
+          is provided)
+        enum:
+        - ml
+        - times
+        in: query
+        name: urine_type
+        type: string
+      - description: Filter by laboratory value status
+        enum:
+        - all
+        - normal
+        - abnormal
+        in: query
+        name: laboratory_value_status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Laboratory Values Overview
+      tags:
+      - LaboratoryValue
+  /api/emr/laboratory-values/resident:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve laboratory values today for a specific resident, with
+        an option to get only the latest entry. is_latest must be 'true' or 'false'
+      parameters:
+      - description: Resident ID
+        in: query
+        name: resident_id
+        required: true
+        type: string
+      - description: Retrieve only the latest laboratory value entry ('true' or 'false')
+        enum:
+        - "true"
+        - "false"
+        in: query
+        name: is_latest
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Laboratory Values by Resident ID
+      tags:
+      - LaboratoryValue
+  /api/emr/laboratory-values/room:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve laboratory values today for all residents in a specific
+        room, with an option to get only the latest entry per resident. is_latest
+        must be 'true' or 'false'
+      parameters:
+      - description: Room ID
+        in: query
+        name: room_id
+        required: true
+        type: string
+      - description: Retrieve only the latest laboratory value entry per resident
+          ('true' or 'false')
+        enum:
+        - "true"
+        - "false"
+        in: query
+        name: is_latest
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Laboratory Values by Room ID
+      tags:
+      - LaboratoryValue
+  /api/emr/laboratory-values/urine-output-sum/{resident_id}:
+    get:
+      consumes:
+      - application/json
+      description: 'Calculate the total urine output (ml and times) for a specific
+        resident. Always returns both total_ml and total_times regardless of how data
+        was recorded. Optional filters: start_date, end_date.'
+      parameters:
+      - description: Resident ID
+        in: path
+        name: resident_id
+        required: true
+        type: string
+      - description: Filter from date (RFC3339)
+        in: query
+        name: start_date
+        type: string
+      - description: Filter to date (RFC3339)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Urine output sum retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                properties:
+                  resident_id:
+                    type: string
+                  total_ml:
+                    type: number
+                  total_times:
+                    type: number
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Invalid parameters
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Urine Output Sum by Resident ID
+      tags:
+      - LaboratoryValue
   /api/emr/residents:
     get:
       consumes:
@@ -1082,6 +1695,67 @@ paths:
       security:
       - BearerAuth: []
       summary: Get All Residents
+      tags:
+      - Resident
+  /api/emr/residents/overview:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve an overview of residents with optional filtering by floor,
+        labels, and status for dashboard display
+      parameters:
+      - description: Floor number (optional)
+        in: query
+        name: floor
+        type: integer
+      - collectionFormat: csv
+        description: List of label IDs (optional)
+        in: query
+        items:
+          type: string
+        name: label_ids
+        type: array
+      - description: Resident status (optional)
+        in: query
+        name: status
+        type: string
+      - description: Search by first name, last name, or nickname (optional)
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resident overview retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Resident Overview
       tags:
       - Resident
   /api/emr/rooms:
