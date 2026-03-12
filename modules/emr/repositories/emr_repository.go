@@ -40,6 +40,8 @@ type EmrRepository interface {
 	UpdateRoom(room *entities.Room) (*entities.Room, error)
 	RoomNumberExists(roomNumber string) (bool, error)
 
+	GetResidentsCustom(params models.ResidentQueryParams) ([]*entities.Resident, error)
+
 	// IntakeLabel operations
 	CreateIntakeLabel(label *entities.IntakeLabels) (*entities.IntakeLabels, error)
 	GetIntakeLabelByID(id string) (*entities.IntakeLabels, error)
@@ -68,7 +70,19 @@ type EmrRepository interface {
 	UpdateVitalSignByID(vitalSign *entities.VitalSign) (*entities.VitalSign, error)
 
 	//LaboratoryValue operations
-	// CreateLaboratoryValue(laboratoryValue *entities.LaboratoryValue) (*entities.LaboratoryValue, error)
+	CreateLaboratoryValue(laboratoryValue *entities.LaboratoryValue) (*entities.LaboratoryValue, error)
+
+	GetLaboratoryValueByID(id string) (*entities.LaboratoryValue, error)
+	GetLaboratoryValuesByRoomIDToday(roomID string, isLatest bool) ([]*entities.LaboratoryValue, error)
+	GetLaboratoryValuesByFloorToday(floor int16, isLatest bool) ([]*entities.LaboratoryValue, error)
+	GetLaboratoryValuesByResidentIDToday(residentID string, isLatest bool) ([]*entities.LaboratoryValue, error)
+	GetLaboratoryValuesHistory(residentID string) ([]*entities.LaboratoryValue, error)
+	GetLaboratoryValuesToday(isLatest bool) ([]*entities.LaboratoryValue, error)
+	GetLaboratoryValuesCustom(params models.LaboratoryValueQueryParams) ([]*entities.LaboratoryValue, error)
+
+	UpdateLaboratoryValueByID(laboratoryValue *entities.LaboratoryValue) (*entities.LaboratoryValue, error)
+
+	GetUrineOutputSumGroupByResident(params models.LaboratoryValueQueryParams, urineType string) (*models.UrineOutputSumResponse, error)
 
 	// todo เพราะมันเจาะจงว่า ค่าไหนของ vital sign อีกทีนึง
 	// GetLatestVitalSignsGreaterThanCustom(params models.VitalSignQueryParams, greaterThan float64) ([]*entities.VitalSign, error)
@@ -113,6 +127,51 @@ func (r *GormEmrRepository) GetResidentByRoomID(roomID string) ([]*entities.Resi
 func (r *GormEmrRepository) GetAllResidents() ([]*entities.Resident, error) {
 	var residents []*entities.Resident
 	if err := r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Find(&residents).Error; err != nil {
+		return nil, err
+	}
+	return residents, nil
+}
+
+func (r *GormEmrRepository) GetResidentsCustom(params models.ResidentQueryParams) ([]*entities.Resident, error) {
+	var residents []*entities.Resident
+
+	query := r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Model(&entities.Resident{})
+
+	needRoomsJoin := false
+	needLabelsJoin := false
+
+	if params.Floor != nil {
+		needRoomsJoin = true
+		query = query.Where("rooms.floor = ?", *params.Floor)
+	}
+
+	if len(params.LabelIDs) > 0 {
+		needLabelsJoin = true
+		query = query.Where("resident_labels.label_id IN ?", params.LabelIDs).
+			Group("residents.id").
+			Having("COUNT(DISTINCT resident_labels.label_id) = ?", len(params.LabelIDs))
+	}
+
+	if params.Status != nil && *params.Status != "" {
+		query = query.Where("residents.status = ?", *params.Status)
+	}
+
+	if params.Search != nil && *params.Search != "" {
+		like := "%" + *params.Search + "%"
+		query = query.Where(
+			"residents.first_name ILIKE ? OR residents.last_name ILIKE ? OR residents.nickname ILIKE ?",
+			like, like, like,
+		)
+	}
+
+	if needRoomsJoin {
+		query = query.Joins("JOIN rooms ON residents.room_id = rooms.id")
+	}
+	if needLabelsJoin {
+		query = query.Joins("JOIN resident_labels ON residents.id = resident_labels.resident_id")
+	}
+
+	if err := query.Find(&residents).Error; err != nil {
 		return nil, err
 	}
 	return residents, nil
@@ -459,7 +518,6 @@ func (r *GormEmrRepository) GetVitalSignsCustom(params models.VitalSignQueryPara
 
 	needResidentsJoin := false
 	needRoomsJoin := false
-	needLabelsJoin := false
 
 	if params.ResidentID != nil && *params.ResidentID != "" {
 		query = query.Where("vital_signs.resident_id = ?", *params.ResidentID)
@@ -477,9 +535,12 @@ func (r *GormEmrRepository) GetVitalSignsCustom(params models.VitalSignQueryPara
 	}
 
 	if len(params.LabelIDs) > 0 {
-		needResidentsJoin = true
-		needLabelsJoin = true
-		query = query.Where("resident_labels.label_id IN ?", params.LabelIDs)
+		subQuery := r.db.Table("resident_labels").
+			Select("resident_id").
+			Where("label_id IN ?", params.LabelIDs).
+			Group("resident_id").
+			Having("COUNT(DISTINCT label_id) = ?", len(params.LabelIDs))
+		query = query.Where("vital_signs.resident_id IN (?)", subQuery)
 	}
 
 	if needResidentsJoin {
@@ -487,9 +548,6 @@ func (r *GormEmrRepository) GetVitalSignsCustom(params models.VitalSignQueryPara
 	}
 	if needRoomsJoin {
 		query = query.Joins("JOIN rooms ON residents.room_id = rooms.id")
-	}
-	if needLabelsJoin {
-		query = query.Joins("JOIN resident_labels ON residents.id = resident_labels.resident_id")
 	}
 
 	if params.StartDate != nil {
@@ -532,4 +590,270 @@ func (r *GormEmrRepository) UpdateVitalSignByID(vitalSign *entities.VitalSign) (
 		return nil, err
 	}
 	return vitalSign, nil
+}
+
+func (r *GormEmrRepository) CreateLaboratoryValue(laboratoryValue *entities.LaboratoryValue) (*entities.LaboratoryValue, error) {
+	if err := r.db.Create(&laboratoryValue).Error; err != nil {
+		return nil, err
+	}
+	return laboratoryValue, nil
+}
+
+func (r *GormEmrRepository) GetLaboratoryValueByID(id string) (*entities.LaboratoryValue, error) {
+	var lab entities.LaboratoryValue
+	if err := r.db.Where("id = ?", id).First(&lab).Error; err != nil {
+		return nil, err
+	}
+	return &lab, nil
+}
+
+func (r *GormEmrRepository) GetLaboratoryValuesHistory(residentID string) ([]*entities.LaboratoryValue, error) {
+	var labs []*entities.LaboratoryValue
+	if err := r.db.Where("resident_id = ?", residentID).Order("created_at DESC").Find(&labs).Error; err != nil {
+		return nil, err
+	}
+	return labs, nil
+}
+
+func (r *GormEmrRepository) GetLaboratoryValuesByRoomIDToday(roomID string, isLatest bool) ([]*entities.LaboratoryValue, error) {
+	var labs []*entities.LaboratoryValue
+
+	query := r.db
+
+	if isLatest {
+		query = query.Table("laboratory_values").
+			Select("DISTINCT ON (laboratory_values.resident_id) laboratory_values.*")
+	}
+
+	query = query.Joins("JOIN residents ON laboratory_values.resident_id = residents.id").
+		Where("residents.room_id = ?", roomID).
+		Where("laboratory_values.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
+		Where("laboratory_values.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
+
+	if isLatest {
+		query = query.Order("laboratory_values.resident_id, laboratory_values.created_at DESC")
+	} else {
+		query = query.Order("laboratory_values.created_at DESC")
+	}
+
+	if err := query.Find(&labs).Error; err != nil {
+		return nil, err
+	}
+	return labs, nil
+}
+
+func (r *GormEmrRepository) GetLaboratoryValuesByFloorToday(floor int16, isLatest bool) ([]*entities.LaboratoryValue, error) {
+	var labs []*entities.LaboratoryValue
+
+	query := r.db
+
+	if isLatest {
+		query = query.Table("laboratory_values").
+			Select("DISTINCT ON (laboratory_values.resident_id) laboratory_values.*")
+	}
+
+	query = query.Joins("JOIN residents ON laboratory_values.resident_id = residents.id").
+		Joins("JOIN rooms ON residents.room_id = rooms.id").
+		Where("rooms.floor = ?", floor).
+		Where("laboratory_values.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
+		Where("laboratory_values.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
+
+	if isLatest {
+		query = query.Order("laboratory_values.resident_id, laboratory_values.created_at DESC")
+	} else {
+		query = query.Order("laboratory_values.created_at DESC")
+	}
+
+	if err := query.Find(&labs).Error; err != nil {
+		return nil, err
+	}
+	return labs, nil
+}
+
+func (r *GormEmrRepository) GetLaboratoryValuesByResidentIDToday(residentID string, isLatest bool) ([]*entities.LaboratoryValue, error) {
+	var labs []*entities.LaboratoryValue
+
+	query := r.db.
+		Where("resident_id = ?", residentID).
+		Where("created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
+		Where("created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'").
+		Order("created_at DESC")
+
+	if isLatest {
+		query = query.Limit(1)
+	}
+
+	if err := query.Find(&labs).Error; err != nil {
+		return nil, err
+	}
+	return labs, nil
+}
+
+func (r *GormEmrRepository) GetLaboratoryValuesToday(isLatest bool) ([]*entities.LaboratoryValue, error) {
+	var labs []*entities.LaboratoryValue
+
+	query := r.db
+
+	if isLatest {
+		query = query.Table("laboratory_values").
+			Select("DISTINCT ON (laboratory_values.resident_id) laboratory_values.*")
+	}
+
+	query = query.
+		Where("laboratory_values.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
+		Where("laboratory_values.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
+
+	if isLatest {
+		query = query.Order("laboratory_values.resident_id, laboratory_values.created_at DESC")
+	} else {
+		query = query.Order("laboratory_values.created_at DESC")
+	}
+
+	if err := query.Find(&labs).Error; err != nil {
+		return nil, err
+	}
+	return labs, nil
+}
+
+func (r *GormEmrRepository) GetLaboratoryValuesCustom(params models.LaboratoryValueQueryParams) ([]*entities.LaboratoryValue, error) {
+	var labs []*entities.LaboratoryValue
+
+	var query *gorm.DB
+
+	if params.IsLatest {
+		query = r.db.Table("laboratory_values").Select("DISTINCT ON (laboratory_values.resident_id) laboratory_values.*")
+	} else {
+		query = r.db.Model(&entities.LaboratoryValue{})
+	}
+
+	needResidentsJoin := false
+	needRoomsJoin := false
+
+	if params.ResidentID != nil && *params.ResidentID != "" {
+		query = query.Where("laboratory_values.resident_id = ?", *params.ResidentID)
+	}
+
+	if params.RoomID != nil && *params.RoomID != "" {
+		needResidentsJoin = true
+		query = query.Where("residents.room_id = ?", *params.RoomID)
+	}
+
+	if params.Floor != nil {
+		needResidentsJoin = true
+		needRoomsJoin = true
+		query = query.Where("rooms.floor = ?", *params.Floor)
+	}
+
+	if len(params.LabelIDs) > 0 {
+		subQuery := r.db.Table("resident_labels").
+			Select("resident_id").
+			Where("label_id IN ?", params.LabelIDs).
+			Group("resident_id").
+			Having("COUNT(DISTINCT label_id) = ?", len(params.LabelIDs))
+		query = query.Where("laboratory_values.resident_id IN (?)", subQuery)
+	}
+
+	if needResidentsJoin {
+		query = query.Joins("JOIN residents ON laboratory_values.resident_id = residents.id")
+	}
+	if needRoomsJoin {
+		query = query.Joins("JOIN rooms ON residents.room_id = rooms.id")
+	}
+
+	if params.StartDate != nil {
+		query = query.Where("laboratory_values.created_at >= ?", *params.StartDate)
+	} else {
+		query = query.Where("laboratory_values.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'")
+	}
+	if params.EndDate != nil {
+		endDateInclusive := params.EndDate.AddDate(0, 0, 1)
+		query = query.Where("laboratory_values.created_at < ?", endDateInclusive)
+	} else {
+		query = query.Where("laboratory_values.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
+	}
+
+	if params.IsLatest {
+		query = query.Order("laboratory_values.resident_id, laboratory_values.created_at DESC")
+	} else {
+		query = query.Order("laboratory_values.created_at DESC")
+	}
+
+	if params.Limit > 0 {
+		query = query.Limit(params.Limit)
+	}
+	if params.Offset > 0 {
+		query = query.Offset(params.Offset)
+	}
+
+	if err := query.Find(&labs).Error; err != nil {
+		return nil, err
+	}
+	return labs, nil
+}
+
+func (r *GormEmrRepository) UpdateLaboratoryValueByID(laboratoryValue *entities.LaboratoryValue) (*entities.LaboratoryValue, error) {
+	if err := r.db.Save(&laboratoryValue).Error; err != nil {
+		return nil, err
+	}
+	return laboratoryValue, nil
+}
+
+func (r *GormEmrRepository) GetUrineOutputSumGroupByResident(params models.LaboratoryValueQueryParams, urineType string) (*models.UrineOutputSumResponse, error) {
+	var result models.UrineOutputSumResponse
+
+	query := r.db.Table("laboratory_values").
+		Select("laboratory_values.resident_id, COALESCE(SUM(laboratory_values.urine_output), 0) as total_amount").
+		Where("laboratory_values.urine_type = ?", urineType)
+
+	query = applyLaboratoryValueQueryFilters(query, params)
+
+	query = query.Group("laboratory_values.resident_id")
+
+	if err := query.Scan(&result).Error; err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func applyLaboratoryValueQueryFilters(query *gorm.DB, params models.LaboratoryValueQueryParams) *gorm.DB {
+	needResidentsJoin := false
+	needRoomsJoin := false
+
+	if params.ResidentID != nil && *params.ResidentID != "" {
+		query = query.Where("laboratory_values.resident_id = ?", *params.ResidentID)
+	}
+	if params.RoomID != nil && *params.RoomID != "" {
+		needResidentsJoin = true
+		query = query.Where("residents.room_id = ?", *params.RoomID)
+	}
+	if params.Floor != nil {
+		needResidentsJoin = true
+		needRoomsJoin = true
+		query = query.Where("rooms.floor = ?", *params.Floor)
+	}
+	if len(params.LabelIDs) > 0 {
+		subQuery := query.Session(&gorm.Session{NewDB: true}).Table("resident_labels").
+			Select("resident_id").
+			Where("label_id IN ?", params.LabelIDs).
+			Group("resident_id").
+			Having("COUNT(DISTINCT label_id) = ?", len(params.LabelIDs))
+		query = query.Where("laboratory_values.resident_id IN (?)", subQuery)
+	}
+
+	if needResidentsJoin {
+		query = query.Joins("JOIN residents ON laboratory_values.resident_id = residents.id")
+	}
+	if needRoomsJoin {
+		query = query.Joins("JOIN rooms ON residents.room_id = rooms.id")
+	}
+
+	if params.StartDate != nil {
+		query = query.Where("laboratory_values.created_at >= ?", *params.StartDate)
+	}
+	if params.EndDate != nil {
+		endDateInclusive := params.EndDate.AddDate(0, 0, 1)
+		query = query.Where("laboratory_values.created_at < ?", endDateInclusive)
+	}
+
+	return query
 }

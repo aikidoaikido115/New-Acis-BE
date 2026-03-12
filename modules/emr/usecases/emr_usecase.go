@@ -34,6 +34,7 @@ type EmrUsecase interface {
 	GetResidentByID(id string) (*entities.Resident, error)
 	GetResidentByRoomID(roomID string) ([]*entities.Resident, error)
 	GetAllResidents() ([]*entities.Resident, error)
+	GetResidentOverview(req models.ResidentQueryParams) ([]*models.ResidentOverviewResponse, error)
 	UpdateResidentByID(residentID string, data models.UpdateResidentRequest, userID string) (*entities.Resident, error)
 
 	// Dashboard operations
@@ -68,6 +69,17 @@ type EmrUsecase interface {
 	UpdateVitalSignByID(vitalSignID string, vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error)
 
 	// LaboratoryValue operations
+	CreateLaboratoryValue(laboratoryValue *entities.LaboratoryValue, userID string) (*entities.LaboratoryValue, error)
+	GetLaboratoryValuesOverview(req models.LaboratoryValueQueryParams, userID string) ([]*entities.LaboratoryValue, error)
+	GetLaboratoryValuesByResident(residentID string, isLatest string, userID string) ([]*entities.LaboratoryValue, error)
+	GetRoomLaboratoryValues(roomID string, isLatest string, userID string) ([]*entities.LaboratoryValue, error)
+	GetLaboratoryValuesHistory(residentID string, userID string) ([]*entities.LaboratoryValue, error)
+	GetAbnormalLaboratoryValues(floor string, isLatest string, userID string) ([]*entities.LaboratoryValue, error)
+	GetUrineOutputSumByResidentID(residentID string, req models.LaboratoryValueQueryParams, userID string) (*models.UrineOutputSummaryByResidentResponse, error)
+
+	UpdateLaboratoryValueByID(laboratoryValueID string, laboratoryValue *entities.LaboratoryValue, userID string) (*entities.LaboratoryValue, error)
+	//todo search resident by like sql
+	//todo overview resident
 }
 
 type EmrUseCaseImpl struct {
@@ -203,6 +215,64 @@ func (uc *EmrUseCaseImpl) GetAllResidents() ([]*entities.Resident, error) {
 		return nil, errors.New("failed to get all residents: " + err.Error())
 	}
 	return residents, nil
+}
+
+func (uc *EmrUseCaseImpl) GetResidentOverview(req models.ResidentQueryParams) ([]*models.ResidentOverviewResponse, error) {
+	var (
+		residents []*entities.Resident
+		err       error
+	)
+
+	// Swagger UI ส่ง label_ids เป็น comma-separated string เดียว เช่น "id1,id2"
+	// ต้อง split ก่อนใช้งาน
+	var expandedLabelIDs []string
+	for _, id := range req.LabelIDs {
+		for _, part := range strings.Split(id, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				expandedLabelIDs = append(expandedLabelIDs, part)
+			}
+		}
+	}
+	req.LabelIDs = expandedLabelIDs
+
+	hasFilter := req.Floor != nil || len(req.LabelIDs) > 0 ||
+		(req.Search != nil && *req.Search != "") ||
+		(req.Status != nil && *req.Status != "")
+
+	if req.Status != nil && *req.Status != "" && *req.Status != emr_constants.Active && *req.Status != emr_constants.InActive {
+		return nil, errors.New("status must be 'active' or 'inactive'")
+	}
+
+	log.Printf("เข้ามาใน overview")
+	if hasFilter {
+		residents, err = uc.emrrepo.GetResidentsCustom(req)
+		log.Printf("มีการใช้ filter ใน GetResidentOverview: floor=%v, label_ids=%v, search=%v, status=%v | จำนวน residents ที่ได้จาก custom query: %d", req.Floor, req.LabelIDs, req.Search, req.Status, len(residents))
+	} else {
+		residents, err = uc.emrrepo.GetAllResidents()
+		log.Printf("ไม่มีการใช้ filter ใน GetResidentOverview | จำนวน residents ที่ได้จาก GetAllResidents: %d", len(residents))
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	response := make([]*models.ResidentOverviewResponse, 0)
+	for _, r := range residents {
+		labelNames := make([]string, len(r.ResidentLabels))
+		for i, rl := range r.ResidentLabels {
+			labelNames[i] = rl.IntakeLabel.LabelName
+		}
+
+		response = append(response, &models.ResidentOverviewResponse{
+			ResidentID:   r.ID,
+			FirstName:    r.FirstName,
+			LastName:     r.LastName,
+			Nickname:     r.Nickname,
+			RoomNumber:   r.Room.RoomNumber,
+			IntakeLabels: labelNames,
+		})
+	}
+	return response, nil
 }
 
 func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.UpdateResidentRequest, userID string) (*entities.Resident, error) {
@@ -838,7 +908,7 @@ func filterVitalSignsByStatus(vitalSigns []*entities.VitalSign, status string) [
 	}
 
 	wantAbnormal := status == "abnormal"
-	log.Printf("Filtering vital signs for status '%s' (wantAbnormal=%t)", status, wantAbnormal)
+	// log.Printf("Filtering vital signs for status '%s' (wantAbnormal=%t)", status, wantAbnormal)
 
 	result := make([]*entities.VitalSign, 0)
 	for _, vs := range vitalSigns {
@@ -908,7 +978,7 @@ func (uc *EmrUseCaseImpl) GetVitalSignsOverview(req models.VitalSignQueryParams,
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("ก่อนจะกรอง vital signs ทั้งหมด: %d รายการ | vitalsign_status='%s'", len(vitalSigns), req.VitalSignStatus)
+	// log.Printf("ก่อนจะกรอง vital signs ทั้งหมด: %d รายการ | vitalsign_status='%s'", len(vitalSigns), req.VitalSignStatus)
 	return filterVitalSignsByStatus(vitalSigns, req.VitalSignStatus), nil
 }
 
@@ -1182,4 +1252,509 @@ func (uc *EmrUseCaseImpl) UpdateVitalSignByID(vitalSignID string, vitalSign *ent
 	}
 
 	return updatedVitalSign, nil
+}
+
+func (uc *EmrUseCaseImpl) CreateLaboratoryValue(laboratoryValue *entities.LaboratoryValue, userID string) (*entities.LaboratoryValue, error) {
+
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can create laboratory values")
+	}
+
+	staff, err := uc.userrepo.GetStaffByUserID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get staff ID: " + err.Error())
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(laboratoryValue.ResidentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident does not exist or missing resident ID")
+	}
+
+	if laboratoryValue.BloodGlucose == nil &&
+		laboratoryValue.FluidIn == nil &&
+		laboratoryValue.FluidOut == nil &&
+		laboratoryValue.UrineOutput == nil &&
+		laboratoryValue.Stool == nil &&
+		laboratoryValue.DiaperChange == nil {
+		return nil, errors.New("at least one laboratory value must be provided")
+	}
+
+	// UrineOutput และ UrineType ต้องมาคู่กัน
+	if (laboratoryValue.UrineOutput != nil && laboratoryValue.UrineType == nil) ||
+		(laboratoryValue.UrineOutput == nil && laboratoryValue.UrineType != nil) {
+		return nil, errors.New("urine_output and urine_type must be provided together")
+	}
+
+	if laboratoryValue.UrineType != nil {
+		urineType := *laboratoryValue.UrineType
+		if urineType != emr_constants.UrineTypeML && urineType != emr_constants.UrineTypeTimes {
+			return nil, errors.New("urine_type must be either 'ml' or 'times'")
+		}
+	}
+
+	if laboratoryValue.BloodGlucose != nil && (*laboratoryValue.BloodGlucose < emr_constants.MinBloodGlucose || *laboratoryValue.BloodGlucose > emr_constants.MaxBloodGlucose) {
+		return nil, errors.New("blood_glucose must be between 1 and 1000 mg/dL")
+	}
+
+	if laboratoryValue.FluidIn != nil && (*laboratoryValue.FluidIn < emr_constants.MinFluidIn || *laboratoryValue.FluidIn > emr_constants.MaxFluidIn) {
+		return nil, errors.New("fluid_in must be between 0 and 10000 mL")
+	}
+
+	if laboratoryValue.FluidOut != nil && (*laboratoryValue.FluidOut < emr_constants.MinFluidOut || *laboratoryValue.FluidOut > emr_constants.MaxFluidOut) {
+		return nil, errors.New("fluid_out must be between 0 and 10000 mL")
+	}
+
+	if laboratoryValue.UrineOutput != nil && laboratoryValue.UrineType != nil {
+		if *laboratoryValue.UrineType == emr_constants.UrineTypeML {
+			if *laboratoryValue.UrineOutput < emr_constants.MinUrineOutputML || *laboratoryValue.UrineOutput > emr_constants.MaxUrineOutputML {
+				return nil, errors.New("urine_output (ml) must be between 0 and 5000 mL")
+			}
+		} else {
+			if *laboratoryValue.UrineOutput < emr_constants.MinUrineOutputTimes || *laboratoryValue.UrineOutput > emr_constants.MaxUrineOutputTimes {
+				return nil, errors.New("urine_output (times) must be between 0 and 50")
+			}
+		}
+	}
+
+	if laboratoryValue.Stool != nil && (*laboratoryValue.Stool < emr_constants.MinStool || *laboratoryValue.Stool > emr_constants.MaxStool) {
+		return nil, errors.New("stool must be between 0 and 30 times")
+	}
+
+	if laboratoryValue.DiaperChange != nil && (*laboratoryValue.DiaperChange < emr_constants.MinDiaperChange || *laboratoryValue.DiaperChange > emr_constants.MaxDiaperChange) {
+		return nil, errors.New("diaper_change must be between 0 and 30 times")
+	}
+
+	laboratoryValue.ID = uuid.New().String()
+	laboratoryValue.CreatedByStaffID = staff.ID
+
+	createdLaboratoryValue, err := uc.emrrepo.CreateLaboratoryValue(laboratoryValue)
+	if err != nil {
+		return nil, errors.New("failed to create laboratory value: " + err.Error())
+	}
+
+	newLabValueData, _ := json.Marshal(map[string]interface{}{
+		"resident_id":         createdLaboratoryValue.ResidentID,
+		"blood_glucose":       createdLaboratoryValue.BloodGlucose,
+		"fluid_in":            createdLaboratoryValue.FluidIn,
+		"fluid_out":           createdLaboratoryValue.FluidOut,
+		"urine_output":        createdLaboratoryValue.UrineOutput,
+		"urine_type":          createdLaboratoryValue.UrineType,
+		"stool":               createdLaboratoryValue.Stool,
+		"diaper_change":       createdLaboratoryValue.DiaperChange,
+		"created_by_staff_id": createdLaboratoryValue.CreatedByStaffID,
+	})
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "laboratory_values",
+		RecordID:  createdLaboratoryValue.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionInsert,
+		OldValue:  "",
+		NewValue:  string(newLabValueData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for new laboratory value %s: %v", createdLaboratoryValue.ID, err)
+	}
+
+	return createdLaboratoryValue, nil
+}
+
+// filterLaboratoryValuesByStatus filters laboratory values by status: "all", "normal", or "abnormal".
+func filterLaboratoryValuesByStatus(labs []*entities.LaboratoryValue, status string) []*entities.LaboratoryValue {
+	if status == "" || status == "all" {
+		return labs
+	}
+
+	wantAbnormal := status == "abnormal"
+	result := make([]*entities.LaboratoryValue, 0)
+	for _, lab := range labs {
+		isAbnormal := false
+
+		if lab.BloodGlucose != nil && (*lab.BloodGlucose < emr_constants.NormalBloodGlucoseLow || *lab.BloodGlucose > emr_constants.NormalBloodGlucoseHigh) {
+			isAbnormal = true
+		}
+		if lab.FluidIn != nil && (*lab.FluidIn < emr_constants.NormalFluidInLow || *lab.FluidIn > emr_constants.NormalFluidInHigh) {
+			isAbnormal = true
+		}
+		if lab.FluidOut != nil && (*lab.FluidOut < emr_constants.NormalFluidOutLow || *lab.FluidOut > emr_constants.NormalFluidOutHigh) {
+			isAbnormal = true
+		}
+		if lab.UrineOutput != nil && lab.UrineType != nil {
+			if *lab.UrineType == emr_constants.UrineTypeML {
+				if *lab.UrineOutput < emr_constants.NormalUrineOutputMLLow || *lab.UrineOutput > emr_constants.NormalUrineOutputMLHigh {
+					isAbnormal = true
+				}
+			} else {
+				if *lab.UrineOutput < emr_constants.NormalUrineOutputTimesLow || *lab.UrineOutput > emr_constants.NormalUrineOutputTimesHigh {
+					isAbnormal = true
+				}
+			}
+		}
+		if lab.Stool != nil && *lab.Stool > emr_constants.NormalStoolHigh {
+			isAbnormal = true
+		}
+		if lab.DiaperChange != nil && *lab.DiaperChange > emr_constants.NormalDiaperChangeHigh {
+			isAbnormal = true
+		}
+
+		if isAbnormal == wantAbnormal {
+			result = append(result, lab)
+		}
+	}
+	return result
+}
+
+func (uc *EmrUseCaseImpl) GetLaboratoryValuesOverview(req models.LaboratoryValueQueryParams, userID string) ([]*entities.LaboratoryValue, error) {
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can view laboratory values overview")
+	}
+
+	if req.LaboratoryValueStatus != "" && req.LaboratoryValueStatus != "all" && req.LaboratoryValueStatus != "normal" && req.LaboratoryValueStatus != "abnormal" {
+		return nil, errors.New("laboratory_value_status must be 'all', 'normal', or 'abnormal'")
+	}
+
+	var labs []*entities.LaboratoryValue
+	if req.Floor == nil && len(req.LabelIDs) == 0 {
+		labs, err = uc.emrrepo.GetLaboratoryValuesToday(false)
+	} else {
+		params := models.LaboratoryValueQueryParams{
+			Floor:    req.Floor,
+			LabelIDs: req.LabelIDs,
+			IsLatest: false,
+			Limit:    100,
+		}
+		labs, err = uc.emrrepo.GetLaboratoryValuesCustom(params)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return filterLaboratoryValuesByStatus(labs, req.LaboratoryValueStatus), nil
+}
+
+func (uc *EmrUseCaseImpl) GetLaboratoryValuesByResident(residentID string, isLatest string, userID string) ([]*entities.LaboratoryValue, error) {
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can view laboratory values by resident")
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(residentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident not found")
+	}
+
+	isLatestBool, err := strconv.ParseBool(isLatest)
+	if err != nil {
+		return nil, errors.New("invalid isLatest parameter you must provide a boolean value: " + err.Error())
+	}
+
+	labs, err := uc.emrrepo.GetLaboratoryValuesByResidentIDToday(residentID, isLatestBool)
+	if err != nil {
+		return nil, errors.New("failed to get laboratory values: " + err.Error())
+	}
+	return labs, nil
+}
+
+func (uc *EmrUseCaseImpl) GetRoomLaboratoryValues(roomID string, isLatest string, userID string) ([]*entities.LaboratoryValue, error) {
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can view laboratory values by room")
+	}
+
+	roomExists, err := uc.emrrepo.RoomExists(roomID)
+	if err != nil {
+		return nil, errors.New("failed to verify room existence: " + err.Error())
+	}
+	if !roomExists {
+		return nil, errors.New("room not found")
+	}
+
+	isLatestBool, err := strconv.ParseBool(isLatest)
+	if err != nil {
+		return nil, errors.New("invalid isLatest parameter you must provide a boolean value: " + err.Error())
+	}
+
+	labs, err := uc.emrrepo.GetLaboratoryValuesByRoomIDToday(roomID, isLatestBool)
+	if err != nil {
+		return nil, errors.New("failed to get laboratory values: " + err.Error())
+	}
+	return labs, nil
+}
+
+func (uc *EmrUseCaseImpl) GetLaboratoryValuesHistory(residentID string, userID string) ([]*entities.LaboratoryValue, error) {
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can view laboratory values history")
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(residentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident not found")
+	}
+
+	labs, err := uc.emrrepo.GetLaboratoryValuesHistory(residentID)
+	if err != nil {
+		return nil, errors.New("failed to get laboratory values history: " + err.Error())
+	}
+	return labs, nil
+}
+
+func (uc *EmrUseCaseImpl) GetAbnormalLaboratoryValues(floor string, isLatest string, userID string) ([]*entities.LaboratoryValue, error) {
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can view abnormal laboratory values")
+	}
+
+	var floorPtr *int16
+	if floor != "" {
+		floor64, err := strconv.ParseInt(floor, 10, 16)
+		if err != nil {
+			return nil, errors.New("invalid floor parameter")
+		}
+		f := int16(floor64)
+		floorPtr = &f
+	}
+
+	isLatestBool, err := strconv.ParseBool(isLatest)
+	if err != nil {
+		return nil, errors.New("invalid isLatest parameter you must provide a boolean value: " + err.Error())
+	}
+
+	var labs []*entities.LaboratoryValue
+	if floorPtr == nil {
+		labs, err = uc.emrrepo.GetLaboratoryValuesToday(isLatestBool)
+	} else {
+		labs, err = uc.emrrepo.GetLaboratoryValuesByFloorToday(*floorPtr, isLatestBool)
+	}
+	if err != nil {
+		return nil, errors.New("failed to get laboratory values: " + err.Error())
+	}
+
+	return filterLaboratoryValuesByStatus(labs, "abnormal"), nil
+}
+
+func (uc *EmrUseCaseImpl) GetUrineOutputSumByResidentID(residentID string, req models.LaboratoryValueQueryParams, userID string) (*models.UrineOutputSummaryByResidentResponse, error) {
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can view urine output summary")
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(residentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident not found")
+	}
+
+	req.ResidentID = &residentID
+
+	mlResult, err := uc.emrrepo.GetUrineOutputSumGroupByResident(req, emr_constants.UrineTypeML)
+	if err != nil {
+		return nil, errors.New("failed to get urine ml sum: " + err.Error())
+	}
+	timesResult, err := uc.emrrepo.GetUrineOutputSumGroupByResident(req, emr_constants.UrineTypeTimes)
+	if err != nil {
+		return nil, errors.New("failed to get urine times sum: " + err.Error())
+	}
+
+	summary := &models.UrineOutputSummaryByResidentResponse{
+		ResidentID: residentID,
+		TotalML:    mlResult.TotalAmount,
+		TotalTimes: timesResult.TotalAmount,
+	}
+	return summary, nil
+}
+
+func (uc *EmrUseCaseImpl) UpdateLaboratoryValueByID(laboratoryValueID string, laboratoryValue *entities.LaboratoryValue, userID string) (*entities.LaboratoryValue, error) {
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get user: " + err.Error())
+	}
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return nil, errors.New("failed to get user role: " + err.Error())
+	}
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return nil, errors.New("only users with 'Medical Staff' role can update laboratory values")
+	}
+
+	existing, err := uc.emrrepo.GetLaboratoryValueByID(laboratoryValueID)
+	if err != nil {
+		return nil, errors.New("laboratory value not found: " + err.Error())
+	}
+
+	oldData, _ := json.Marshal(map[string]interface{}{
+		"resident_id":   existing.ResidentID,
+		"blood_glucose": existing.BloodGlucose,
+		"fluid_in":      existing.FluidIn,
+		"fluid_out":     existing.FluidOut,
+		"urine_output":  existing.UrineOutput,
+		"urine_type":    existing.UrineType,
+		"stool":         existing.Stool,
+		"diaper_change": existing.DiaperChange,
+	})
+
+	if laboratoryValue.BloodGlucose == nil &&
+		laboratoryValue.FluidIn == nil &&
+		laboratoryValue.FluidOut == nil &&
+		laboratoryValue.UrineOutput == nil &&
+		laboratoryValue.UrineType == nil &&
+		laboratoryValue.Stool == nil &&
+		laboratoryValue.DiaperChange == nil {
+		return nil, errors.New("at least one laboratory value must be provided")
+	}
+
+	if (laboratoryValue.UrineOutput != nil && laboratoryValue.UrineType == nil) ||
+		(laboratoryValue.UrineOutput == nil && laboratoryValue.UrineType != nil) {
+		return nil, errors.New("urine_output and urine_type must be provided together")
+	}
+
+	if laboratoryValue.UrineType != nil {
+		if *laboratoryValue.UrineType != emr_constants.UrineTypeML && *laboratoryValue.UrineType != emr_constants.UrineTypeTimes {
+			return nil, errors.New("urine_type must be either 'ml' or 'times'")
+		}
+	}
+
+	if laboratoryValue.BloodGlucose != nil && (*laboratoryValue.BloodGlucose < emr_constants.MinBloodGlucose || *laboratoryValue.BloodGlucose > emr_constants.MaxBloodGlucose) {
+		return nil, errors.New("blood_glucose must be between 1 and 1000 mg/dL")
+	}
+	if laboratoryValue.FluidIn != nil && (*laboratoryValue.FluidIn < emr_constants.MinFluidIn || *laboratoryValue.FluidIn > emr_constants.MaxFluidIn) {
+		return nil, errors.New("fluid_in must be between 0 and 10000 mL")
+	}
+	if laboratoryValue.FluidOut != nil && (*laboratoryValue.FluidOut < emr_constants.MinFluidOut || *laboratoryValue.FluidOut > emr_constants.MaxFluidOut) {
+		return nil, errors.New("fluid_out must be between 0 and 10000 mL")
+	}
+	if laboratoryValue.UrineOutput != nil && laboratoryValue.UrineType != nil {
+		if *laboratoryValue.UrineType == emr_constants.UrineTypeML {
+			if *laboratoryValue.UrineOutput < emr_constants.MinUrineOutputML || *laboratoryValue.UrineOutput > emr_constants.MaxUrineOutputML {
+				return nil, errors.New("urine_output (ml) must be between 0 and 5000 mL")
+			}
+		} else {
+			if *laboratoryValue.UrineOutput < emr_constants.MinUrineOutputTimes || *laboratoryValue.UrineOutput > emr_constants.MaxUrineOutputTimes {
+				return nil, errors.New("urine_output (times) must be between 0 and 50")
+			}
+		}
+	}
+	if laboratoryValue.Stool != nil && (*laboratoryValue.Stool < emr_constants.MinStool || *laboratoryValue.Stool > emr_constants.MaxStool) {
+		return nil, errors.New("stool must be between 0 and 30 times")
+	}
+	if laboratoryValue.DiaperChange != nil && (*laboratoryValue.DiaperChange < emr_constants.MinDiaperChange || *laboratoryValue.DiaperChange > emr_constants.MaxDiaperChange) {
+		return nil, errors.New("diaper_change must be between 0 and 30 times")
+	}
+
+	if laboratoryValue.BloodGlucose != nil {
+		existing.BloodGlucose = laboratoryValue.BloodGlucose
+	}
+	if laboratoryValue.FluidIn != nil {
+		existing.FluidIn = laboratoryValue.FluidIn
+	}
+	if laboratoryValue.FluidOut != nil {
+		existing.FluidOut = laboratoryValue.FluidOut
+	}
+	if laboratoryValue.UrineOutput != nil {
+		existing.UrineOutput = laboratoryValue.UrineOutput
+	}
+	if laboratoryValue.UrineType != nil {
+		existing.UrineType = laboratoryValue.UrineType
+	}
+	if laboratoryValue.Stool != nil {
+		existing.Stool = laboratoryValue.Stool
+	}
+	if laboratoryValue.DiaperChange != nil {
+		existing.DiaperChange = laboratoryValue.DiaperChange
+	}
+
+	updated, err := uc.emrrepo.UpdateLaboratoryValueByID(existing)
+	if err != nil {
+		return nil, errors.New("failed to update laboratory value: " + err.Error())
+	}
+
+	newData, _ := json.Marshal(map[string]interface{}{
+		"resident_id":   updated.ResidentID,
+		"blood_glucose": updated.BloodGlucose,
+		"fluid_in":      updated.FluidIn,
+		"fluid_out":     updated.FluidOut,
+		"urine_output":  updated.UrineOutput,
+		"urine_type":    updated.UrineType,
+		"stool":         updated.Stool,
+		"diaper_change": updated.DiaperChange,
+	})
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "laboratory_values",
+		RecordID:  updated.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  string(oldData),
+		NewValue:  string(newData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for laboratory value %s: %v", updated.ID, err)
+	}
+
+	return updated, nil
 }

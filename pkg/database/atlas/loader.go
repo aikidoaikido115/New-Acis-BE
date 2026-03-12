@@ -25,6 +25,7 @@ func main() {
 		&entities.ResidentLabels{},
 		&entities.IntakeLabels{},
 		&entities.VitalSign{},
+		&entities.LaboratoryValue{},
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to load gorm schema: %v\n", err)

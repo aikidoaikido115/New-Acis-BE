@@ -77,16 +77,16 @@ type CreateVitalSignRequest struct {
 }
 
 type VitalSignQueryParams struct {
-    ResidentID      *string    `json:"resident_id" form:"resident_id" query:"resident_id"`
-    RoomID          *string    `json:"room_id" form:"room_id" query:"room_id"`
-    Floor           *int16     `json:"floor" form:"floor" query:"floor"`// nil = ทุกชั้น, มีค่า = ชั้นนั้น
-    LabelIDs        []string   `json:"label_ids" form:"label_ids" query:"label_ids"`// empty = ทุกกลุ่ม, มีค่า = กรองตาม label
-    StartDate       *time.Time `json:"start_date" form:"start_date" query:"start_date"`
-    EndDate         *time.Time `json:"end_date" form:"end_date" query:"end_date"`
-    IsLatest        bool       `json:"is_latest" form:"is_latest" query:"is_latest"`// true = Latest (DISTINCT ON resident_id), false = All
-    Limit           int        `json:"limit" form:"limit" query:"limit"`// default 100
-    Offset          int        `json:"offset" form:"offset" query:"offset"`// default 0
-    VitalSignStatus string     `json:"vitalsign_status" form:"vitalsign_status" query:"vitalsign_status"` // เพิ่ม query tag ตรงนี้
+	ResidentID      *string    `json:"resident_id" form:"resident_id" query:"resident_id"`
+	RoomID          *string    `json:"room_id" form:"room_id" query:"room_id"`
+	Floor           *int16     `json:"floor" form:"floor" query:"floor"`             // nil = ทุกชั้น, มีค่า = ชั้นนั้น
+	LabelIDs        []string   `json:"label_ids" form:"label_ids" query:"label_ids"` // empty = ทุกกลุ่ม, มีค่า = กรองตาม label
+	StartDate       *time.Time `json:"start_date" form:"start_date" query:"start_date"`
+	EndDate         *time.Time `json:"end_date" form:"end_date" query:"end_date"`
+	IsLatest        bool       `json:"is_latest" form:"is_latest" query:"is_latest"`                      // true = Latest (DISTINCT ON resident_id), false = All
+	Limit           int        `json:"limit" form:"limit" query:"limit"`                                  // default 100
+	Offset          int        `json:"offset" form:"offset" query:"offset"`                               // default 0
+	VitalSignStatus string     `json:"vitalsign_status" form:"vitalsign_status" query:"vitalsign_status"` // เพิ่ม query tag ตรงนี้
 }
 
 type UpdateVitalSignRequest struct {
@@ -96,4 +96,45 @@ type UpdateVitalSignRequest struct {
 	BloodPressureSystolic  *int16   `json:"blood_pressure_systolic"`
 	BloodPressureDiastolic *int16   `json:"blood_pressure_diastolic"`
 	OxygenSaturation       *int16   `json:"oxygen_saturation"`
+}
+
+type CreateLaboratoryValueRequest struct {
+	ResidentID   string   `json:"resident_id" binding:"required"`
+	BloodGlucose *float64 `json:"blood_glucose"`
+	FluidIn      *float64 `json:"fluid_in"`
+	FluidOut     *float64 `json:"fluid_out"`
+	UrineOutput  *float64 `json:"urine_output"`
+	UrineType    *string  `json:"urine_type"` // "ml" หรือ "times"
+	Stool        *int16   `json:"stool"`
+	DiaperChange *int16   `json:"diaper_change"`
+}
+
+type LaboratoryValueQueryParams struct {
+	ResidentID            *string    `json:"resident_id" form:"resident_id" query:"resident_id"`
+	RoomID                *string    `json:"room_id" form:"room_id" query:"room_id"`
+	Floor                 *int16     `json:"floor" form:"floor" query:"floor"`
+	LabelIDs              []string   `json:"label_ids" form:"label_ids" query:"label_ids"`
+	StartDate             *time.Time `json:"start_date" form:"start_date" query:"start_date"`
+	EndDate               *time.Time `json:"end_date" form:"end_date" query:"end_date"`
+	IsLatest              bool       `json:"is_latest" form:"is_latest" query:"is_latest"`
+	Limit                 int        `json:"limit" form:"limit" query:"limit"`
+	Offset                int        `json:"offset" form:"offset" query:"offset"`
+	LaboratoryValueStatus string     `json:"laboratory_value_status" form:"laboratory_value_status" query:"laboratory_value_status"`
+}
+
+type UpdateLaboratoryValueRequest struct {
+	BloodGlucose *float64 `json:"blood_glucose"`
+	FluidIn      *float64 `json:"fluid_in"`
+	FluidOut     *float64 `json:"fluid_out"`
+	UrineOutput  *float64 `json:"urine_output"`
+	UrineType    *string  `json:"urine_type"`
+	Stool        *int16   `json:"stool"`
+	DiaperChange *int16   `json:"diaper_change"`
+}
+
+type ResidentQueryParams struct {
+	Floor    *int16   `json:"floor" form:"floor" query:"floor"`             // nil = ทุกชั้น
+	LabelIDs []string `json:"label_ids" form:"label_ids" query:"label_ids"` // empty = ทุกกลุ่ม
+	Status   *string  `json:"status" form:"status" query:"status"`          // nil = ทั้ง active และ inactive
+	Search   *string  `json:"search" form:"search" query:"search"`          // nil = ไม่กรอง, มีค่า = LIKE ชื่อ/นามสกุล/ชื่อเล่น
 }

@@ -1071,6 +1071,851 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/emr/laboratory-values": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new laboratory value entry for a resident. urine_type must be 'ml' or 'times' and must be provided together with urine_output.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LaboratoryValue"
+                ],
+                "summary": "Create Laboratory Value",
+                "parameters": [
+                    {
+                        "description": "Laboratory value information",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateLaboratoryValueRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Laboratory value created successfully",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "$ref": "#/definitions/entities.LaboratoryValue"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Missing required fields",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Missing user ID",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/emr/laboratory-values/abnormal": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve a list of residents with abnormal laboratory values today, with optional floor filter and option to get only the latest entry per resident. is_latest must be 'true' or 'false'",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LaboratoryValue"
+                ],
+                "summary": "Get Abnormal Laboratory Values",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filter by floor",
+                        "name": "floor",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "true",
+                            "false"
+                        ],
+                        "type": "string",
+                        "description": "Retrieve only the latest abnormal laboratory value entry per resident ('true' or 'false')",
+                        "name": "is_latest",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/emr/laboratory-values/history/{resident_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve the full history of laboratory values for a specific resident",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LaboratoryValue"
+                ],
+                "summary": "Get Laboratory Values History by Resident ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resident ID",
+                        "name": "resident_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/emr/laboratory-values/overview": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get today's laboratory values with optional filters. laboratory_value_status: 'all' (default), 'normal', or 'abnormal'. urine_type must be 'ml' or 'times' and must be provided together with urine_output.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LaboratoryValue"
+                ],
+                "summary": "Get Laboratory Values Overview",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filter by floor",
+                        "name": "floor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Filter by label IDs",
+                        "name": "label_ids",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ml",
+                            "times"
+                        ],
+                        "type": "string",
+                        "description": "Filter by urine type (must be 'ml' or 'times' if urine_output is provided)",
+                        "name": "urine_type",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "all",
+                            "normal",
+                            "abnormal"
+                        ],
+                        "type": "string",
+                        "description": "Filter by laboratory value status",
+                        "name": "laboratory_value_status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "object"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/emr/laboratory-values/resident": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve laboratory values today for a specific resident, with an option to get only the latest entry. is_latest must be 'true' or 'false'",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LaboratoryValue"
+                ],
+                "summary": "Get Laboratory Values by Resident ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resident ID",
+                        "name": "resident_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "true",
+                            "false"
+                        ],
+                        "type": "string",
+                        "description": "Retrieve only the latest laboratory value entry ('true' or 'false')",
+                        "name": "is_latest",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/emr/laboratory-values/room": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve laboratory values today for all residents in a specific room, with an option to get only the latest entry per resident. is_latest must be 'true' or 'false'",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LaboratoryValue"
+                ],
+                "summary": "Get Laboratory Values by Room ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room ID",
+                        "name": "room_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "true",
+                            "false"
+                        ],
+                        "type": "string",
+                        "description": "Retrieve only the latest laboratory value entry per resident ('true' or 'false')",
+                        "name": "is_latest",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/emr/laboratory-values/urine-output-sum/{resident_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Calculate the total urine output (ml and times) for a specific resident. Always returns both total_ml and total_times regardless of how data was recorded. Optional filters: start_date, end_date.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LaboratoryValue"
+                ],
+                "summary": "Get Urine Output Sum by Resident ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Resident ID",
+                        "name": "resident_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter from date (RFC3339)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter to date (RFC3339)",
+                        "name": "end_date",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Urine output sum retrieved successfully",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "object",
+                                    "properties": {
+                                        "resident_id": {
+                                            "type": "string"
+                                        },
+                                        "total_ml": {
+                                            "type": "number"
+                                        },
+                                        "total_times": {
+                                            "type": "number"
+                                        }
+                                    }
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Invalid parameters",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/emr/laboratory-values/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update an existing laboratory value entry by its unique ID. Only send fields that need to be updated. urine_type must be 'ml' or 'times' and must be provided together with urine_output.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LaboratoryValue"
+                ],
+                "summary": "Update Laboratory Value by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Laboratory Value ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update (all optional)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "blood_glucose": {
+                                    "type": "number"
+                                },
+                                "diaper_change": {
+                                    "type": "boolean"
+                                },
+                                "fluid_in": {
+                                    "type": "number"
+                                },
+                                "fluid_out": {
+                                    "type": "number"
+                                },
+                                "stool": {
+                                    "type": "string"
+                                },
+                                "urine_output": {
+                                    "type": "number"
+                                },
+                                "urine_type": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Laboratory value updated successfully",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "object"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Invalid data",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/emr/residents": {
             "get": {
                 "security": [
@@ -1322,6 +2167,99 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "All residents retrieved successfully",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/emr/residents/overview": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve an overview of residents with optional filtering by floor, labels, and status for dashboard display",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Resident"
+                ],
+                "summary": "Get Resident Overview",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Floor number (optional)",
+                        "name": "floor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "List of label IDs (optional)",
+                        "name": "label_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resident status (optional)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by first name, last name, or nickname (optional)",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resident overview retrieved successfully",
                         "schema": {
                             "type": "object",
                             "properties": {
@@ -2961,6 +3899,47 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "entities.LaboratoryValue": {
+            "type": "object",
+            "properties": {
+                "blood_glucose": {
+                    "type": "number"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by_staff_id": {
+                    "type": "string"
+                },
+                "diaper_change": {
+                    "type": "integer"
+                },
+                "fluid_in": {
+                    "type": "number"
+                },
+                "fluid_out": {
+                    "type": "number"
+                },
+                "laboratory_value_id": {
+                    "type": "string"
+                },
+                "resident_id": {
+                    "type": "string"
+                },
+                "stool": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "urine_output": {
+                    "type": "number"
+                },
+                "urine_type": {
+                    "type": "string"
+                }
+            }
+        },
         "entities.VitalSign": {
             "type": "object",
             "properties": {
@@ -2995,6 +3974,39 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "vital_sign_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.CreateLaboratoryValueRequest": {
+            "type": "object",
+            "required": [
+                "resident_id"
+            ],
+            "properties": {
+                "blood_glucose": {
+                    "type": "number"
+                },
+                "diaper_change": {
+                    "type": "integer"
+                },
+                "fluid_in": {
+                    "type": "number"
+                },
+                "fluid_out": {
+                    "type": "number"
+                },
+                "resident_id": {
+                    "type": "string"
+                },
+                "stool": {
+                    "type": "integer"
+                },
+                "urine_output": {
+                    "type": "number"
+                },
+                "urine_type": {
+                    "description": "\"ml\" หรือ \"times\"",
                     "type": "string"
                 }
             }

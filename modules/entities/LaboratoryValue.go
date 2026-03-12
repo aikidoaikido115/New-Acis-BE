@@ -10,7 +10,7 @@ type LaboratoryValue struct {
 	FluidOut         *float64  `json:"fluid_out"`
 	UrineOutput      *float64  `json:"urine_output"`
 	UrineType        *string   `json:"urine_type"`
-	Stool            *string   `json:"stool"`
+	Stool            *int16   `json:"stool"`
 	DiaperChange     *int16     `json:"diaper_change"`
 	CreatedByStaffID string    `json:"created_by_staff_id" gorm:"type:text"`
 	CreatedAt        time.Time `json:"created_at" gorm:"not null"`
