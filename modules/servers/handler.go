@@ -6,6 +6,9 @@ import (
 
 	"github.com/aikidoaikido115/New-Acis-BE/configs"
 
+	mealController "github.com/aikidoaikido115/New-Acis-BE/modules/meal/controllers"
+	mealRepository "github.com/aikidoaikido115/New-Acis-BE/modules/meal/repositories"
+	mealUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/meal/usecases"
 	userController "github.com/aikidoaikido115/New-Acis-BE/modules/user/controllers"
 	userRepository "github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
 	userUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/user/usecases"
@@ -39,7 +42,6 @@ func SetupServer(server configs.Server, jwt configs.JWT, supa configs.Supabase, 
 	})
 
 	setupMiddlewares(app, server.CORS)
-
 	setupRoutes(app, server, jwt, supa, mail)
 
 	return app
@@ -72,6 +74,7 @@ func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa co
 
 	SetupUserRoutes(app, db, jwt, supa, mail)
 	SetupEmrRoutes(app, db, jwt)
+	SetupMealRoutes(app, db, jwt)
 
 	// API group
 	api := app.Group("/api")
@@ -132,11 +135,18 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	dashboardGroup := app.Group("/api/emr/dashboard")
 	dashboardGroup.Get("/residents", middlewares.JWTMiddleware(jwt), emrController.GetNumberOfResidentsDashboardHandler)
 	dashboardGroup.Get("/resident-gender-stats", middlewares.JWTMiddleware(jwt), emrController.GetResidentGenderStatsDashboardHandler)
+	dashboardGroup.Get("/resident-allergy-stats", middlewares.JWTMiddleware(jwt), emrController.GetResidentAllergyStatsDashboardHandler)
 
 	labelGroup := app.Group("/api/emr/intake-labels")
 	labelGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetResidentLabelsByResidentIDHandler)
 	labelGroup.Get("/all", middlewares.JWTMiddleware(jwt), emrController.GetAllIntakeLabelsHandler)
 	labelGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateIntakeLabelByResidentIDHandler)
+
+	allergyGroup := app.Group("/api/emr/allergies")
+	allergyGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetResidentAllergiesByResidentIDHandler)
+	allergyGroup.Get("/all", middlewares.JWTMiddleware(jwt), emrController.GetAllAllergiesHandler)
+	allergyGroup.Get("/residents/all", middlewares.JWTMiddleware(jwt), emrController.GetAllResidentAllergiesHandler)
+	allergyGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateAllergyByResidentIDHandler)
 
 	vitalSignGroup := app.Group("/api/emr/vital-signs")
 	vitalSignGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateVitalSignHandler)
@@ -156,4 +166,25 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	laboratoryValueGroup.Get("/urine-output-sum/:resident_id", middlewares.JWTMiddleware(jwt), emrController.GetUrineOutputSumByResidentIDHandler)
 	laboratoryValueGroup.Get("/abnormal", middlewares.JWTMiddleware(jwt), emrController.GetAbnormalLaboratoryValuesHandler)
 	laboratoryValueGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateLaboratoryValueByIDHandler)
+}
+
+func SetupMealRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
+	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
+	userRepository := userRepository.NewGormUserRepository(db)
+
+	mealRepository := mealRepository.NewGormMealRepository(db)
+	mealUsecase := mealUsecase.NewMealUseCase(mealRepository, auditLogRepository, userRepository)
+	mealController := mealController.NewMealController(mealUsecase)
+
+	menuGroup := app.Group("/api/meals/menus")
+	menuGroup.Post("/", middlewares.JWTMiddleware(jwt), mealController.CreateMenuHandler)
+	menuGroup.Get("/", middlewares.JWTMiddleware(jwt), mealController.GetAllMenusHandler)
+	menuGroup.Get("/:id", middlewares.JWTMiddleware(jwt), mealController.GetMenuByIDHandler)
+	menuGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), mealController.UpdateMenuHandler)
+
+	mealPlanGroup := app.Group("/api/meals/meal-plans")
+	mealPlanGroup.Post("/", middlewares.JWTMiddleware(jwt), mealController.CreateMealPlanHandler)
+	mealPlanGroup.Get("/", middlewares.JWTMiddleware(jwt), mealController.GetAllMealPlansHandler)
+	mealPlanGroup.Get("/:id", middlewares.JWTMiddleware(jwt), mealController.GetMealPlanByIDHandler)
+	mealPlanGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), mealController.UpdateMealPlanHandler)
 }

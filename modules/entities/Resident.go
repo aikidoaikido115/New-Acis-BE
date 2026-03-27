@@ -24,5 +24,6 @@ type Resident struct {
 	EmergencyHospitalPhone     *string    `json:"emergency_hospital_phone"`
 	Room                       Room       `json:"-" gorm:"foreignKey:RoomID;references:ID"`
 
-	ResidentLabels []ResidentLabels `json:"resident_labels" gorm:"foreignKey:ResidentID;references:ID"`
+	ResidentLabels    []ResidentLabels    `json:"resident_labels" gorm:"foreignKey:ResidentID;references:ID"`
+	ResidentAllergies []ResidentAllergies `json:"resident_allergies" gorm:"foreignKey:ResidentID;references:ID"`
 }

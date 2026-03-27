@@ -27,6 +27,36 @@ definitions:
       urine_type:
         type: string
     type: object
+  entities.MealPlan:
+    properties:
+      backup_amount:
+        type: integer
+      backup_menu_id:
+        type: string
+      created_at:
+        type: string
+      is_allergy:
+        type: boolean
+      main_amount:
+        type: integer
+      meal_plan_id:
+        type: string
+      meal_type:
+        description: breakfast, lunch, dinner
+        type: string
+      menu_id:
+        type: string
+    type: object
+  entities.Menu:
+    properties:
+      description:
+        description: such as ingredients
+        type: string
+      menu_id:
+        type: string
+      menu_name:
+        type: string
+    type: object
   entities.VitalSign:
     properties:
       blood_pressure_diastolic:
@@ -52,6 +82,36 @@ definitions:
       vital_sign_id:
         type: string
     type: object
+  models.AllergyRequest:
+    properties:
+      allergy_name:
+        type: string
+      note_text:
+        type: string
+    required:
+    - allergy_name
+    type: object
+  models.AllergyStatisticDashboardResponse:
+    properties:
+      allergy_id:
+        type: string
+      allergy_name:
+        type: string
+      count:
+        type: integer
+    type: object
+  models.CreateAllergyByResidentRequest:
+    properties:
+      allergies:
+        items:
+          $ref: '#/definitions/models.AllergyRequest'
+        type: array
+      resident_id:
+        type: string
+    required:
+    - allergies
+    - resident_id
+    type: object
   models.CreateLaboratoryValueRequest:
     properties:
       blood_glucose:
@@ -74,6 +134,33 @@ definitions:
     required:
     - resident_id
     type: object
+  models.CreateMealPlanRequest:
+    properties:
+      backup_amount:
+        type: integer
+      backup_menu_id:
+        type: string
+      main_amount:
+        type: integer
+      meal_type:
+        type: string
+      menu_id:
+        type: string
+    required:
+    - main_amount
+    - meal_type
+    - menu_id
+    type: object
+  models.CreateMenuRequest:
+    properties:
+      description:
+        type: string
+      menu_name:
+        type: string
+    required:
+    - description
+    - menu_name
+    type: object
   models.CreateVitalSignRequest:
     properties:
       blood_pressure_diastolic:
@@ -92,6 +179,59 @@ definitions:
         type: number
     required:
     - resident_id
+    type: object
+  models.ResidentAllergyItemResponse:
+    properties:
+      allergy_id:
+        type: string
+      allergy_name:
+        type: string
+      note_text:
+        type: string
+    type: object
+  models.ResidentAllergyListResponse:
+    properties:
+      allergies:
+        items:
+          $ref: '#/definitions/models.ResidentAllergyItemResponse'
+        type: array
+      first_name:
+        type: string
+      last_name:
+        type: string
+      resident_id:
+        type: string
+    type: object
+  models.ResidentAllergyStatsDashboardResponse:
+    properties:
+      allergy_details:
+        items:
+          $ref: '#/definitions/models.AllergyStatisticDashboardResponse'
+        type: array
+      total_allergic:
+        type: integer
+      total_not_allergic:
+        type: integer
+    type: object
+  models.UpdateMealPlanRequest:
+    properties:
+      backup_amount:
+        type: integer
+      backup_menu_id:
+        type: string
+      main_amount:
+        type: integer
+      meal_type:
+        type: string
+      menu_id:
+        type: string
+    type: object
+  models.UpdateMenuRequest:
+    properties:
+      description:
+        type: string
+      menu_name:
+        type: string
     type: object
 info:
   contact: {}
@@ -541,6 +681,256 @@ paths:
       summary: Reset Password (Authenticated)
       tags:
       - Authentication
+  /api/emr/allergies:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all allergies associated with a specific resident using
+        resident_id query parameter
+      parameters:
+      - description: Resident ID
+        in: query
+        name: resident_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resident allergies retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Missing resident_id query parameter
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Resident Allergies by Resident ID
+      tags:
+      - Allergy
+    post:
+      consumes:
+      - application/json
+      description: Create one or more allergy records for a specific resident. New
+        allergy master values are auto-created when they do not exist.
+      parameters:
+      - description: Resident ID and array of allergies
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateAllergyByResidentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Allergies created successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Missing required fields or invalid data
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized - Missing or invalid authentication
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Allergies for Resident
+      tags:
+      - Allergy
+  /api/emr/allergies/all:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all allergy master records
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Allergies retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get All Allergies
+      tags:
+      - Allergy
+  /api/emr/allergies/residents/all:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all residents with first name, last name, resident ID,
+        and their allergies list
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: All resident allergies retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/models.ResidentAllergyListResponse'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get All Resident Allergies
+      tags:
+      - Allergy
+  /api/emr/dashboard/resident-allergy-stats:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve allergy summary for dashboard including allergic count,
+        non-allergic count, and grouped allergy details
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Resident allergy stats retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/models.ResidentAllergyStatsDashboardResponse'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Resident Allergy Stats for Dashboard
+      tags:
+      - Dashboard
   /api/emr/dashboard/resident-gender-stats:
     get:
       consumes:
@@ -2448,6 +2838,511 @@ paths:
       summary: Get Vital Signs by Room ID
       tags:
       - VitalSign
+  /api/meals/meal-plans:
+    get:
+      consumes:
+      - application/json
+      description: Get all meal plans. Only users with Kitchen Staff role can manage
+        meals.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/entities.MealPlan'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get All Meal Plans
+      tags:
+      - Meal
+    post:
+      consumes:
+      - application/json
+      description: Create a new meal plan. Only users with Kitchen Staff role can
+        manage meals.
+      parameters:
+      - description: Meal plan information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateMealPlanRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.MealPlan'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Meal Plan
+      tags:
+      - Meal
+  /api/meals/meal-plans/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a meal plan by ID. Only users with Kitchen Staff role can manage
+        meals.
+      parameters:
+      - description: Meal Plan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.MealPlan'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Meal Plan by ID
+      tags:
+      - Meal
+    patch:
+      consumes:
+      - application/json
+      description: Update meal plan by ID. Only users with Kitchen Staff role can
+        manage meals.
+      parameters:
+      - description: Meal Plan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Meal plan fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateMealPlanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.MealPlan'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Meal Plan
+      tags:
+      - Meal
+  /api/meals/menus:
+    get:
+      consumes:
+      - application/json
+      description: Get all menus. Only users with Kitchen Staff role can manage meals.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/entities.Menu'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get All Menus
+      tags:
+      - Meal
+    post:
+      consumes:
+      - application/json
+      description: Create a new menu. Only users with Kitchen Staff role can manage
+        meals.
+      parameters:
+      - description: Menu information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateMenuRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.Menu'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Menu
+      tags:
+      - Meal
+  /api/meals/menus/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a menu by ID. Only users with Kitchen Staff role can manage
+        meals.
+      parameters:
+      - description: Menu ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.Menu'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Menu by ID
+      tags:
+      - Meal
+    patch:
+      consumes:
+      - application/json
+      description: Update menu by ID. Only users with Kitchen Staff role can manage
+        meals.
+      parameters:
+      - description: Menu ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Menu fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateMenuRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.Menu'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Menu
+      tags:
+      - Meal
   /api/user:
     get:
       consumes:

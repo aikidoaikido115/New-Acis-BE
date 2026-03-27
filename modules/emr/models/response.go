@@ -34,3 +34,28 @@ type ResidentOverviewResponse struct {
 	RoomNumber   string   `json:"room_number"`
 	IntakeLabels []string `json:"intake_labels"`
 }
+
+type AllergyStatisticDashboardResponse struct {
+	AllergyID   string `json:"allergy_id"`
+	AllergyName string `json:"allergy_name"`
+	Count       int64  `json:"count"`
+}
+
+type ResidentAllergyStatsDashboardResponse struct {
+	TotalNotAllergic int64                               `json:"total_not_allergic"`
+	TotalAllergic    int64                               `json:"total_allergic"`
+	AllergyDetails   []AllergyStatisticDashboardResponse `json:"allergy_details"`
+}
+
+type ResidentAllergyItemResponse struct {
+	AllergyID   string  `json:"allergy_id"`
+	AllergyName string  `json:"allergy_name"`
+	NoteText    *string `json:"note_text"`
+}
+
+type ResidentAllergyListResponse struct {
+	ResidentID string                        `json:"resident_id"`
+	FirstName  string                        `json:"first_name"`
+	LastName   string                        `json:"last_name"`
+	Allergies  []ResidentAllergyItemResponse `json:"allergies"`
+}
