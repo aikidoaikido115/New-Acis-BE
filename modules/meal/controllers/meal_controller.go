@@ -258,8 +258,25 @@ func (c *MealController) CreateMealPlanHandler(ctx *fiber.Ctx) error {
 		MealType:     req.MealType,
 	}
 
-	createdMealPlan, err := c.mealUsecase.CreateMealPlan(mealPlan, userID)
+	humanInTheLoop := false
+	if req.HumanInTheLoop != nil {
+		humanInTheLoop = *req.HumanInTheLoop
+	}
+
+	createdMealPlan, warningSummary, err := c.mealUsecase.CreateMealPlan(mealPlan, userID, humanInTheLoop)
 	if err != nil {
+		// Check if this is an allergy check error with AI response data
+		if allergyErr, ok := err.(*models.AllergyCheckError); ok {
+			// Return the AI response data along with the error
+			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"status":      allergyErr.Status,
+				"status_code": fiber.StatusBadRequest,
+				"message":     allergyErr.Error(),
+				"result":      allergyErr.Response,
+			})
+		}
+
+		// For other errors, return standard error response
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
 			"status_code": fiber.ErrInternalServerError.Code,
@@ -268,11 +285,20 @@ func (c *MealController) CreateMealPlanHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
+	message := "meal plan created successfully"
+	if warningSummary != nil {
+		message = "meal plan created with warning: main menu may not be safe for all residents"
+	}
+
 	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"status":      "Success",
 		"status_code": fiber.StatusCreated,
-		"message":     "meal plan created successfully",
-		"result":      createdMealPlan,
+		"message":     message,
+		"result": fiber.Map{
+			"meal_plan":        createdMealPlan,
+			"allergy_check":    warningSummary,
+			"has_ai_warning":   warningSummary != nil,
+		},
 	})
 }
 

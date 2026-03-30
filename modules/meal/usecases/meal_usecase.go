@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -8,12 +9,20 @@ import (
 
 	audit_constants "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/constants"
 	audit_repo "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
+	emr_repo "github.com/aikidoaikido115/New-Acis-BE/modules/emr/repositories"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	meal_constants "github.com/aikidoaikido115/New-Acis-BE/modules/meal/constants"
+	"github.com/aikidoaikido115/New-Acis-BE/modules/meal/models"
 	meal_repo "github.com/aikidoaikido115/New-Acis-BE/modules/meal/repositories"
 	user_constants "github.com/aikidoaikido115/New-Acis-BE/modules/user/constants"
 	user_repo "github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
+	aiinfra "github.com/aikidoaikido115/New-Acis-BE/pkg/ai"
 	"github.com/google/uuid"
 )
+
+type AllergyAIClient interface {
+	CheckAllergy(ctx context.Context, payload aiinfra.CheckAllergyRequest) ([]byte, error)
+}
 
 type MealUsecase interface {
 	// Menu operations
@@ -23,7 +32,7 @@ type MealUsecase interface {
 	UpdateMenu(menuID string, menu *entities.Menu, userID string) (*entities.Menu, error)
 
 	// MealPlan operations
-	CreateMealPlan(mealPlan *entities.MealPlan, userID string) (*entities.MealPlan, error)
+	CreateMealPlan(mealPlan *entities.MealPlan, userID string, humanInTheLoop bool) (*entities.MealPlan, *models.AllergyCheckSummary, error)
 	GetMealPlanByID(id string, userID string) (*entities.MealPlan, error)
 	GetAllMealPlans(userID string) ([]*entities.MealPlan, error)
 	UpdateMealPlan(mealPlanID string, mealPlan *entities.MealPlan, userID string) (*entities.MealPlan, error)
@@ -31,12 +40,26 @@ type MealUsecase interface {
 
 type MealUseCaseImpl struct {
 	repo         meal_repo.MealRepository
+	emrrepo      emr_repo.EmrRepository
 	auditlogrepo audit_repo.AuditLogRepository
 	userrepo     user_repo.UserRepository
+	allergyAI    AllergyAIClient
 }
 
-func NewMealUseCase(repo meal_repo.MealRepository, auditlogrepo audit_repo.AuditLogRepository, userrepo user_repo.UserRepository) MealUsecase {
-	return &MealUseCaseImpl{repo: repo, auditlogrepo: auditlogrepo, userrepo: userrepo}
+func NewMealUseCase(
+	repo meal_repo.MealRepository,
+	emrrepo emr_repo.EmrRepository,
+	auditlogrepo audit_repo.AuditLogRepository,
+	userrepo user_repo.UserRepository,
+	allergyAI AllergyAIClient,
+) MealUsecase {
+	return &MealUseCaseImpl{
+		repo:         repo,
+		emrrepo:      emrrepo,
+		auditlogrepo: auditlogrepo,
+		userrepo:     userrepo,
+		allergyAI:    allergyAI,
+	}
 }
 
 func (uc *MealUseCaseImpl) CreateMenu(menu *entities.Menu, userID string) (*entities.Menu, error) {
@@ -140,23 +163,103 @@ func (uc *MealUseCaseImpl) UpdateMenu(menuID string, menu *entities.Menu, userID
 	return updatedMenu, nil
 }
 
-func (uc *MealUseCaseImpl) CreateMealPlan(mealPlan *entities.MealPlan, userID string) (*entities.MealPlan, error) {
+func (uc *MealUseCaseImpl) CreateMealPlan(mealPlan *entities.MealPlan, userID string, humanInTheLoop bool) (*entities.MealPlan, *models.AllergyCheckSummary, error) {
 	if err := uc.ensureKitchenStaff(userID); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if mealPlan == nil {
-		return nil, errors.New("meal plan payload is required")
+		return nil, nil, errors.New("meal plan payload is required")
 	}
 
 	if err := uc.validateMealPlan(mealPlan); err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	menu, err := uc.repo.GetMenuByID(mealPlan.MenuID)
+	if err != nil {
+		return nil, nil, errors.New("menu does not exist")
+	}
+
+	if mealPlan.BackUpMenuID == nil || strings.TrimSpace(*mealPlan.BackUpMenuID) == "" {
+		return nil, nil, errors.New("backup_menu_id is required")
+	}
+
+	backupMenuID := strings.TrimSpace(*mealPlan.BackUpMenuID)
+	backupMenu, err := uc.repo.GetMenuByID(backupMenuID)
+	if err != nil {
+		return nil, nil, errors.New("backup menu does not exist")
+	}
+	mealPlan.BackUpMenuID = &backupMenuID
+
+	allergyStats, err := uc.emrrepo.GetResidentAllergyStatsDashboard()
+	if err != nil {
+		return nil, nil, errors.New("failed to get resident allergy stats: " + err.Error())
+	}
+
+	allergyDetails := make([]aiinfra.AllergyDetail, 0, len(allergyStats.AllergyDetails))
+	for _, detail := range allergyStats.AllergyDetails {
+		allergyDetails = append(allergyDetails, aiinfra.AllergyDetail{
+			AllergyID:   detail.AllergyID,
+			AllergyName: detail.AllergyName,
+			Count:       int(detail.Count),
+		})
+	}
+
+	var warningSummary *models.AllergyCheckSummary
+
+	// If human_in_the_loop is true, skip AI check and mark as reviewed by human.
+	// Otherwise, check allergy for both main and backup menus in separate rounds.
+	if !humanInTheLoop {
+		mainResult, mainPassed, err := uc.checkMenuAllergy(menu, allergyDetails)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		backupResult, backupPassed, err := uc.checkMenuAllergy(backupMenu, allergyDetails)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		summary := &models.AllergyCheckSummary{
+			MainMenuPassed:   mainPassed,
+			BackupMenuPassed: backupPassed,
+			MainMenuResult:   mainResult,
+			BackupMenuResult: backupResult,
+		}
+
+		switch {
+		case mainPassed && backupPassed:
+			// Both passed. Save meal plan.
+		case !mainPassed && backupPassed:
+			// Main failed but backup passed. Save with warning.
+			warningSummary = summary
+		case mainPassed && !backupPassed:
+			allergyErr := models.NewAllergyCheckError(
+				"backup menu is not safe for allergy group: "+backupResult.Reason,
+				backupResult.Status,
+				summary,
+			)
+			return nil, nil, allergyErr
+		default:
+			status := meal_constants.AllergyCheckStatusAllergyWarn
+			if mainResult.Status == meal_constants.AllergyCheckStatusManualReview || backupResult.Status == meal_constants.AllergyCheckStatusManualReview {
+				status = meal_constants.AllergyCheckStatusManualReview
+			}
+
+			allergyErr := models.NewAllergyCheckError(
+				"both main and backup menus are not safe for allergy group",
+				status,
+				summary,
+			)
+			return nil, nil, allergyErr
+		}
 	}
 
 	mealPlan.ID = uuid.New().String()
 	createdMealPlan, err := uc.repo.CreateMealPlan(mealPlan)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	newMealPlanData, _ := json.Marshal(map[string]interface{}{
@@ -168,7 +271,34 @@ func (uc *MealUseCaseImpl) CreateMealPlan(mealPlan *entities.MealPlan, userID st
 	})
 	uc.createAuditLog(userID, audit_constants.AuditActionInsert, "meal_plans", createdMealPlan.ID, "", string(newMealPlanData))
 
-	return createdMealPlan, nil
+	return createdMealPlan, warningSummary, nil
+}
+
+func (uc *MealUseCaseImpl) checkMenuAllergy(menu *entities.Menu, allergyDetails []aiinfra.AllergyDetail) (*aiinfra.CheckAllergyResponse, bool, error) {
+	aiResponse, err := uc.allergyAI.CheckAllergy(context.Background(), aiinfra.CheckAllergyRequest{
+		MenuData: aiinfra.MenuData{
+			MenuName:        menu.MenuName,
+			MenuDescription: menu.Description,
+		},
+		AllergyDetails: allergyDetails,
+	})
+	if err != nil {
+		return nil, false, errors.New("failed to check allergy by ai: " + err.Error())
+	}
+
+	var aiCheckResult aiinfra.CheckAllergyResponse
+	if err := json.Unmarshal(aiResponse, &aiCheckResult); err != nil {
+		return nil, false, errors.New("failed to parse ai response: " + err.Error())
+	}
+
+	switch aiCheckResult.Status {
+	case meal_constants.AllergyCheckStatusSafe:
+		return &aiCheckResult, true, nil
+	case meal_constants.AllergyCheckStatusManualReview, meal_constants.AllergyCheckStatusAllergyWarn:
+		return &aiCheckResult, false, nil
+	default:
+		return nil, false, errors.New("unknown ai status: " + aiCheckResult.Status)
+	}
 }
 
 func (uc *MealUseCaseImpl) GetMealPlanByID(id string, userID string) (*entities.MealPlan, error) {

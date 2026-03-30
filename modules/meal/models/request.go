@@ -11,11 +11,12 @@ type UpdateMenuRequest struct {
 }
 
 type CreateMealPlanRequest struct {
-	MenuID       string  `json:"menu_id" binding:"required"`
-	BackUpMenuID *string `json:"backup_menu_id"`
-	MainAmount   int16   `json:"main_amount" binding:"required"`
-	BackUpAmount *int16  `json:"backup_amount"`
-	MealType     string  `json:"meal_type" binding:"required"`
+	MenuID         string  `json:"menu_id" binding:"required"`
+	BackUpMenuID   *string `json:"backup_menu_id"`
+	MainAmount     int16   `json:"main_amount" binding:"required"`
+	BackUpAmount   *int16  `json:"backup_amount"`
+	MealType       string  `json:"meal_type" binding:"required"`
+	HumanInTheLoop *bool   `json:"human_in_the_loop"`
 }
 
 type UpdateMealPlanRequest struct {

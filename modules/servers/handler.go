@@ -3,6 +3,7 @@ package servers
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/configs"
 
@@ -19,6 +20,7 @@ import (
 	emrRepository "github.com/aikidoaikido115/New-Acis-BE/modules/emr/repositories"
 	emrUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/emr/usecases"
 
+	aiinfra "github.com/aikidoaikido115/New-Acis-BE/pkg/ai"
 	"github.com/aikidoaikido115/New-Acis-BE/pkg/database"
 	"github.com/aikidoaikido115/New-Acis-BE/pkg/middlewares"
 
@@ -171,9 +173,11 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 func SetupMealRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
 	userRepository := userRepository.NewGormUserRepository(db)
+	emrRepo := emrRepository.NewGormEmrRepository(db)
+	allergyAIClient := aiinfra.NewClientFromEnv(aiinfra.WithTimeout(10 * time.Second))
 
 	mealRepository := mealRepository.NewGormMealRepository(db)
-	mealUsecase := mealUsecase.NewMealUseCase(mealRepository, auditLogRepository, userRepository)
+	mealUsecase := mealUsecase.NewMealUseCase(mealRepository, emrRepo, auditLogRepository, userRepository, allergyAIClient)
 	mealController := mealController.NewMealController(mealUsecase)
 
 	menuGroup := app.Group("/api/meals/menus")
