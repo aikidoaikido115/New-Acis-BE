@@ -29,12 +29,13 @@ type MealUsecase interface {
 	CreateMenu(menu *entities.Menu, userID string) (*entities.Menu, error)
 	GetMenuByID(id string, userID string) (*entities.Menu, error)
 	GetAllMenus(userID string) ([]*entities.Menu, error)
-	UpdateMenu(menuID string, menu *entities.Menu, userID string) (*entities.Menu, error)
+	UpdateMenu(menuID string, req models.UpdateMenuRequest, userID string) (*entities.Menu, error)
 
 	// MealPlan operations
 	CreateMealPlan(mealPlan *entities.MealPlan, userID string, humanInTheLoop bool) (*entities.MealPlan, *models.AllergyCheckSummary, error)
 	GetMealPlanByID(id string, userID string) (*entities.MealPlan, error)
 	GetAllMealPlans(userID string) ([]*entities.MealPlan, error)
+	GetMealPlansToday(userID string) ([]*entities.MealPlan, error)
 	UpdateMealPlan(mealPlanID string, mealPlan *entities.MealPlan, userID string) (*entities.MealPlan, error)
 }
 
@@ -81,6 +82,9 @@ func (uc *MealUseCaseImpl) CreateMenu(menu *entities.Menu, userID string) (*enti
 	if menu.Description == "" {
 		return nil, errors.New("description is required")
 	}
+	if err := validateMenuDescriptionFormat(menu.Description); err != nil {
+		return nil, err
+	}
 
 	menu.ID = uuid.New().String()
 	createdMenu, err := uc.repo.CreateMenu(menu)
@@ -118,13 +122,13 @@ func (uc *MealUseCaseImpl) GetAllMenus(userID string) ([]*entities.Menu, error) 
 	return uc.repo.GetAllMenus()
 }
 
-func (uc *MealUseCaseImpl) UpdateMenu(menuID string, menu *entities.Menu, userID string) (*entities.Menu, error) {
+func (uc *MealUseCaseImpl) UpdateMenu(menuID string, req models.UpdateMenuRequest, userID string) (*entities.Menu, error) {
 	if err := uc.ensureKitchenStaff(userID); err != nil {
 		return nil, err
 	}
 
-	if menu == nil {
-		return nil, errors.New("menu payload is required")
+	if req.MenuName == nil && req.Description == nil {
+		return nil, errors.New("at least one field must be provided")
 	}
 
 	menuID = strings.TrimSpace(menuID)
@@ -142,10 +146,21 @@ func (uc *MealUseCaseImpl) UpdateMenu(menuID string, menu *entities.Menu, userID
 		"description": existingMenu.Description,
 	})
 
-	if name := strings.TrimSpace(menu.MenuName); name != "" {
+	if req.MenuName != nil {
+		name := strings.TrimSpace(*req.MenuName)
+		if name == "" {
+			return nil, errors.New("menu_name cannot be empty")
+		}
 		existingMenu.MenuName = name
 	}
-	if desc := strings.TrimSpace(menu.Description); desc != "" {
+	if req.Description != nil {
+		desc := strings.TrimSpace(*req.Description)
+		if desc == "" {
+			return nil, errors.New("description cannot be empty")
+		}
+		if err := validateMenuDescriptionFormat(desc); err != nil {
+			return nil, err
+		}
 		existingMenu.Description = desc
 	}
 
@@ -256,6 +271,22 @@ func (uc *MealUseCaseImpl) CreateMealPlan(mealPlan *entities.MealPlan, userID st
 		}
 	}
 
+	deletedMealPlans, err := uc.repo.DeleteMealPlansToday()
+	if err != nil {
+		return nil, nil, errors.New("failed to replace today's meal plans: " + err.Error())
+	}
+
+	for _, deletedMealPlan := range deletedMealPlans {
+		oldMealPlanData, _ := json.Marshal(map[string]interface{}{
+			"menu_id":        deletedMealPlan.MenuID,
+			"backup_menu_id": deletedMealPlan.BackUpMenuID,
+			"main_amount":    deletedMealPlan.MainAmount,
+			"backup_amount":  deletedMealPlan.BackUpAmount,
+			"meal_type":      deletedMealPlan.MealType,
+		})
+		uc.createAuditLog(userID, audit_constants.AuditActionDelete, "meal_plans", deletedMealPlan.ID, string(oldMealPlanData), "")
+	}
+
 	mealPlan.ID = uuid.New().String()
 	createdMealPlan, err := uc.repo.CreateMealPlan(mealPlan)
 	if err != nil {
@@ -320,6 +351,14 @@ func (uc *MealUseCaseImpl) GetAllMealPlans(userID string) ([]*entities.MealPlan,
 	}
 
 	return uc.repo.GetAllMealPlans()
+}
+
+func (uc *MealUseCaseImpl) GetMealPlansToday(userID string) ([]*entities.MealPlan, error) {
+	if err := uc.ensureKitchenStaff(userID); err != nil {
+		return nil, err
+	}
+
+	return uc.repo.GetMealPlansToday()
 }
 
 func (uc *MealUseCaseImpl) UpdateMealPlan(mealPlanID string, mealPlan *entities.MealPlan, userID string) (*entities.MealPlan, error) {
@@ -458,6 +497,21 @@ func (uc *MealUseCaseImpl) validateMealPlan(mealPlan *entities.MealPlan) error {
 			return errors.New("backup menu does not exist")
 		}
 		mealPlan.BackUpMenuID = &backupID
+	}
+
+	return nil
+}
+
+func validateMenuDescriptionFormat(description string) error {
+	parts := strings.Split(description, ",")
+	if len(parts) < 2 {
+		return errors.New("description must be comma-separated, e.g. \"ingredient1, ingredient2\"")
+	}
+
+	for _, part := range parts {
+		if strings.TrimSpace(part) == "" {
+			return errors.New("description contains an empty ingredient")
+		}
 	}
 
 	return nil

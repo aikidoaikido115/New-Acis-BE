@@ -26,6 +26,8 @@ type MealRepository interface {
 	CreateMealPlan(mealPlan *entities.MealPlan) (*entities.MealPlan, error)
 	GetMealPlanByID(id string) (*entities.MealPlan, error)
 	GetAllMealPlans() ([]*entities.MealPlan, error)
+	GetMealPlansToday() ([]*entities.MealPlan, error)
+	DeleteMealPlansToday() ([]*entities.MealPlan, error)
 	UpdateMealPlan(mealPlan *entities.MealPlan) (*entities.MealPlan, error)
 }
 
@@ -98,4 +100,48 @@ func (r *GormMealRepository) UpdateMealPlan(mealPlan *entities.MealPlan) (*entit
 	}
 
 	return r.GetMealPlanByID(mealPlan.ID)
+}
+
+func (r *GormMealRepository) GetMealPlansToday() ([]*entities.MealPlan, error) {
+	var mealPlans []*entities.MealPlan
+	if err := r.db.Preload("Menu").
+		Where("created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
+		Where("created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'").
+		Order("created_at DESC").
+		Find(&mealPlans).Error; err != nil {
+		return nil, err
+	}
+
+	return mealPlans, nil
+}
+
+func (r *GormMealRepository) DeleteMealPlansToday() ([]*entities.MealPlan, error) {
+	var todayMealPlans []*entities.MealPlan
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Preload("Menu").
+			Where("created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
+			Where("created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'").
+			Order("created_at DESC").
+			Find(&todayMealPlans).Error; err != nil {
+			return err
+		}
+
+		if len(todayMealPlans) == 0 {
+			return nil
+		}
+
+		if err := tx.Where("created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
+			Where("created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'").
+			Delete(&entities.MealPlan{}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return todayMealPlans, nil
 }

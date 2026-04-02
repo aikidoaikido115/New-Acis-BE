@@ -190,15 +190,7 @@ func (c *MealController) UpdateMenuHandler(ctx *fiber.Ctx) error {
 	}
 
 	menuID := ctx.Params("id")
-	menu := &entities.Menu{}
-	if req.MenuName != nil {
-		menu.MenuName = *req.MenuName
-	}
-	if req.Description != nil {
-		menu.Description = *req.Description
-	}
-
-	updatedMenu, err := c.mealUsecase.UpdateMenu(menuID, menu, userID)
+	updatedMenu, err := c.mealUsecase.UpdateMenu(menuID, req, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -295,9 +287,9 @@ func (c *MealController) CreateMealPlanHandler(ctx *fiber.Ctx) error {
 		"status_code": fiber.StatusCreated,
 		"message":     message,
 		"result": fiber.Map{
-			"meal_plan":        createdMealPlan,
-			"allergy_check":    warningSummary,
-			"has_ai_warning":   warningSummary != nil,
+			"meal_plan":      createdMealPlan,
+			"allergy_check":  warningSummary,
+			"has_ai_warning": warningSummary != nil,
 		},
 	})
 }
@@ -384,20 +376,61 @@ func (c *MealController) GetAllMealPlansHandler(ctx *fiber.Ctx) error {
 	})
 }
 
-// UpdateMealPlanHandler godoc
-// @Summary Update Meal Plan
-// @Description Update meal plan by ID. Only users with Kitchen Staff role can manage meals.
+// GetMealPlansTodayHandler godoc
+// @Summary Get Today's Meal Plans
+// @Description Get all meal plans created today. Only users with Kitchen Staff role can manage meals.
 // @Tags Meal
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param id path string true "Meal Plan ID"
-// @Param request body models.UpdateMealPlanRequest true "Meal plan fields to update"
-// @Success 200 {object} object{status=string,status_code=int,message=string,result=entities.MealPlan}
-// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]entities.MealPlan}
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
-// @Router /api/meals/meal-plans/{id} [patch]
+// @Router /api/meals/meal-plans/today [get]
+func (c *MealController) GetMealPlansTodayHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	mealPlans, err := c.mealUsecase.GetMealPlansToday(userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "today's meal plans retrieved successfully",
+		"result":      mealPlans,
+	})
+}
+
+// UpdateMealPlanHandler godoc
+// DEPRECATED: This endpoint is temporarily disabled
+// // @Summary Update Meal Plan
+// // @Description Update meal plan by ID. Only users with Kitchen Staff role can manage meals.
+// // @Tags Meal
+// // @Accept json
+// // @Produce json
+// // @Security BearerAuth
+// // @Param id path string true "Meal Plan ID"
+// // @Param request body models.UpdateMealPlanRequest true "Meal plan fields to update"
+// // @Success 200 {object} object{status=string,status_code=int,message=string,result=entities.MealPlan}
+// // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// // @Router /api/meals/meal-plans/{id} [patch]
 func (c *MealController) UpdateMealPlanHandler(ctx *fiber.Ctx) error {
 	var req models.UpdateMealPlanRequest
 	if err := ctx.BodyParser(&req); err != nil {

@@ -140,6 +140,8 @@ definitions:
         type: integer
       backup_menu_id:
         type: string
+      human_in_the_loop:
+        type: boolean
       main_amount:
         type: integer
       meal_type:
@@ -212,19 +214,6 @@ definitions:
         type: integer
       total_not_allergic:
         type: integer
-    type: object
-  models.UpdateMealPlanRequest:
-    properties:
-      backup_amount:
-        type: integer
-      backup_menu_id:
-        type: string
-      main_amount:
-        type: integer
-      meal_type:
-        type: string
-      menu_id:
-        type: string
     type: object
   models.UpdateMenuRequest:
     properties:
@@ -3017,23 +3006,12 @@ paths:
       summary: Get Meal Plan by ID
       tags:
       - Meal
-    patch:
+  /api/meals/meal-plans/today:
+    get:
       consumes:
       - application/json
-      description: Update meal plan by ID. Only users with Kitchen Staff role can
-        manage meals.
-      parameters:
-      - description: Meal Plan ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Meal plan fields to update
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.UpdateMealPlanRequest'
+      description: Get all meal plans created today. Only users with Kitchen Staff
+        role can manage meals.
       produces:
       - application/json
       responses:
@@ -3044,19 +3022,9 @@ paths:
               message:
                 type: string
               result:
-                $ref: '#/definitions/entities.MealPlan'
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            properties:
-              message:
-                type: string
-              result: {}
+                items:
+                  $ref: '#/definitions/entities.MealPlan'
+                type: array
               status:
                 type: string
               status_code:
@@ -3088,7 +3056,7 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Update Meal Plan
+      summary: Get Today's Meal Plans
       tags:
       - Meal
   /api/meals/menus:

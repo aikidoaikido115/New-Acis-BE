@@ -4152,14 +4152,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/meals/meal-plans/{id}": {
+        "/api/meals/meal-plans/today": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a meal plan by ID. Only users with Kitchen Staff role can manage meals.",
+                "description": "Get all meal plans created today. Only users with Kitchen Staff role can manage meals.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4169,16 +4169,7 @@ const docTemplate = `{
                 "tags": [
                     "Meal"
                 ],
-                "summary": "Get Meal Plan by ID",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Meal Plan ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
+                "summary": "Get Today's Meal Plans",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4189,7 +4180,10 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "result": {
-                                    "$ref": "#/definitions/entities.MealPlan"
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/entities.MealPlan"
+                                    }
                                 },
                                 "status": {
                                     "type": "string"
@@ -4237,14 +4231,16 @@ const docTemplate = `{
                         }
                     }
                 }
-            },
-            "patch": {
+            }
+        },
+        "/api/meals/meal-plans/{id}": {
+            "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update meal plan by ID. Only users with Kitchen Staff role can manage meals.",
+                "description": "Get a meal plan by ID. Only users with Kitchen Staff role can manage meals.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4254,7 +4250,7 @@ const docTemplate = `{
                 "tags": [
                     "Meal"
                 ],
-                "summary": "Update Meal Plan",
+                "summary": "Get Meal Plan by ID",
                 "parameters": [
                     {
                         "type": "string",
@@ -4262,15 +4258,6 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "Meal plan fields to update",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.UpdateMealPlanRequest"
-                        }
                     }
                 ],
                 "responses": {
@@ -4285,24 +4272,6 @@ const docTemplate = `{
                                 "result": {
                                     "$ref": "#/definitions/entities.MealPlan"
                                 },
-                                "status": {
-                                    "type": "string"
-                                },
-                                "status_code": {
-                                    "type": "integer"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                },
-                                "result": {},
                                 "status": {
                                     "type": "string"
                                 },
@@ -5270,6 +5239,9 @@ const docTemplate = `{
                 "backup_menu_id": {
                     "type": "string"
                 },
+                "human_in_the_loop": {
+                    "type": "boolean"
+                },
                 "main_amount": {
                     "type": "integer"
                 },
@@ -5373,26 +5345,6 @@ const docTemplate = `{
                 },
                 "total_not_allergic": {
                     "type": "integer"
-                }
-            }
-        },
-        "models.UpdateMealPlanRequest": {
-            "type": "object",
-            "properties": {
-                "backup_amount": {
-                    "type": "integer"
-                },
-                "backup_menu_id": {
-                    "type": "string"
-                },
-                "main_amount": {
-                    "type": "integer"
-                },
-                "meal_type": {
-                    "type": "string"
-                },
-                "menu_id": {
-                    "type": "string"
                 }
             }
         },
