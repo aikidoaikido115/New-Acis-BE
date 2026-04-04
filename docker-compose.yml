@@ -26,7 +26,7 @@ services:
       - .env.dev
     environment:
       - DB_HOST=postgres
-      - ALLERGEN_FILTER_AI_API_URL=http://model:7111
+      - ALLERGEN_FILTER_AI_API_URL=${ALLERGEN_FILTER_AI_API_URL:-http://model:7111}
     depends_on:
       - postgres
       - model

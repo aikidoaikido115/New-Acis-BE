@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -78,14 +81,10 @@ func (c *Client) CheckAllergy(ctx context.Context, payload CheckAllergyRequest) 
 		return nil, fmt.Errorf("marshal check-allergy payload: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+checkAllergyRoute, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("create check-allergy request: %w", err)
+	resp, err := c.doCheckAllergy(ctx, c.baseURL, body)
+	if err != nil && shouldFallbackToLocal(err, c.baseURL) {
+		resp, err = c.doCheckAllergy(ctx, defaultBaseURL, body)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("call check-allergy endpoint: %w", err)
 	}
@@ -101,4 +100,38 @@ func (c *Client) CheckAllergy(ctx context.Context, payload CheckAllergyRequest) 
 	}
 
 	return respBody, nil
+}
+
+func (c *Client) doCheckAllergy(ctx context.Context, baseURL string, body []byte) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(baseURL, "/")+checkAllergyRoute, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create check-allergy request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func shouldFallbackToLocal(callErr error, baseURL string) bool {
+	u, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil {
+		return false
+	}
+
+	if !strings.EqualFold(u.Hostname(), "model") {
+		return false
+	}
+
+	var dnsErr *net.DNSError
+	if !errors.As(callErr, &dnsErr) {
+		return false
+	}
+
+	return dnsErr.IsNotFound
 }
