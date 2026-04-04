@@ -14,6 +14,9 @@ func RunAll(db *gorm.DB) {
 	SeedRoles(db)
 	SeedRooms(db)
 	SeedIntakeLabels(db)
+	SeedAllergies(db)
+	SeedMenus(db)
+	SeedDrugMasters(db)
 
 	log.Println("Database seeding completed!")
 }

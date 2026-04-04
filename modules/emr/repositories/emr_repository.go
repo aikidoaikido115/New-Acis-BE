@@ -31,6 +31,7 @@ type EmrRepository interface {
 	// Dashboard operations
 	GetNumberOfResidentsDashboard() (models.NumberOfResidentsDashboardResponse, error)
 	GetNumberOfResidentGender() (models.ResidentGenderStatsDashboardResponse, error)
+	GetResidentAllergyStatsDashboard() (models.ResidentAllergyStatsDashboardResponse, error)
 
 	// Room operations
 	RoomExists(id string) (bool, error)
@@ -50,11 +51,26 @@ type EmrRepository interface {
 	LabelExists(labelName string) (bool, error)
 	DeleteIntakeLabel(id string) error
 
+	// Allergy operations
+	CreateAllergy(allergy *entities.Allergy) (*entities.Allergy, error)
+	GetAllergyByID(id string) (*entities.Allergy, error)
+	GetAllergyByName(allergyName string) (*entities.Allergy, error)
+	GetAllAllergies() ([]*entities.Allergy, error)
+	AllergyExists(allergyName string) (bool, error)
+	DeleteAllergy(id string) error
+
 	// ResidentLabel operations (many-to-many)
 	CreateIntakeLabelByResidentID(residentLabel *entities.ResidentLabels) (*entities.ResidentLabels, error)
 	GetResidentLabelsByResidentID(residentID string) ([]*entities.ResidentLabels, error)
 	ResidentLabelExists(residentID, labelID string) (bool, error)
 	DeleteResidentLabelsByResidentID(residentID string) error
+
+	// ResidentAllergy operations (many-to-many)
+	CreateAllergyByResidentID(residentAllergy *entities.ResidentAllergies) (*entities.ResidentAllergies, error)
+	GetResidentAllergiesByResidentID(residentID string) ([]*entities.ResidentAllergies, error)
+	GetAllResidentAllergies() ([]*models.ResidentAllergyListResponse, error)
+	ResidentAllergyExists(residentID, allergyID string) (bool, error)
+	DeleteResidentAllergiesByResidentID(residentID string) error
 
 	// VitalSign operations
 	CreateVitalSign(vitalSign *entities.VitalSign) (*entities.VitalSign, error)
@@ -88,7 +104,6 @@ type EmrRepository interface {
 	// GetLatestVitalSignsGreaterThanCustom(params models.VitalSignQueryParams, greaterThan float64) ([]*entities.VitalSign, error)
 	// GetLatestVitalSignsLessThanCustom(params models.VitalSignQueryParams, lessThan float64) ([]*entities.VitalSign, error)
 
-	//todo Allergy ย้ายไป Meal repository
 }
 
 func (r *GormEmrRepository) CreateResident(resident *entities.Resident) (*entities.Resident, error) {
@@ -110,7 +125,7 @@ func (r *GormEmrRepository) RoomExists(id string) (bool, error) {
 
 func (r *GormEmrRepository) GetResidentByID(id string) (*entities.Resident, error) {
 	var resident entities.Resident
-	if err := r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Where("id = ?", id).First(&resident).Error; err != nil {
+	if err := r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Preload("ResidentAllergies.Allergy").Where("id = ?", id).First(&resident).Error; err != nil {
 		return nil, err
 	}
 	return &resident, nil
@@ -118,7 +133,7 @@ func (r *GormEmrRepository) GetResidentByID(id string) (*entities.Resident, erro
 
 func (r *GormEmrRepository) GetResidentByRoomID(roomID string) ([]*entities.Resident, error) {
 	var residents []*entities.Resident
-	if err := r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Where("room_id = ?", roomID).Find(&residents).Error; err != nil {
+	if err := r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Preload("ResidentAllergies.Allergy").Where("room_id = ?", roomID).Find(&residents).Error; err != nil {
 		return nil, err
 	}
 	return residents, nil
@@ -126,7 +141,7 @@ func (r *GormEmrRepository) GetResidentByRoomID(roomID string) ([]*entities.Resi
 
 func (r *GormEmrRepository) GetAllResidents() ([]*entities.Resident, error) {
 	var residents []*entities.Resident
-	if err := r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Find(&residents).Error; err != nil {
+	if err := r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Preload("ResidentAllergies.Allergy").Find(&residents).Error; err != nil {
 		return nil, err
 	}
 	return residents, nil
@@ -135,7 +150,7 @@ func (r *GormEmrRepository) GetAllResidents() ([]*entities.Resident, error) {
 func (r *GormEmrRepository) GetResidentsCustom(params models.ResidentQueryParams) ([]*entities.Resident, error) {
 	var residents []*entities.Resident
 
-	query := r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Model(&entities.Resident{})
+	query := r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Preload("ResidentAllergies.Allergy").Model(&entities.Resident{})
 
 	needRoomsJoin := false
 	needLabelsJoin := false
@@ -276,6 +291,35 @@ func (r *GormEmrRepository) GetNumberOfResidentGender() (models.ResidentGenderSt
 	return response, nil
 }
 
+func (r *GormEmrRepository) GetResidentAllergyStatsDashboard() (models.ResidentAllergyStatsDashboardResponse, error) {
+	var response models.ResidentAllergyStatsDashboardResponse
+
+	if err := r.db.Model(&entities.ResidentAllergies{}).
+		Distinct("resident_id").
+		Count(&response.TotalAllergic).Error; err != nil {
+		return models.ResidentAllergyStatsDashboardResponse{}, err
+	}
+
+	if err := r.db.Model(&entities.Resident{}).
+		Joins("LEFT JOIN resident_allergies ON residents.id = resident_allergies.resident_id").
+		Where("resident_allergies.resident_id IS NULL").
+		Distinct("residents.id").
+		Count(&response.TotalNotAllergic).Error; err != nil {
+		return models.ResidentAllergyStatsDashboardResponse{}, err
+	}
+
+	if err := r.db.Model(&entities.ResidentAllergies{}).
+		Joins("JOIN allergies ON resident_allergies.allergy_id = allergies.id").
+		Select("allergies.id as allergy_id, allergies.allergy_name as allergy_name, COUNT(DISTINCT resident_allergies.resident_id) as count").
+		Group("allergies.id, allergies.allergy_name").
+		Order("count DESC").
+		Scan(&response.AllergyDetails).Error; err != nil {
+		return models.ResidentAllergyStatsDashboardResponse{}, err
+	}
+
+	return response, nil
+}
+
 func (r *GormEmrRepository) CreateIntakeLabelByResidentID(residentLabel *entities.ResidentLabels) (*entities.ResidentLabels, error) {
 	if err := r.db.Create(&residentLabel).Error; err != nil {
 		return nil, err
@@ -351,6 +395,53 @@ func (r *GormEmrRepository) DeleteIntakeLabel(id string) error {
 	return nil
 }
 
+func (r *GormEmrRepository) GetAllergyByName(allergyName string) (*entities.Allergy, error) {
+	var allergy entities.Allergy
+	if err := r.db.Where("allergy_name = ?", allergyName).First(&allergy).Error; err != nil {
+		return nil, err
+	}
+	return &allergy, nil
+}
+
+func (r *GormEmrRepository) CreateAllergy(allergy *entities.Allergy) (*entities.Allergy, error) {
+	if err := r.db.Create(&allergy).Error; err != nil {
+		return nil, err
+	}
+	return allergy, nil
+}
+
+func (r *GormEmrRepository) GetAllergyByID(id string) (*entities.Allergy, error) {
+	var allergy entities.Allergy
+	if err := r.db.Where("id = ?", id).First(&allergy).Error; err != nil {
+		return nil, err
+	}
+	return &allergy, nil
+}
+
+func (r *GormEmrRepository) GetAllAllergies() ([]*entities.Allergy, error) {
+	var allergies []*entities.Allergy
+	if err := r.db.Find(&allergies).Error; err != nil {
+		return nil, err
+	}
+	return allergies, nil
+}
+
+func (r *GormEmrRepository) AllergyExists(allergyName string) (bool, error) {
+	var count int64
+	err := r.db.Model(&entities.Allergy{}).Where("allergy_name = ?", allergyName).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (r *GormEmrRepository) DeleteAllergy(id string) error {
+	if err := r.db.Delete(&entities.Allergy{}, "id = ?", id).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 func (r *GormEmrRepository) GetResidentLabelsByResidentID(residentID string) ([]*entities.ResidentLabels, error) {
 	var residentLabels []*entities.ResidentLabels
 	if err := r.db.Preload("IntakeLabel").Where("resident_id = ?", residentID).Find(&residentLabels).Error; err != nil {
@@ -370,6 +461,75 @@ func (r *GormEmrRepository) ResidentLabelExists(residentID, labelID string) (boo
 
 func (r *GormEmrRepository) DeleteResidentLabelsByResidentID(residentID string) error {
 	if err := r.db.Where("resident_id = ?", residentID).Delete(&entities.ResidentLabels{}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *GormEmrRepository) CreateAllergyByResidentID(residentAllergy *entities.ResidentAllergies) (*entities.ResidentAllergies, error) {
+	if err := r.db.Create(&residentAllergy).Error; err != nil {
+		return nil, err
+	}
+
+	var result entities.ResidentAllergies
+	if err := r.db.Preload("Resident").Preload("Allergy").
+		Where("resident_id = ? AND allergy_id = ?", residentAllergy.ResidentID, residentAllergy.AllergyID).
+		First(&result).Error; err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (r *GormEmrRepository) GetResidentAllergiesByResidentID(residentID string) ([]*entities.ResidentAllergies, error) {
+	var residentAllergies []*entities.ResidentAllergies
+	if err := r.db.Preload("Allergy").Where("resident_id = ?", residentID).Find(&residentAllergies).Error; err != nil {
+		return nil, err
+	}
+	return residentAllergies, nil
+}
+
+func (r *GormEmrRepository) GetAllResidentAllergies() ([]*models.ResidentAllergyListResponse, error) {
+	var residents []*entities.Resident
+	if err := r.db.
+		Select("id", "first_name", "last_name").
+		Preload("ResidentAllergies.Allergy").
+		Find(&residents).Error; err != nil {
+		return nil, err
+	}
+
+	result := make([]*models.ResidentAllergyListResponse, 0, len(residents))
+	for _, resident := range residents {
+		allergyItems := make([]models.ResidentAllergyItemResponse, 0, len(resident.ResidentAllergies))
+		for _, residentAllergy := range resident.ResidentAllergies {
+			allergyItems = append(allergyItems, models.ResidentAllergyItemResponse{
+				AllergyID:   residentAllergy.AllergyID,
+				AllergyName: residentAllergy.Allergy.AllergyName,
+				NoteText:    residentAllergy.NoteText,
+			})
+		}
+
+		result = append(result, &models.ResidentAllergyListResponse{
+			ResidentID: resident.ID,
+			FirstName:  resident.FirstName,
+			LastName:   resident.LastName,
+			Allergies:  allergyItems,
+		})
+	}
+
+	return result, nil
+}
+
+func (r *GormEmrRepository) ResidentAllergyExists(residentID, allergyID string) (bool, error) {
+	var count int64
+	err := r.db.Model(&entities.ResidentAllergies{}).Where("resident_id = ? AND allergy_id = ?", residentID, allergyID).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (r *GormEmrRepository) DeleteResidentAllergiesByResidentID(residentID string) error {
+	if err := r.db.Where("resident_id = ?", residentID).Delete(&entities.ResidentAllergies{}).Error; err != nil {
 		return err
 	}
 	return nil

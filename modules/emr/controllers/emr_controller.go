@@ -514,6 +514,35 @@ func (c *EmrController) GetResidentGenderStatsDashboardHandler(ctx *fiber.Ctx) e
 	})
 }
 
+// GetResidentAllergyStatsDashboard godoc
+// @Summary Get Resident Allergy Stats for Dashboard
+// @Description Retrieve allergy summary for dashboard including allergic count, non-allergic count, and grouped allergy details
+// @Tags Dashboard
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.ResidentAllergyStatsDashboardResponse} "Resident allergy stats retrieved successfully"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/dashboard/resident-allergy-stats [get]
+func (c *EmrController) GetResidentAllergyStatsDashboardHandler(ctx *fiber.Ctx) error {
+	response, err := c.emrUsecase.GetResidentAllergyStatsDashboard()
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "resident allergy stats retrieved successfully",
+		"result":      response,
+	})
+}
+
 // GetAllIntakeLabels godoc
 // @Summary Get All Intake Labels
 // @Description Retrieve a list of all available intake label types (e.g., Blood Pressure, Temperature, Heart Rate)
@@ -630,6 +659,159 @@ func (c *EmrController) CreateIntakeLabelByResidentIDHandler(ctx *fiber.Ctx) err
 		"status":      "Success",
 		"status_code": fiber.StatusCreated,
 		"message":     "Intake labels created successfully",
+		"result":      result,
+	})
+}
+
+// GetAllAllergies godoc
+// @Summary Get All Allergies
+// @Description Retrieve all allergy master records
+// @Tags Allergy
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "Allergies retrieved successfully"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/allergies/all [get]
+func (c *EmrController) GetAllAllergiesHandler(ctx *fiber.Ctx) error {
+	allergies, err := c.emrUsecase.GetAllAllergies()
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "allergies retrieved successfully",
+		"result":      allergies,
+	})
+}
+
+// GetResidentAllergiesByResidentID godoc
+// @Summary Get Resident Allergies by Resident ID
+// @Description Retrieve all allergies associated with a specific resident using resident_id query parameter
+// @Tags Allergy
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param resident_id query string true "Resident ID"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "Resident allergies retrieved successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing resident_id query parameter"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/allergies [get]
+func (c *EmrController) GetResidentAllergiesByResidentIDHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Query("resident_id")
+
+	if residentID == "" {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     "resident_id query parameter is required",
+			"result":      nil,
+		})
+	}
+
+	allergies, err := c.emrUsecase.GetResidentAllergiesByResidentID(residentID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "resident allergies retrieved successfully",
+		"result":      allergies,
+	})
+}
+
+// GetAllResidentAllergies godoc
+// @Summary Get All Resident Allergies
+// @Description Retrieve all residents with first name, last name, resident ID, and their allergies list
+// @Tags Allergy
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]models.ResidentAllergyListResponse} "All resident allergies retrieved successfully"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/allergies/residents/all [get]
+func (c *EmrController) GetAllResidentAllergiesHandler(ctx *fiber.Ctx) error {
+	result, err := c.emrUsecase.GetAllResidentAllergies()
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "all resident allergies retrieved successfully",
+		"result":      result,
+	})
+}
+
+// CreateAllergyByResidentID godoc
+// @Summary Create Allergies for Resident
+// @Description Create one or more allergy records for a specific resident. New allergy master values are auto-created when they do not exist.
+// @Tags Allergy
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body models.CreateAllergyByResidentRequest true "Resident ID and array of allergies"
+// @Success 201 {object} object{status=string,status_code=int,message=string,result=[]object} "Allergies created successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing required fields or invalid data"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing or invalid authentication"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/allergies [post]
+func (c *EmrController) CreateAllergyByResidentIDHandler(ctx *fiber.Ctx) error {
+	var req models.CreateAllergyByResidentRequest
+
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.CreateAllergyByResidentID(req.ResidentID, req.Allergies, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusCreated,
+		"message":     "allergies created successfully",
 		"result":      result,
 	})
 }
