@@ -1,4 +1,4 @@
-h1:ogf0ZjsayYYVAbOZJIb9kFYfU0llfRCFbKMsEa63mlQ=
+h1:P24trOfG34h697q6PSXvKYiQAIb1Ti6cRvx8WH55Mkw=
 20251225120117_baseline.sql h1:nDGr+0dzg9CoNnMMJPnwUDoN9CMokZ2O27hxABnWQIw=
 20251225121734_add_test_col.sql h1:HulH71cfP0x27QyxLV4XK5L/2923YKgP6XNpqnl/BQs=
 20251225122058_add_test_col.sql h1:UzZ1gqFQUYlwjFADblodN5gA1O74X1tiIEC5zNa8TOU=
@@ -22,3 +22,10 @@ h1:ogf0ZjsayYYVAbOZJIb9kFYfU0llfRCFbKMsEa63mlQ=
 20260326072634_meal.sql h1:A1daEaG41Y4bnd+QwRAjuFkJHhbQwRyHDo88MzKJt/Q=
 20260326143954_relation-meal-in-emr.sql h1:UDNturMGhqoVh+0moXbHOPlkFeSQts40AWvWBrNlX4Y=
 20260402084724_drug_master.sql h1:aR1IsQJ3TKcGz0OjhIkHqycklTnd9cVgVm6XdsWNWf4=
+20260405044705_drug-allergy.sql h1:DGoiGO12xVn/qKZlckaigI5Q4FfiFBbD+GYSgEg9wJ0=
+20260406054850_drug-personal.sql h1:KARJVRMAhd0MuxIpT8yOxaD2/8G4ALh685fzQBCqZ+A=
+20260406063955_drug-personal-v2.sql h1:HBlD888xYZ3+RymNkwkFpNUdwq5r17szUGhebkz7Pv4=
+20260406065331_drug-personal-take-type.sql h1:jQP89G7cnKrWCiMvZOx93t/AgE+B+sOE9izqENrQeMQ=
+20260407082618_drug-master-dose.sql h1:bwH5ZsJW0VWH9z8H0vh5oJ8ycWIhyFoMn1Y0roZ83x4=
+20260407093007_personal-drug-as-need.sql h1:qkH4TnjsIKfXATs9qaE5Pd4IcMQCZHLxZGVsCuJTIto=
+20260411100751_drug_plan.sql h1:iujE2ilxKU/BS1LK5KJ2sWvXO0T1GoXyyuN6UtYD6oM=

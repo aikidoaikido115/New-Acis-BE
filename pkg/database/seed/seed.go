@@ -15,6 +15,7 @@ func RunAll(db *gorm.DB) {
 	SeedRooms(db)
 	SeedIntakeLabels(db)
 	SeedAllergies(db)
+	SeedDrugAllergies(db)
 	SeedMenus(db)
 	SeedDrugMasters(db)
 

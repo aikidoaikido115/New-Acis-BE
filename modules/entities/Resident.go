@@ -26,4 +26,5 @@ type Resident struct {
 
 	ResidentLabels    []ResidentLabels    `json:"resident_labels" gorm:"foreignKey:ResidentID;references:ID"`
 	ResidentAllergies []ResidentAllergies `json:"resident_allergies" gorm:"foreignKey:ResidentID;references:ID"`
+	ResidentDA        []ResidentDA        `json:"resident_das" gorm:"foreignKey:ResidentID;references:ID"`
 }

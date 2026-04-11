@@ -33,6 +33,11 @@ type AllergyRequest struct {
 	NoteText    *string `json:"note_text"`
 }
 
+type DrugAllergyRequest struct {
+	AllergyName string  `json:"allergy_name" binding:"required"`
+	NoteText    *string `json:"note_text"`
+}
+
 type CreateIntakeLabelByResidentRequest struct {
 	ResidentID string               `json:"resident_id" binding:"required"`
 	Labels     []IntakeLabelRequest `json:"labels" binding:"required"`
@@ -41,6 +46,11 @@ type CreateIntakeLabelByResidentRequest struct {
 type CreateAllergyByResidentRequest struct {
 	ResidentID string           `json:"resident_id" binding:"required"`
 	Allergies  []AllergyRequest `json:"allergies" binding:"required"`
+}
+
+type CreateDrugAllergyByResidentRequest struct {
+	ResidentID    string               `json:"resident_id" binding:"required"`
+	DrugAllergies []DrugAllergyRequest `json:"drug_allergies" binding:"required"`
 }
 
 type UpdateResidentRequest struct {

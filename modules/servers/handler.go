@@ -10,6 +10,9 @@ import (
 	mealController "github.com/aikidoaikido115/New-Acis-BE/modules/meal/controllers"
 	mealRepository "github.com/aikidoaikido115/New-Acis-BE/modules/meal/repositories"
 	mealUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/meal/usecases"
+	medicineController "github.com/aikidoaikido115/New-Acis-BE/modules/medicine/controllers"
+	medicineRepository "github.com/aikidoaikido115/New-Acis-BE/modules/medicine/repositories"
+	medicineUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/medicine/usecases"
 	userController "github.com/aikidoaikido115/New-Acis-BE/modules/user/controllers"
 	userRepository "github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
 	userUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/user/usecases"
@@ -76,6 +79,7 @@ func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa co
 
 	SetupUserRoutes(app, db, jwt, supa, mail)
 	SetupEmrRoutes(app, db, jwt)
+	SetupMedicineRoutes(app, db, jwt)
 	SetupMealRoutes(app, db, jwt)
 
 	// API group
@@ -138,6 +142,7 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	dashboardGroup.Get("/residents", middlewares.JWTMiddleware(jwt), emrController.GetNumberOfResidentsDashboardHandler)
 	dashboardGroup.Get("/resident-gender-stats", middlewares.JWTMiddleware(jwt), emrController.GetResidentGenderStatsDashboardHandler)
 	dashboardGroup.Get("/resident-allergy-stats", middlewares.JWTMiddleware(jwt), emrController.GetResidentAllergyStatsDashboardHandler)
+	dashboardGroup.Get("/resident-drug-allergy-stats", middlewares.JWTMiddleware(jwt), emrController.GetResidentDrugAllergyStatsDashboardHandler)
 
 	labelGroup := app.Group("/api/emr/intake-labels")
 	labelGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetResidentLabelsByResidentIDHandler)
@@ -149,6 +154,12 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	allergyGroup.Get("/all", middlewares.JWTMiddleware(jwt), emrController.GetAllAllergiesHandler)
 	allergyGroup.Get("/residents/all", middlewares.JWTMiddleware(jwt), emrController.GetAllResidentAllergiesHandler)
 	allergyGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateAllergyByResidentIDHandler)
+
+	drugAllergyGroup := app.Group("/api/emr/drug-allergies")
+	drugAllergyGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetResidentDrugAllergiesByResidentIDHandler)
+	drugAllergyGroup.Get("/all", middlewares.JWTMiddleware(jwt), emrController.GetAllDrugAllergiesHandler)
+	drugAllergyGroup.Get("/residents/all", middlewares.JWTMiddleware(jwt), emrController.GetAllResidentDrugAllergiesHandler)
+	drugAllergyGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateDrugAllergyByResidentIDHandler)
 
 	vitalSignGroup := app.Group("/api/emr/vital-signs")
 	vitalSignGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateVitalSignHandler)
@@ -192,4 +203,40 @@ func SetupMealRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	mealPlanGroup.Get("/today", middlewares.JWTMiddleware(jwt), mealController.GetMealPlansTodayHandler)
 	mealPlanGroup.Get("/:id", middlewares.JWTMiddleware(jwt), mealController.GetMealPlanByIDHandler)
 	// mealPlanGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), mealController.UpdateMealPlanHandler)
+}
+
+func SetupMedicineRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
+	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
+	userRepository := userRepository.NewGormUserRepository(db)
+	drugRepository := medicineRepository.NewGormDrugRepository(db)
+	drugUsecase := medicineUsecase.NewDrugUseCase(drugRepository, auditLogRepository, userRepository)
+	drugController := medicineController.NewDrugController(drugUsecase)
+
+	personalDrugGroup := app.Group("/api/emr/personal-drugs")
+	personalDrugGroup.Post("/", middlewares.JWTMiddleware(jwt), drugController.CreatePersonalDrugHandler)
+	personalDrugGroup.Get("/overview", middlewares.JWTMiddleware(jwt), drugController.GetPersonalDrugsOverviewHandler)
+	personalDrugGroup.Get("/resident/all", middlewares.JWTMiddleware(jwt), drugController.GetPersonalDrugsByResidentHandler)
+	personalDrugGroup.Get("/resident", middlewares.JWTMiddleware(jwt), drugController.GetPersonalDrugsByResidentTodayHandler)
+	personalDrugGroup.Get("/:id", middlewares.JWTMiddleware(jwt), drugController.GetPersonalDrugByIDHandler)
+	personalDrugGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), drugController.UpdatePersonalDrugByIDHandler)
+	personalDrugGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), drugController.DeletePersonalDrugByIDHandler)
+
+	drugMasterGroup := app.Group("/api/emr/drug-masters")
+	drugMasterGroup.Post("/", middlewares.JWTMiddleware(jwt), drugController.CreateDrugMasterHandler)
+	drugMasterGroup.Get("/", middlewares.JWTMiddleware(jwt), drugController.GetDrugMastersHandler)
+	drugMasterGroup.Get("/:id", middlewares.JWTMiddleware(jwt), drugController.GetDrugMasterByIDHandler)
+	drugMasterGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), drugController.UpdateDrugMasterByIDHandler)
+	drugMasterGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), drugController.DeleteDrugMasterByIDHandler)
+
+	drugPlanGroup := app.Group("/api/emr/drug-plans")
+	drugPlanGroup.Post("/", middlewares.JWTMiddleware(jwt), drugController.CreateDrugPlanHandler)
+	drugPlanGroup.Get("/istaken-summary", middlewares.JWTMiddleware(jwt), drugController.GetDrugPlansTodayResidentSummaryHandler)
+	drugPlanGroup.Get("/today", middlewares.JWTMiddleware(jwt), drugController.GetDrugPlansTodayHandler)
+	drugPlanGroup.Get("/overview", middlewares.JWTMiddleware(jwt), drugController.GetDrugPlansOverviewHandler)
+	drugPlanGroup.Get("/resident/all", middlewares.JWTMiddleware(jwt), drugController.GetDrugPlansByResidentHandler)
+	drugPlanGroup.Get("/resident", middlewares.JWTMiddleware(jwt), drugController.GetDrugPlansByResidentTodayHandler)
+	drugPlanGroup.Get("/", middlewares.JWTMiddleware(jwt), drugController.GetDrugPlansHandler)
+	drugPlanGroup.Get("/:id", middlewares.JWTMiddleware(jwt), drugController.GetDrugPlanByIDHandler)
+	drugPlanGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), drugController.UpdateDrugPlanByIDHandler)
+	drugPlanGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), drugController.DeleteDrugPlanByIDHandler)
 }

@@ -31,20 +31,21 @@ type EmrUsecase interface {
 
 	// Resident operations
 	CreateResident(resident *entities.Resident, userID string) (*entities.Resident, error)
-	GetResidentByID(id string) (*entities.Resident, error)
-	GetResidentByRoomID(roomID string) ([]*entities.Resident, error)
-	GetAllResidents() ([]*entities.Resident, error)
-	GetResidentOverview(req models.ResidentQueryParams) ([]*models.ResidentOverviewResponse, error)
+	GetResidentByID(id string, userID string) (*entities.Resident, error)
+	GetResidentByRoomID(roomID string, userID string) ([]*entities.Resident, error)
+	GetAllResidents(userID string) ([]*entities.Resident, error)
+	GetResidentOverview(req models.ResidentQueryParams, userID string) ([]*models.ResidentOverviewResponse, error)
 	UpdateResidentByID(residentID string, data models.UpdateResidentRequest, userID string) (*entities.Resident, error)
 
 	// Dashboard operations
-	GetNumberOfResidentsDashboard() (models.NumberOfResidentsDashboardResponse, error)
-	GetResidentGenderStatsDashboard() (models.ResidentGenderStatsDashboardResponse, error)
-	GetResidentAllergyStatsDashboard() (models.ResidentAllergyStatsDashboardResponse, error)
+	GetNumberOfResidentsDashboard(userID string) (models.NumberOfResidentsDashboardResponse, error)
+	GetResidentGenderStatsDashboard(userID string) (models.ResidentGenderStatsDashboardResponse, error)
+	GetResidentAllergyStatsDashboard(userID string) (models.ResidentAllergyStatsDashboardResponse, error)
+	GetResidentDrugAllergyStatsDashboard(userID string) (models.ResidentDrugAllergyStatsDashboardResponse, error)
 
 	// Room operations
-	GetRoomByID(id string) (*entities.Room, error)
-	GetAllRooms() ([]*entities.Room, error)
+	GetRoomByID(id string, userID string) (*entities.Room, error)
+	GetAllRooms(userID string) ([]*entities.Room, error)
 	CreateRoom(room *entities.Room, userID string) (*entities.Room, error)
 	UpdateRoomByID(roomID string, data models.UpdateRoomRequest, userID string) (*entities.Room, error)
 
@@ -52,19 +53,27 @@ type EmrUsecase interface {
 	CreateIntakeLabel(label *entities.IntakeLabels) (*entities.IntakeLabels, error)
 	// GetIntakeLabelByID(id string) (*entities.IntakeLabels, error)
 	GetIntakeLabelByName(labelName string) (*entities.IntakeLabels, error)
-	GetAllIntakeLabels() ([]*entities.IntakeLabels, error)
+	GetAllIntakeLabels(userID string) ([]*entities.IntakeLabels, error)
 	// Allergy operations
 	CreateAllergy(allergy *entities.Allergy) (*entities.Allergy, error)
 	GetAllergyByName(allergyName string) (*entities.Allergy, error)
-	GetAllAllergies() ([]*entities.Allergy, error)
+	GetAllAllergies(userID string) ([]*entities.Allergy, error)
+	// DrugAllergy operations
+	CreateDrugAllergy(drugAllergy *entities.DrugAllergy) (*entities.DrugAllergy, error)
+	GetDrugAllergyByName(allergyName string) (*entities.DrugAllergy, error)
+	GetAllDrugAllergies(userID string) ([]*entities.DrugAllergy, error)
 
 	// ResidentLabel operations (many-to-many)
 	CreateIntakeLabelByResidentID(residentID string, labels []models.IntakeLabelRequest, userID string) ([]*entities.ResidentLabels, error)
-	GetResidentLabelsByResidentID(residentID string) ([]*entities.ResidentLabels, error)
+	GetResidentLabelsByResidentID(residentID string, userID string) ([]*entities.ResidentLabels, error)
 	// ResidentAllergy operations (many-to-many)
 	CreateAllergyByResidentID(residentID string, allergies []models.AllergyRequest, userID string) ([]*entities.ResidentAllergies, error)
-	GetResidentAllergiesByResidentID(residentID string) ([]*entities.ResidentAllergies, error)
-	GetAllResidentAllergies() ([]*models.ResidentAllergyListResponse, error)
+	GetResidentAllergiesByResidentID(residentID string, userID string) ([]*entities.ResidentAllergies, error)
+	GetAllResidentAllergies(userID string) ([]*models.ResidentAllergyListResponse, error)
+	// ResidentDrugAllergy operations (many-to-many)
+	CreateDrugAllergyByResidentID(residentID string, drugAllergies []models.DrugAllergyRequest, userID string) ([]*entities.ResidentDA, error)
+	GetResidentDrugAllergiesByResidentID(residentID string, userID string) ([]*entities.ResidentDA, error)
+	GetAllResidentDrugAllergies(userID string) ([]*models.ResidentDrugAllergyListResponse, error)
 
 	// VitalSign operations
 	CreateVitalSign(vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error)
@@ -108,7 +117,28 @@ func NewEmrUseCase(
 	}
 }
 
+func (uc *EmrUseCaseImpl) ensureMedicalStaff(userID string) error {
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return errors.New("failed to get user: " + err.Error())
+	}
+
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return errors.New("failed to get user role: " + err.Error())
+	}
+
+	if userRole.Name != user_constants.RoleMedicalStaff {
+		return errors.New("only users with 'Medical Staff' role can access EMR")
+	}
+
+	return nil
+}
+
 func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID string) (*entities.Resident, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
 
 	if resident.DateOfBirth.IsZero() {
 		return nil, errors.New("date_of_birth is required")
@@ -202,7 +232,11 @@ func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID str
 	return createdResident, nil
 }
 
-func (uc *EmrUseCaseImpl) GetResidentByID(id string) (*entities.Resident, error) {
+func (uc *EmrUseCaseImpl) GetResidentByID(id string, userID string) (*entities.Resident, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	resident, err := uc.emrrepo.GetResidentByID(id)
 	if err != nil {
 		return nil, errors.New("resident not found: " + err.Error())
@@ -210,7 +244,11 @@ func (uc *EmrUseCaseImpl) GetResidentByID(id string) (*entities.Resident, error)
 	return resident, nil
 }
 
-func (uc *EmrUseCaseImpl) GetResidentByRoomID(roomID string) ([]*entities.Resident, error) {
+func (uc *EmrUseCaseImpl) GetResidentByRoomID(roomID string, userID string) ([]*entities.Resident, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	residents, err := uc.emrrepo.GetResidentByRoomID(roomID)
 	if err != nil {
 		return nil, errors.New("failed to get residents by room ID: " + err.Error())
@@ -218,7 +256,11 @@ func (uc *EmrUseCaseImpl) GetResidentByRoomID(roomID string) ([]*entities.Reside
 	return residents, nil
 }
 
-func (uc *EmrUseCaseImpl) GetAllResidents() ([]*entities.Resident, error) {
+func (uc *EmrUseCaseImpl) GetAllResidents(userID string) ([]*entities.Resident, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	residents, err := uc.emrrepo.GetAllResidents()
 	if err != nil {
 		return nil, errors.New("failed to get all residents: " + err.Error())
@@ -226,7 +268,11 @@ func (uc *EmrUseCaseImpl) GetAllResidents() ([]*entities.Resident, error) {
 	return residents, nil
 }
 
-func (uc *EmrUseCaseImpl) GetResidentOverview(req models.ResidentQueryParams) ([]*models.ResidentOverviewResponse, error) {
+func (uc *EmrUseCaseImpl) GetResidentOverview(req models.ResidentQueryParams, userID string) ([]*models.ResidentOverviewResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	var (
 		residents []*entities.Resident
 		err       error
@@ -285,6 +331,10 @@ func (uc *EmrUseCaseImpl) GetResidentOverview(req models.ResidentQueryParams) ([
 }
 
 func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.UpdateResidentRequest, userID string) (*entities.Resident, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	resident, err := uc.emrrepo.GetResidentByID(residentID)
 	if err != nil {
 		return nil, errors.New("resident not found: " + err.Error())
@@ -544,7 +594,11 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 	return updatedResident, nil
 }
 
-func (uc *EmrUseCaseImpl) GetNumberOfResidentsDashboard() (models.NumberOfResidentsDashboardResponse, error) {
+func (uc *EmrUseCaseImpl) GetNumberOfResidentsDashboard(userID string) (models.NumberOfResidentsDashboardResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return models.NumberOfResidentsDashboardResponse{}, err
+	}
+
 	response, err := uc.emrrepo.GetNumberOfResidentsDashboard()
 	if err != nil {
 		return models.NumberOfResidentsDashboardResponse{}, errors.New("failed to get dashboard data: " + err.Error())
@@ -552,7 +606,11 @@ func (uc *EmrUseCaseImpl) GetNumberOfResidentsDashboard() (models.NumberOfReside
 	return response, nil
 }
 
-func (uc *EmrUseCaseImpl) GetResidentGenderStatsDashboard() (models.ResidentGenderStatsDashboardResponse, error) {
+func (uc *EmrUseCaseImpl) GetResidentGenderStatsDashboard(userID string) (models.ResidentGenderStatsDashboardResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return models.ResidentGenderStatsDashboardResponse{}, err
+	}
+
 	response, err := uc.emrrepo.GetNumberOfResidentGender()
 	if err != nil {
 		return models.ResidentGenderStatsDashboardResponse{}, errors.New("failed to get resident gender stats: " + err.Error())
@@ -569,7 +627,11 @@ func (uc *EmrUseCaseImpl) GetResidentGenderStatsDashboard() (models.ResidentGend
 	return response, nil
 }
 
-func (uc *EmrUseCaseImpl) GetResidentAllergyStatsDashboard() (models.ResidentAllergyStatsDashboardResponse, error) {
+func (uc *EmrUseCaseImpl) GetResidentAllergyStatsDashboard(userID string) (models.ResidentAllergyStatsDashboardResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return models.ResidentAllergyStatsDashboardResponse{}, err
+	}
+
 	response, err := uc.emrrepo.GetResidentAllergyStatsDashboard()
 	if err != nil {
 		return models.ResidentAllergyStatsDashboardResponse{}, errors.New("failed to get resident allergy stats: " + err.Error())
@@ -578,7 +640,24 @@ func (uc *EmrUseCaseImpl) GetResidentAllergyStatsDashboard() (models.ResidentAll
 	return response, nil
 }
 
-func (uc *EmrUseCaseImpl) GetRoomByID(id string) (*entities.Room, error) {
+func (uc *EmrUseCaseImpl) GetResidentDrugAllergyStatsDashboard(userID string) (models.ResidentDrugAllergyStatsDashboardResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return models.ResidentDrugAllergyStatsDashboardResponse{}, err
+	}
+
+	response, err := uc.emrrepo.GetResidentDrugAllergyStatsDashboard()
+	if err != nil {
+		return models.ResidentDrugAllergyStatsDashboardResponse{}, errors.New("failed to get resident drug allergy stats: " + err.Error())
+	}
+
+	return response, nil
+}
+
+func (uc *EmrUseCaseImpl) GetRoomByID(id string, userID string) (*entities.Room, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	room, err := uc.emrrepo.GetRoomByID(id)
 	if err != nil {
 		return nil, errors.New("room not found: " + err.Error())
@@ -586,7 +665,11 @@ func (uc *EmrUseCaseImpl) GetRoomByID(id string) (*entities.Room, error) {
 	return room, nil
 }
 
-func (uc *EmrUseCaseImpl) GetAllRooms() ([]*entities.Room, error) {
+func (uc *EmrUseCaseImpl) GetAllRooms(userID string) ([]*entities.Room, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	rooms, err := uc.emrrepo.GetAllRooms()
 	if err != nil {
 		return nil, errors.New("failed to get all rooms: " + err.Error())
@@ -595,6 +678,10 @@ func (uc *EmrUseCaseImpl) GetAllRooms() ([]*entities.Room, error) {
 }
 
 func (uc *EmrUseCaseImpl) CreateRoom(room *entities.Room, userID string) (*entities.Room, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	roomNumberExists, err := uc.emrrepo.RoomNumberExists(room.RoomNumber)
 	if err != nil {
 		return nil, errors.New("failed to verify room number existence: " + err.Error())
@@ -632,6 +719,10 @@ func (uc *EmrUseCaseImpl) CreateRoom(room *entities.Room, userID string) (*entit
 }
 
 func (uc *EmrUseCaseImpl) UpdateRoomByID(roomID string, data models.UpdateRoomRequest, userID string) (*entities.Room, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	room, err := uc.emrrepo.GetRoomByID(roomID)
 	if err != nil {
 		return nil, errors.New("room not found: " + err.Error())
@@ -708,7 +799,11 @@ func (uc *EmrUseCaseImpl) GetIntakeLabelByName(labelName string) (*entities.Inta
 	return label, nil
 }
 
-func (uc *EmrUseCaseImpl) GetAllIntakeLabels() ([]*entities.IntakeLabels, error) {
+func (uc *EmrUseCaseImpl) GetAllIntakeLabels(userID string) ([]*entities.IntakeLabels, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	labels, err := uc.emrrepo.GetAllIntakeLabels()
 	if err != nil {
 		return nil, errors.New("failed to get all intake labels: " + err.Error())
@@ -741,12 +836,53 @@ func (uc *EmrUseCaseImpl) GetAllergyByName(allergyName string) (*entities.Allerg
 	return allergy, nil
 }
 
-func (uc *EmrUseCaseImpl) GetAllAllergies() ([]*entities.Allergy, error) {
+func (uc *EmrUseCaseImpl) GetAllAllergies(userID string) ([]*entities.Allergy, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	allergies, err := uc.emrrepo.GetAllAllergies()
 	if err != nil {
 		return nil, errors.New("failed to get all allergies: " + err.Error())
 	}
 	return allergies, nil
+}
+
+func (uc *EmrUseCaseImpl) CreateDrugAllergy(drugAllergy *entities.DrugAllergy) (*entities.DrugAllergy, error) {
+	drugAllergyExists, err := uc.emrrepo.DrugAllergyExists(drugAllergy.AllergyName)
+	if err != nil {
+		return nil, errors.New("failed to verify drug allergy existence: " + err.Error())
+	}
+	if drugAllergyExists {
+		return nil, errors.New("drug allergy already exists")
+	}
+
+	drugAllergy.ID = uuid.New().String()
+	createdDrugAllergy, err := uc.emrrepo.CreateDrugAllergy(drugAllergy)
+	if err != nil {
+		return nil, errors.New("failed to create drug allergy: " + err.Error())
+	}
+	return createdDrugAllergy, nil
+}
+
+func (uc *EmrUseCaseImpl) GetDrugAllergyByName(allergyName string) (*entities.DrugAllergy, error) {
+	drugAllergy, err := uc.emrrepo.GetDrugAllergyByName(allergyName)
+	if err != nil {
+		return nil, errors.New("drug allergy not found: " + err.Error())
+	}
+	return drugAllergy, nil
+}
+
+func (uc *EmrUseCaseImpl) GetAllDrugAllergies(userID string) ([]*entities.DrugAllergy, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	drugAllergies, err := uc.emrrepo.GetAllDrugAllergies()
+	if err != nil {
+		return nil, errors.New("failed to get all drug allergies: " + err.Error())
+	}
+	return drugAllergies, nil
 }
 
 // Helper function
@@ -790,7 +926,32 @@ func (uc *EmrUseCaseImpl) getOrCreateAllergyID(allergyName string) (string, erro
 	return newAllergy.ID, nil
 }
 
+func (uc *EmrUseCaseImpl) getOrCreateDrugAllergyID(allergyName string) (string, error) {
+	drugAllergyExists, err := uc.emrrepo.DrugAllergyExists(allergyName)
+	if err != nil {
+		return "", err
+	}
+
+	if drugAllergyExists {
+		drugAllergy, err := uc.emrrepo.GetDrugAllergyByName(allergyName)
+		return drugAllergy.ID, err
+	}
+
+	newDrugAllergy, err := uc.emrrepo.CreateDrugAllergy(&entities.DrugAllergy{
+		ID:          uuid.New().String(),
+		AllergyName: allergyName,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return newDrugAllergy.ID, nil
+}
+
 func (uc *EmrUseCaseImpl) CreateIntakeLabelByResidentID(residentID string, labels []models.IntakeLabelRequest, userID string) ([]*entities.ResidentLabels, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
 
 	resident, err := uc.emrrepo.GetResidentByID(residentID)
 	if err != nil {
@@ -862,7 +1023,11 @@ func (uc *EmrUseCaseImpl) CreateIntakeLabelByResidentID(residentID string, label
 	return residentLabels, nil
 }
 
-func (uc *EmrUseCaseImpl) GetResidentLabelsByResidentID(residentID string) ([]*entities.ResidentLabels, error) {
+func (uc *EmrUseCaseImpl) GetResidentLabelsByResidentID(residentID string, userID string) ([]*entities.ResidentLabels, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	residentLabels, err := uc.emrrepo.GetResidentLabelsByResidentID(residentID)
 	if err != nil {
 		return nil, errors.New("failed to get resident labels: " + err.Error())
@@ -871,6 +1036,10 @@ func (uc *EmrUseCaseImpl) GetResidentLabelsByResidentID(residentID string) ([]*e
 }
 
 func (uc *EmrUseCaseImpl) CreateAllergyByResidentID(residentID string, allergies []models.AllergyRequest, userID string) ([]*entities.ResidentAllergies, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	resident, err := uc.emrrepo.GetResidentByID(residentID)
 	if err != nil {
 		return nil, errors.New("resident not found: " + err.Error())
@@ -939,7 +1108,11 @@ func (uc *EmrUseCaseImpl) CreateAllergyByResidentID(residentID string, allergies
 	return residentAllergies, nil
 }
 
-func (uc *EmrUseCaseImpl) GetResidentAllergiesByResidentID(residentID string) ([]*entities.ResidentAllergies, error) {
+func (uc *EmrUseCaseImpl) GetResidentAllergiesByResidentID(residentID string, userID string) ([]*entities.ResidentAllergies, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	residentAllergies, err := uc.emrrepo.GetResidentAllergiesByResidentID(residentID)
 	if err != nil {
 		return nil, errors.New("failed to get resident allergies: " + err.Error())
@@ -947,12 +1120,113 @@ func (uc *EmrUseCaseImpl) GetResidentAllergiesByResidentID(residentID string) ([
 	return residentAllergies, nil
 }
 
-func (uc *EmrUseCaseImpl) GetAllResidentAllergies() ([]*models.ResidentAllergyListResponse, error) {
+func (uc *EmrUseCaseImpl) GetAllResidentAllergies(userID string) ([]*models.ResidentAllergyListResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
 	residentAllergies, err := uc.emrrepo.GetAllResidentAllergies()
 	if err != nil {
 		return nil, errors.New("failed to get all resident allergies: " + err.Error())
 	}
 	return residentAllergies, nil
+}
+
+func (uc *EmrUseCaseImpl) CreateDrugAllergyByResidentID(residentID string, drugAllergies []models.DrugAllergyRequest, userID string) ([]*entities.ResidentDA, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	resident, err := uc.emrrepo.GetResidentByID(residentID)
+	if err != nil {
+		return nil, errors.New("resident not found: " + err.Error())
+	}
+
+	if len(drugAllergies) == 0 {
+		return nil, errors.New("drug allergies cannot be empty")
+	}
+
+	for _, drugAllergy := range drugAllergies {
+		if len(strings.TrimSpace(drugAllergy.AllergyName)) == 0 {
+			return nil, errors.New("drug allergy name cannot be empty or whitespace")
+		}
+
+		drugAllergyID, err := uc.getOrCreateDrugAllergyID(drugAllergy.AllergyName)
+		if err != nil {
+			return nil, errors.New("failed to get or create drug allergy: " + err.Error())
+		}
+
+		residentDrugAllergyExists, err := uc.emrrepo.ResidentDrugAllergyExists(resident.ID, drugAllergyID)
+		if err != nil {
+			return nil, errors.New("failed to verify resident drug allergy existence: " + err.Error())
+		}
+		if residentDrugAllergyExists {
+			continue
+		}
+
+		residentDA := &entities.ResidentDA{
+			ResidentID:    resident.ID,
+			DrugAllergyID: drugAllergyID,
+			NoteText:      drugAllergy.NoteText,
+			NotedAt:       time.Now(),
+		}
+		createdDrugAllergy, err := uc.emrrepo.CreateDrugAllergyByResidentID(residentDA)
+		if err != nil {
+			return nil, errors.New("failed to create resident drug allergy: " + err.Error())
+		}
+
+		newDrugAllergyData, _ := json.Marshal(map[string]interface{}{
+			"resident_id":     createdDrugAllergy.ResidentID,
+			"drug_allergy_id": createdDrugAllergy.DrugAllergyID,
+			"allergy_name":    drugAllergy.AllergyName,
+			"note_text":       drugAllergy.NoteText,
+			"noted_at":        createdDrugAllergy.NotedAt,
+		})
+		auditLog := &entities.AuditLogs{
+			ID:        uuid.New().String(),
+			TableName: "resident_das",
+			RecordID:  createdDrugAllergy.ResidentID + "-" + createdDrugAllergy.DrugAllergyID,
+			UserID:    userID,
+			Action:    audit_constants.AuditActionInsert,
+			OldValue:  "",
+			NewValue:  string(newDrugAllergyData),
+		}
+		_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+		if err != nil {
+			log.Printf("[ERROR] Failed to create audit log for resident drug allergy %s-%s: %v", createdDrugAllergy.ResidentID, createdDrugAllergy.DrugAllergyID, err)
+		}
+	}
+
+	residentDrugAllergies, err := uc.emrrepo.GetResidentDrugAllergiesByResidentID(resident.ID)
+	if err != nil {
+		return nil, errors.New("failed to get resident drug allergies: " + err.Error())
+	}
+
+	return residentDrugAllergies, nil
+}
+
+func (uc *EmrUseCaseImpl) GetResidentDrugAllergiesByResidentID(residentID string, userID string) ([]*entities.ResidentDA, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	residentDrugAllergies, err := uc.emrrepo.GetResidentDrugAllergiesByResidentID(residentID)
+	if err != nil {
+		return nil, errors.New("failed to get resident drug allergies: " + err.Error())
+	}
+	return residentDrugAllergies, nil
+}
+
+func (uc *EmrUseCaseImpl) GetAllResidentDrugAllergies(userID string) ([]*models.ResidentDrugAllergyListResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	residentDrugAllergies, err := uc.emrrepo.GetAllResidentDrugAllergies()
+	if err != nil {
+		return nil, errors.New("failed to get all resident drug allergies: " + err.Error())
+	}
+	return residentDrugAllergies, nil
 }
 
 func (uc *EmrUseCaseImpl) CreateVitalSign(vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error) {
