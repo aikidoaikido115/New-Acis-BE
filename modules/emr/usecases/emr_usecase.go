@@ -96,6 +96,27 @@ type EmrUsecase interface {
 	GetUrineOutputSumByResidentID(residentID string, req models.LaboratoryValueQueryParams, userID string) (*models.UrineOutputSummaryByResidentResponse, error)
 
 	UpdateLaboratoryValueByID(laboratoryValueID string, laboratoryValue *entities.LaboratoryValue, userID string) (*entities.LaboratoryValue, error)
+
+	// NurseNote operations
+	CreateNurseNote(note *entities.NurseNote, userID string) (*entities.NurseNote, error)
+	GetNurseNotesOverview(userID string) ([]*entities.NurseNote, error)
+	GetNurseNotesByResidentID(residentID string, userID string) ([]*entities.NurseNote, error)
+	UpdateNurseNoteByID(noteID string, note *entities.NurseNote, userID string) (*entities.NurseNote, error)
+	DeleteNurseNoteByID(noteID string, userID string) error
+
+	// WoundCareNote operations
+	CreateWoundCareNote(note *entities.WoundCareNote, userID string) (*entities.WoundCareNote, error)
+	GetWoundCareNotesOverview(userID string) ([]*entities.WoundCareNote, error)
+	GetWoundCareNotesByResidentID(residentID string, userID string) ([]*entities.WoundCareNote, error)
+	UpdateWoundCareNoteByID(noteID string, note *entities.WoundCareNote, userID string) (*entities.WoundCareNote, error)
+	DeleteWoundCareNoteByID(noteID string, userID string) error
+
+	// RelativeNote operations
+	CreateRelativeNote(note *entities.RelativeNote, userID string) (*entities.RelativeNote, error)
+	GetRelativeNotesOverview(userID string) ([]*entities.RelativeNote, error)
+	GetRelativeNotesByResidentID(residentID string, userID string) ([]*entities.RelativeNote, error)
+	UpdateRelativeNoteByID(noteID string, note *entities.RelativeNote, userID string) (*entities.RelativeNote, error)
+	DeleteRelativeNoteByID(noteID string, userID string) error
 	//todo search resident by like sql
 	//todo overview resident
 }
@@ -2189,4 +2210,484 @@ func (uc *EmrUseCaseImpl) UpdateLaboratoryValueByID(laboratoryValueID string, la
 	}
 
 	return updated, nil
+}
+
+func (uc *EmrUseCaseImpl) CreateNurseNote(note *entities.NurseNote, userID string) (*entities.NurseNote, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	staff, err := uc.userrepo.GetStaffByUserID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get staff ID: " + err.Error())
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(note.ResidentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident does not exist")
+	}
+
+	if strings.TrimSpace(note.Content) == "" {
+		return nil, errors.New("content is required")
+	}
+	if strings.TrimSpace(note.Category) == "" {
+		return nil, errors.New("category is required")
+	}
+
+	note.Priority = strings.ToLower(strings.TrimSpace(note.Priority))
+	if note.Priority != "normal" && note.Priority != "urgent" {
+		return nil, errors.New("priority must be either 'normal' or 'urgent'")
+	}
+
+	note.ID = uuid.New().String()
+	note.CreatedByStaffID = staff.ID
+
+	created, err := uc.emrrepo.CreateNurseNote(note)
+	if err != nil {
+		return nil, errors.New("failed to create nurse note: " + err.Error())
+	}
+
+	newData, _ := json.Marshal(created)
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "nurse_notes",
+		RecordID:  created.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionInsert,
+		OldValue:  "",
+		NewValue:  string(newData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for nurse note %s: %v", created.ID, err)
+	}
+
+	return created, nil
+}
+
+func (uc *EmrUseCaseImpl) GetNurseNotesOverview(userID string) ([]*entities.NurseNote, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+	return uc.emrrepo.GetNurseNotesOverview()
+}
+
+func (uc *EmrUseCaseImpl) GetNurseNotesByResidentID(residentID string, userID string) ([]*entities.NurseNote, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(residentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident not found")
+	}
+
+	return uc.emrrepo.GetNurseNotesByResidentID(residentID)
+}
+
+func (uc *EmrUseCaseImpl) UpdateNurseNoteByID(noteID string, note *entities.NurseNote, userID string) (*entities.NurseNote, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	existing, err := uc.emrrepo.GetNurseNoteByID(noteID)
+	if err != nil {
+		return nil, errors.New("nurse note not found: " + err.Error())
+	}
+
+	oldData, _ := json.Marshal(existing)
+
+	if note.Category != "" {
+		existing.Category = note.Category
+	}
+	if note.Content != "" {
+		existing.Content = note.Content
+	}
+	if note.Priority != "" {
+		nextPriority := strings.ToLower(strings.TrimSpace(note.Priority))
+		if nextPriority != "normal" && nextPriority != "urgent" {
+			return nil, errors.New("priority must be either 'normal' or 'urgent'")
+		}
+		existing.Priority = nextPriority
+	}
+	if note.SendNote != existing.SendNote {
+		existing.SendNote = note.SendNote
+	}
+
+	updated, err := uc.emrrepo.UpdateNurseNoteByID(existing)
+	if err != nil {
+		return nil, errors.New("failed to update nurse note: " + err.Error())
+	}
+
+	newData, _ := json.Marshal(updated)
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "nurse_notes",
+		RecordID:  updated.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  string(oldData),
+		NewValue:  string(newData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for nurse note %s: %v", updated.ID, err)
+	}
+
+	return updated, nil
+}
+
+func (uc *EmrUseCaseImpl) DeleteNurseNoteByID(noteID string, userID string) error {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return err
+	}
+
+	existing, err := uc.emrrepo.GetNurseNoteByID(noteID)
+	if err != nil {
+		return errors.New("nurse note not found: " + err.Error())
+	}
+
+	oldData, _ := json.Marshal(existing)
+	if err := uc.emrrepo.DeleteNurseNoteByID(noteID); err != nil {
+		return errors.New("failed to delete nurse note: " + err.Error())
+	}
+
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "nurse_notes",
+		RecordID:  noteID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionDelete,
+		OldValue:  string(oldData),
+		NewValue:  "",
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for deleted nurse note %s: %v", noteID, err)
+	}
+
+	return nil
+}
+
+func (uc *EmrUseCaseImpl) CreateWoundCareNote(note *entities.WoundCareNote, userID string) (*entities.WoundCareNote, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	staff, err := uc.userrepo.GetStaffByUserID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get staff ID: " + err.Error())
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(note.ResidentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident does not exist")
+	}
+
+	if strings.TrimSpace(note.Location) == "" {
+		return nil, errors.New("location is required")
+	}
+	if strings.TrimSpace(note.WoundType) == "" {
+		return nil, errors.New("wound_type is required")
+	}
+
+	note.ID = uuid.New().String()
+	note.CreatedByStaffID = staff.ID
+
+	created, err := uc.emrrepo.CreateWoundCareNote(note)
+	if err != nil {
+		return nil, errors.New("failed to create wound care note: " + err.Error())
+	}
+
+	newData, _ := json.Marshal(created)
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "wound_care_notes",
+		RecordID:  created.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionInsert,
+		OldValue:  "",
+		NewValue:  string(newData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for wound care note %s: %v", created.ID, err)
+	}
+
+	return created, nil
+}
+
+func (uc *EmrUseCaseImpl) GetWoundCareNotesOverview(userID string) ([]*entities.WoundCareNote, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+	return uc.emrrepo.GetWoundCareNotesOverview()
+}
+
+func (uc *EmrUseCaseImpl) GetWoundCareNotesByResidentID(residentID string, userID string) ([]*entities.WoundCareNote, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(residentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident not found")
+	}
+
+	return uc.emrrepo.GetWoundCareNotesByResidentID(residentID)
+}
+
+func (uc *EmrUseCaseImpl) UpdateWoundCareNoteByID(noteID string, note *entities.WoundCareNote, userID string) (*entities.WoundCareNote, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	existing, err := uc.emrrepo.GetWoundCareNoteByID(noteID)
+	if err != nil {
+		return nil, errors.New("wound care note not found: " + err.Error())
+	}
+
+	oldData, _ := json.Marshal(existing)
+
+	if note.Location != "" {
+		existing.Location = note.Location
+	}
+	if note.WoundType != "" {
+		existing.WoundType = note.WoundType
+	}
+	if note.Size != nil {
+		existing.Size = note.Size
+	}
+	if note.Treatment != nil {
+		existing.Treatment = note.Treatment
+	}
+	if note.Supplies != nil {
+		existing.Supplies = note.Supplies
+	}
+	if note.Status != nil {
+		existing.Status = note.Status
+	}
+	if note.ImageURL != nil {
+		existing.ImageURL = note.ImageURL
+	}
+	if note.Note != nil {
+		existing.Note = note.Note
+	}
+
+	updated, err := uc.emrrepo.UpdateWoundCareNoteByID(existing)
+	if err != nil {
+		return nil, errors.New("failed to update wound care note: " + err.Error())
+	}
+
+	newData, _ := json.Marshal(updated)
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "wound_care_notes",
+		RecordID:  updated.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  string(oldData),
+		NewValue:  string(newData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for wound care note %s: %v", updated.ID, err)
+	}
+
+	return updated, nil
+}
+
+func (uc *EmrUseCaseImpl) DeleteWoundCareNoteByID(noteID string, userID string) error {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return err
+	}
+
+	existing, err := uc.emrrepo.GetWoundCareNoteByID(noteID)
+	if err != nil {
+		return errors.New("wound care note not found: " + err.Error())
+	}
+
+	oldData, _ := json.Marshal(existing)
+	if err := uc.emrrepo.DeleteWoundCareNoteByID(noteID); err != nil {
+		return errors.New("failed to delete wound care note: " + err.Error())
+	}
+
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "wound_care_notes",
+		RecordID:  noteID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionDelete,
+		OldValue:  string(oldData),
+		NewValue:  "",
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for deleted wound care note %s: %v", noteID, err)
+	}
+
+	return nil
+}
+
+func (uc *EmrUseCaseImpl) CreateRelativeNote(note *entities.RelativeNote, userID string) (*entities.RelativeNote, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	staff, err := uc.userrepo.GetStaffByUserID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get staff ID: " + err.Error())
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(note.ResidentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident does not exist")
+	}
+
+	if strings.TrimSpace(note.Relation) == "" {
+		return nil, errors.New("relation is required")
+	}
+	if strings.TrimSpace(note.Content) == "" {
+		return nil, errors.New("content is required")
+	}
+
+	note.ID = uuid.New().String()
+	note.CreatedByStaffID = staff.ID
+
+	created, err := uc.emrrepo.CreateRelativeNote(note)
+	if err != nil {
+		return nil, errors.New("failed to create relative note: " + err.Error())
+	}
+
+	newData, _ := json.Marshal(created)
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "relative_notes",
+		RecordID:  created.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionInsert,
+		OldValue:  "",
+		NewValue:  string(newData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for relative note %s: %v", created.ID, err)
+	}
+
+	return created, nil
+}
+
+func (uc *EmrUseCaseImpl) GetRelativeNotesOverview(userID string) ([]*entities.RelativeNote, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+	return uc.emrrepo.GetRelativeNotesOverview()
+}
+
+func (uc *EmrUseCaseImpl) GetRelativeNotesByResidentID(residentID string, userID string) ([]*entities.RelativeNote, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(residentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident not found")
+	}
+
+	return uc.emrrepo.GetRelativeNotesByResidentID(residentID)
+}
+
+func (uc *EmrUseCaseImpl) UpdateRelativeNoteByID(noteID string, note *entities.RelativeNote, userID string) (*entities.RelativeNote, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	existing, err := uc.emrrepo.GetRelativeNoteByID(noteID)
+	if err != nil {
+		return nil, errors.New("relative note not found: " + err.Error())
+	}
+
+	oldData, _ := json.Marshal(existing)
+
+	if note.Relation != "" {
+		existing.Relation = note.Relation
+	}
+	if note.Content != "" {
+		existing.Content = note.Content
+	}
+	if note.SendNote != existing.SendNote {
+		existing.SendNote = note.SendNote
+	}
+
+	updated, err := uc.emrrepo.UpdateRelativeNoteByID(existing)
+	if err != nil {
+		return nil, errors.New("failed to update relative note: " + err.Error())
+	}
+
+	newData, _ := json.Marshal(updated)
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "relative_notes",
+		RecordID:  updated.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  string(oldData),
+		NewValue:  string(newData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for relative note %s: %v", updated.ID, err)
+	}
+
+	return updated, nil
+}
+
+func (uc *EmrUseCaseImpl) DeleteRelativeNoteByID(noteID string, userID string) error {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return err
+	}
+
+	existing, err := uc.emrrepo.GetRelativeNoteByID(noteID)
+	if err != nil {
+		return errors.New("relative note not found: " + err.Error())
+	}
+
+	oldData, _ := json.Marshal(existing)
+	if err := uc.emrrepo.DeleteRelativeNoteByID(noteID); err != nil {
+		return errors.New("failed to delete relative note: " + err.Error())
+	}
+
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "relative_notes",
+		RecordID:  noteID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionDelete,
+		OldValue:  string(oldData),
+		NewValue:  "",
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for deleted relative note %s: %v", noteID, err)
+	}
+
+	return nil
 }

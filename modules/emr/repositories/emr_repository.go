@@ -116,6 +116,30 @@ type EmrRepository interface {
 
 	GetUrineOutputSumGroupByResident(params models.LaboratoryValueQueryParams, urineType string) (*models.UrineOutputSumResponse, error)
 
+	// NurseNote operations
+	CreateNurseNote(note *entities.NurseNote) (*entities.NurseNote, error)
+	GetNurseNoteByID(id string) (*entities.NurseNote, error)
+	GetNurseNotesOverview() ([]*entities.NurseNote, error)
+	GetNurseNotesByResidentID(residentID string) ([]*entities.NurseNote, error)
+	UpdateNurseNoteByID(note *entities.NurseNote) (*entities.NurseNote, error)
+	DeleteNurseNoteByID(id string) error
+
+	// WoundCareNote operations
+	CreateWoundCareNote(note *entities.WoundCareNote) (*entities.WoundCareNote, error)
+	GetWoundCareNoteByID(id string) (*entities.WoundCareNote, error)
+	GetWoundCareNotesOverview() ([]*entities.WoundCareNote, error)
+	GetWoundCareNotesByResidentID(residentID string) ([]*entities.WoundCareNote, error)
+	UpdateWoundCareNoteByID(note *entities.WoundCareNote) (*entities.WoundCareNote, error)
+	DeleteWoundCareNoteByID(id string) error
+
+	// RelativeNote operations
+	CreateRelativeNote(note *entities.RelativeNote) (*entities.RelativeNote, error)
+	GetRelativeNoteByID(id string) (*entities.RelativeNote, error)
+	GetRelativeNotesOverview() ([]*entities.RelativeNote, error)
+	GetRelativeNotesByResidentID(residentID string) ([]*entities.RelativeNote, error)
+	UpdateRelativeNoteByID(note *entities.RelativeNote) (*entities.RelativeNote, error)
+	DeleteRelativeNoteByID(id string) error
+
 	// todo เพราะมันเจาะจงว่า ค่าไหนของ vital sign อีกทีนึง
 	// GetLatestVitalSignsGreaterThanCustom(params models.VitalSignQueryParams, greaterThan float64) ([]*entities.VitalSign, error)
 	// GetLatestVitalSignsLessThanCustom(params models.VitalSignQueryParams, lessThan float64) ([]*entities.VitalSign, error)
@@ -1177,4 +1201,130 @@ func applyLaboratoryValueQueryFilters(query *gorm.DB, params models.LaboratoryVa
 	}
 
 	return query
+}
+
+func (r *GormEmrRepository) CreateNurseNote(note *entities.NurseNote) (*entities.NurseNote, error) {
+	if err := r.db.Create(&note).Error; err != nil {
+		return nil, err
+	}
+	return r.GetNurseNoteByID(note.ID)
+}
+
+func (r *GormEmrRepository) GetNurseNoteByID(id string) (*entities.NurseNote, error) {
+	var note entities.NurseNote
+	if err := r.db.Preload("Resident").Where("id = ?", id).First(&note).Error; err != nil {
+		return nil, err
+	}
+	return &note, nil
+}
+
+func (r *GormEmrRepository) GetNurseNotesOverview() ([]*entities.NurseNote, error) {
+	var notes []*entities.NurseNote
+	if err := r.db.Order("created_at DESC").Find(&notes).Error; err != nil {
+		return nil, err
+	}
+	return notes, nil
+}
+
+func (r *GormEmrRepository) GetNurseNotesByResidentID(residentID string) ([]*entities.NurseNote, error) {
+	var notes []*entities.NurseNote
+	if err := r.db.Where("resident_id = ?", residentID).Order("created_at DESC").Find(&notes).Error; err != nil {
+		return nil, err
+	}
+	return notes, nil
+}
+
+func (r *GormEmrRepository) UpdateNurseNoteByID(note *entities.NurseNote) (*entities.NurseNote, error) {
+	if err := r.db.Save(&note).Error; err != nil {
+		return nil, err
+	}
+	return r.GetNurseNoteByID(note.ID)
+}
+
+func (r *GormEmrRepository) DeleteNurseNoteByID(id string) error {
+	return r.db.Where("id = ?", id).Delete(&entities.NurseNote{}).Error
+}
+
+func (r *GormEmrRepository) CreateWoundCareNote(note *entities.WoundCareNote) (*entities.WoundCareNote, error) {
+	if err := r.db.Create(&note).Error; err != nil {
+		return nil, err
+	}
+	return r.GetWoundCareNoteByID(note.ID)
+}
+
+func (r *GormEmrRepository) GetWoundCareNoteByID(id string) (*entities.WoundCareNote, error) {
+	var note entities.WoundCareNote
+	if err := r.db.Preload("Resident").Where("id = ?", id).First(&note).Error; err != nil {
+		return nil, err
+	}
+	return &note, nil
+}
+
+func (r *GormEmrRepository) GetWoundCareNotesOverview() ([]*entities.WoundCareNote, error) {
+	var notes []*entities.WoundCareNote
+	if err := r.db.Order("created_at DESC").Find(&notes).Error; err != nil {
+		return nil, err
+	}
+	return notes, nil
+}
+
+func (r *GormEmrRepository) GetWoundCareNotesByResidentID(residentID string) ([]*entities.WoundCareNote, error) {
+	var notes []*entities.WoundCareNote
+	if err := r.db.Where("resident_id = ?", residentID).Order("created_at DESC").Find(&notes).Error; err != nil {
+		return nil, err
+	}
+	return notes, nil
+}
+
+func (r *GormEmrRepository) UpdateWoundCareNoteByID(note *entities.WoundCareNote) (*entities.WoundCareNote, error) {
+	if err := r.db.Save(&note).Error; err != nil {
+		return nil, err
+	}
+	return r.GetWoundCareNoteByID(note.ID)
+}
+
+func (r *GormEmrRepository) DeleteWoundCareNoteByID(id string) error {
+	return r.db.Where("id = ?", id).Delete(&entities.WoundCareNote{}).Error
+}
+
+func (r *GormEmrRepository) CreateRelativeNote(note *entities.RelativeNote) (*entities.RelativeNote, error) {
+	if err := r.db.Create(&note).Error; err != nil {
+		return nil, err
+	}
+	return r.GetRelativeNoteByID(note.ID)
+}
+
+func (r *GormEmrRepository) GetRelativeNoteByID(id string) (*entities.RelativeNote, error) {
+	var note entities.RelativeNote
+	if err := r.db.Preload("Resident").Where("id = ?", id).First(&note).Error; err != nil {
+		return nil, err
+	}
+	return &note, nil
+}
+
+func (r *GormEmrRepository) GetRelativeNotesOverview() ([]*entities.RelativeNote, error) {
+	var notes []*entities.RelativeNote
+	if err := r.db.Order("created_at DESC").Find(&notes).Error; err != nil {
+		return nil, err
+	}
+	return notes, nil
+}
+
+func (r *GormEmrRepository) GetRelativeNotesByResidentID(residentID string) ([]*entities.RelativeNote, error) {
+	var notes []*entities.RelativeNote
+	if err := r.db.Where("resident_id = ?", residentID).Order("created_at DESC").Find(&notes).Error; err != nil {
+		return nil, err
+	}
+	return notes, nil
+}
+
+func (r *GormEmrRepository) UpdateRelativeNoteByID(note *entities.RelativeNote) (*entities.RelativeNote, error) {
+	if err := r.db.Save(&note).Error; err != nil {
+		return nil, err
+	}
+	return r.GetRelativeNoteByID(note.ID)
+}
+
+func (r *GormEmrRepository) DeleteRelativeNoteByID(id string) error {
+	return r.db.Where("id = ?", id).Delete(&entities.RelativeNote{}).Error
 }
