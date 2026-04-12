@@ -179,6 +179,27 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	laboratoryValueGroup.Get("/urine-output-sum/:resident_id", middlewares.JWTMiddleware(jwt), emrController.GetUrineOutputSumByResidentIDHandler)
 	laboratoryValueGroup.Get("/abnormal", middlewares.JWTMiddleware(jwt), emrController.GetAbnormalLaboratoryValuesHandler)
 	laboratoryValueGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateLaboratoryValueByIDHandler)
+
+	nurseNoteGroup := app.Group("/api/emr/nurse-notes")
+	nurseNoteGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateNurseNoteHandler)
+	nurseNoteGroup.Get("/overview", middlewares.JWTMiddleware(jwt), emrController.GetNurseNotesOverviewHandler)
+	nurseNoteGroup.Get("/resident/all", middlewares.JWTMiddleware(jwt), emrController.GetNurseNotesByResidentHandler)
+	nurseNoteGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateNurseNoteByIDHandler)
+	nurseNoteGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), emrController.DeleteNurseNoteByIDHandler)
+
+	woundCareNoteGroup := app.Group("/api/emr/wound-care-notes")
+	woundCareNoteGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateWoundCareNoteHandler)
+	woundCareNoteGroup.Get("/overview", middlewares.JWTMiddleware(jwt), emrController.GetWoundCareNotesOverviewHandler)
+	woundCareNoteGroup.Get("/resident/all", middlewares.JWTMiddleware(jwt), emrController.GetWoundCareNotesByResidentHandler)
+	woundCareNoteGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateWoundCareNoteByIDHandler)
+	woundCareNoteGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), emrController.DeleteWoundCareNoteByIDHandler)
+
+	relativeNoteGroup := app.Group("/api/emr/relative-notes")
+	relativeNoteGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateRelativeNoteHandler)
+	relativeNoteGroup.Get("/overview", middlewares.JWTMiddleware(jwt), emrController.GetRelativeNotesOverviewHandler)
+	relativeNoteGroup.Get("/resident/all", middlewares.JWTMiddleware(jwt), emrController.GetRelativeNotesByResidentHandler)
+	relativeNoteGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateRelativeNoteByIDHandler)
+	relativeNoteGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), emrController.DeleteRelativeNoteByIDHandler)
 }
 
 func SetupMealRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
