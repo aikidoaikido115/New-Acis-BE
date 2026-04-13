@@ -5,6 +5,8 @@ import (
 	// "mime/multipart"
 	// "strconv"
 	// "mime/multipart"
+	"mime/multipart"
+	"strings"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/models"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/usecases"
@@ -2107,13 +2109,44 @@ func (c *EmrController) DeleteNurseNoteByIDHandler(ctx *fiber.Ctx) error {
 
 func (c *EmrController) CreateWoundCareNoteHandler(ctx *fiber.Ctx) error {
 	var req models.CreateWoundCareNoteRequest
-	if err := ctx.BodyParser(&req); err != nil {
-		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      fiber.ErrBadRequest.Message,
-			"status_code": fiber.ErrBadRequest.Code,
-			"message":     err.Error(),
-			"result":      nil,
-		})
+
+	var imageFile multipart.File
+	if strings.HasPrefix(strings.ToLower(ctx.Get("Content-Type")), "multipart/form-data") {
+		req = models.CreateWoundCareNoteRequest{
+			ResidentID: ctx.FormValue("resident_id"),
+			Location:   ctx.FormValue("location"),
+			WoundType:  ctx.FormValue("wound_type"),
+			Size:       optionalFormString(ctx.FormValue("size")),
+			Treatment:  optionalFormString(ctx.FormValue("treatment")),
+			Supplies:   optionalFormString(ctx.FormValue("supplies")),
+			Status:     optionalFormString(ctx.FormValue("status")),
+			ImageURL:   optionalFormString(ctx.FormValue("image_url")),
+			Note:       optionalFormString(ctx.FormValue("note")),
+		}
+
+		fileHeader, err := ctx.FormFile("image")
+		if err == nil && fileHeader != nil {
+			file, openErr := fileHeader.Open()
+			if openErr != nil {
+				return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+					"status":      fiber.ErrBadRequest.Message,
+					"status_code": fiber.ErrBadRequest.Code,
+					"message":     "failed to open uploaded image: " + openErr.Error(),
+					"result":      nil,
+				})
+			}
+			imageFile = file
+			defer imageFile.Close()
+		}
+	} else {
+		if err := ctx.BodyParser(&req); err != nil {
+			return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"status":      fiber.ErrBadRequest.Message,
+				"status_code": fiber.ErrBadRequest.Code,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
 	}
 
 	userID, ok := ctx.Locals("user_id").(string)
@@ -2138,7 +2171,7 @@ func (c *EmrController) CreateWoundCareNoteHandler(ctx *fiber.Ctx) error {
 		Note:       req.Note,
 	}
 
-	created, err := c.emrUsecase.CreateWoundCareNote(note, userID)
+	created, err := c.emrUsecase.CreateWoundCareNote(note, userID, imageFile)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -2217,13 +2250,67 @@ func (c *EmrController) GetWoundCareNotesByResidentHandler(ctx *fiber.Ctx) error
 
 func (c *EmrController) UpdateWoundCareNoteByIDHandler(ctx *fiber.Ctx) error {
 	var req models.UpdateWoundCareNoteRequest
-	if err := ctx.BodyParser(&req); err != nil {
-		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      fiber.ErrBadRequest.Message,
-			"status_code": fiber.ErrBadRequest.Code,
-			"message":     err.Error(),
-			"result":      nil,
-		})
+
+	var imageFile multipart.File
+	if strings.HasPrefix(strings.ToLower(ctx.Get("Content-Type")), "multipart/form-data") {
+		form, err := ctx.MultipartForm()
+		if err != nil {
+			return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"status":      fiber.ErrBadRequest.Message,
+				"status_code": fiber.ErrBadRequest.Code,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
+
+		if v, ok := getMultipartField(form, "location"); ok {
+			req.Location = &v
+		}
+		if v, ok := getMultipartField(form, "wound_type"); ok {
+			req.WoundType = &v
+		}
+		if v, ok := getMultipartField(form, "size"); ok {
+			req.Size = &v
+		}
+		if v, ok := getMultipartField(form, "treatment"); ok {
+			req.Treatment = &v
+		}
+		if v, ok := getMultipartField(form, "supplies"); ok {
+			req.Supplies = &v
+		}
+		if v, ok := getMultipartField(form, "status"); ok {
+			req.Status = &v
+		}
+		if v, ok := getMultipartField(form, "image_url"); ok {
+			req.ImageURL = &v
+		}
+		if v, ok := getMultipartField(form, "note"); ok {
+			req.Note = &v
+		}
+
+		fileHeader, err := ctx.FormFile("image")
+		if err == nil && fileHeader != nil {
+			file, openErr := fileHeader.Open()
+			if openErr != nil {
+				return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+					"status":      fiber.ErrBadRequest.Message,
+					"status_code": fiber.ErrBadRequest.Code,
+					"message":     "failed to open uploaded image: " + openErr.Error(),
+					"result":      nil,
+				})
+			}
+			imageFile = file
+			defer imageFile.Close()
+		}
+	} else {
+		if err := ctx.BodyParser(&req); err != nil {
+			return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"status":      fiber.ErrBadRequest.Message,
+				"status_code": fiber.ErrBadRequest.Code,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
 	}
 
 	userID, ok := ctx.Locals("user_id").(string)
@@ -2247,7 +2334,7 @@ func (c *EmrController) UpdateWoundCareNoteByIDHandler(ctx *fiber.Ctx) error {
 		Note:      req.Note,
 	}
 
-	updated, err := c.emrUsecase.UpdateWoundCareNoteByID(ctx.Params("id"), note, userID)
+	updated, err := c.emrUsecase.UpdateWoundCareNoteByID(ctx.Params("id"), note, userID, imageFile)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -2481,4 +2568,22 @@ func derefString(input *string) string {
 		return ""
 	}
 	return *input
+}
+
+func optionalFormString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func getMultipartField(form *multipart.Form, key string) (string, bool) {
+	if form == nil || form.Value == nil {
+		return "", false
+	}
+	values, ok := form.Value[key]
+	if !ok || len(values) == 0 {
+		return "", false
+	}
+	return values[0], true
 }

@@ -78,7 +78,7 @@ func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa co
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	SetupUserRoutes(app, db, jwt, supa, mail)
-	SetupEmrRoutes(app, db, jwt)
+	SetupEmrRoutes(app, db, jwt, supa)
 	SetupMedicineRoutes(app, db, jwt)
 	SetupMealRoutes(app, db, jwt)
 
@@ -116,12 +116,12 @@ func SetupUserRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.
 	userGroup.Post("/staff/files", middlewares.JWTMiddleware(jwt), userController.CreateStaffFileHandler)
 }
 
-func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
+func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.Supabase) {
 	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
 	userRepository := userRepository.NewGormUserRepository(db)
 
 	emrRepository := emrRepository.NewGormEmrRepository(db)
-	emrUsecase := emrUsecase.NewEmrUseCase(emrRepository, auditLogRepository, userRepository)
+	emrUsecase := emrUsecase.NewEmrUseCase(emrRepository, auditLogRepository, userRepository, supa)
 	emrController := emrController.NewEmrController(emrUsecase)
 
 	residentGroup := app.Group("/api/emr/residents")

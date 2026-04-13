@@ -3,9 +3,9 @@ package usecases
 import (
 	"encoding/json"
 	"errors"
-
-	// "io"
+	"io"
 	"log"
+	"mime/multipart"
 	"strconv"
 
 	// "mime/multipart"
@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aikidoaikido115/New-Acis-BE/configs"
 	audit_constants "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/constants"
 	audit_repo "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
 	emr_constants "github.com/aikidoaikido115/New-Acis-BE/modules/emr/constants"
@@ -22,6 +23,7 @@ import (
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 	user_constants "github.com/aikidoaikido115/New-Acis-BE/modules/user/constants"
 	user_repo "github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
+	"github.com/aikidoaikido115/New-Acis-BE/pkg/utils"
 
 	"github.com/google/uuid"
 	// "golang.org/x/text/unicode/norm"
@@ -105,10 +107,10 @@ type EmrUsecase interface {
 	DeleteNurseNoteByID(noteID string, userID string) error
 
 	// WoundCareNote operations
-	CreateWoundCareNote(note *entities.WoundCareNote, userID string) (*entities.WoundCareNote, error)
+	CreateWoundCareNote(note *entities.WoundCareNote, userID string, imageFile multipart.File) (*entities.WoundCareNote, error)
 	GetWoundCareNotesOverview(userID string) ([]*entities.WoundCareNote, error)
 	GetWoundCareNotesByResidentID(residentID string, userID string) ([]*entities.WoundCareNote, error)
-	UpdateWoundCareNoteByID(noteID string, note *entities.WoundCareNote, userID string) (*entities.WoundCareNote, error)
+	UpdateWoundCareNoteByID(noteID string, note *entities.WoundCareNote, userID string, imageFile multipart.File) (*entities.WoundCareNote, error)
 	DeleteWoundCareNoteByID(noteID string, userID string) error
 
 	// RelativeNote operations
@@ -125,17 +127,43 @@ type EmrUseCaseImpl struct {
 	emrrepo      repositories.EmrRepository
 	auditlogrepo audit_repo.AuditLogRepository
 	userrepo     user_repo.UserRepository
+	supa         configs.Supabase
 }
 
 func NewEmrUseCase(
 	emrrepo repositories.EmrRepository,
 	auditlogrepo audit_repo.AuditLogRepository,
-	userrepo user_repo.UserRepository) EmrUsecase {
+	userrepo user_repo.UserRepository,
+	supa configs.Supabase) EmrUsecase {
 	return &EmrUseCaseImpl{
 		emrrepo:      emrrepo,
 		auditlogrepo: auditlogrepo,
 		userrepo:     userrepo,
+		supa:         supa,
 	}
+}
+
+func (uc *EmrUseCaseImpl) uploadWoundCareImage(file multipart.File) (*string, error) {
+	if file == nil {
+		return nil, nil
+	}
+
+	fileExtension, err := utils.DetectFileType(file)
+	if err != nil {
+		return nil, errors.New("invalid file: " + err.Error())
+	}
+
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
+		return nil, errors.New("failed to reset file pointer: " + err.Error())
+	}
+
+	fileName := uuid.New().String() + fileExtension
+	imageURL, err := utils.UploadFile2Supa(file, fileName, "wound_care/", uc.supa)
+	if err != nil {
+		return nil, errors.New("failed to upload wound care image: " + err.Error())
+	}
+
+	return &imageURL, nil
 }
 
 func (uc *EmrUseCaseImpl) ensureMedicalStaff(userID string) error {
@@ -2375,7 +2403,7 @@ func (uc *EmrUseCaseImpl) DeleteNurseNoteByID(noteID string, userID string) erro
 	return nil
 }
 
-func (uc *EmrUseCaseImpl) CreateWoundCareNote(note *entities.WoundCareNote, userID string) (*entities.WoundCareNote, error) {
+func (uc *EmrUseCaseImpl) CreateWoundCareNote(note *entities.WoundCareNote, userID string, imageFile multipart.File) (*entities.WoundCareNote, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
@@ -2398,6 +2426,14 @@ func (uc *EmrUseCaseImpl) CreateWoundCareNote(note *entities.WoundCareNote, user
 	}
 	if strings.TrimSpace(note.WoundType) == "" {
 		return nil, errors.New("wound_type is required")
+	}
+
+	if imageFile != nil {
+		imageURL, err := uc.uploadWoundCareImage(imageFile)
+		if err != nil {
+			return nil, err
+		}
+		note.ImageURL = imageURL
 	}
 
 	note.ID = uuid.New().String()
@@ -2449,7 +2485,7 @@ func (uc *EmrUseCaseImpl) GetWoundCareNotesByResidentID(residentID string, userI
 	return uc.emrrepo.GetWoundCareNotesByResidentID(residentID)
 }
 
-func (uc *EmrUseCaseImpl) UpdateWoundCareNoteByID(noteID string, note *entities.WoundCareNote, userID string) (*entities.WoundCareNote, error) {
+func (uc *EmrUseCaseImpl) UpdateWoundCareNoteByID(noteID string, note *entities.WoundCareNote, userID string, imageFile multipart.File) (*entities.WoundCareNote, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
@@ -2479,7 +2515,13 @@ func (uc *EmrUseCaseImpl) UpdateWoundCareNoteByID(noteID string, note *entities.
 	if note.Status != nil {
 		existing.Status = note.Status
 	}
-	if note.ImageURL != nil {
+	if imageFile != nil {
+		imageURL, err := uc.uploadWoundCareImage(imageFile)
+		if err != nil {
+			return nil, err
+		}
+		existing.ImageURL = imageURL
+	} else if note.ImageURL != nil {
 		existing.ImageURL = note.ImageURL
 	}
 	if note.Note != nil {
