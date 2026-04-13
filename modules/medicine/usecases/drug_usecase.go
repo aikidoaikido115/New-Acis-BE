@@ -36,11 +36,18 @@ type DrugUsecase interface {
 	GetDrugPlansTodayResidentSummary(userID string) (*models.DrugPlanResidentSummaryResponse, error)
 	GetDrugPlansToday(userID string) ([]*entities.DrugPlan, error)
 	GetDrugPlansOverview(req models.DrugPlanOverviewQueryParams, userID string) ([]*entities.DrugPlan, error)
+	GetDrugAdministrationHistory(req models.DrugAdministrationHistoryQueryParams, userID string) (*models.DrugAdministrationHistoryResponse, error)
 	GetDrugPlansByResidentID(residentID string, userID string) ([]*entities.DrugPlan, error)
 	GetDrugPlansByResidentIDToday(residentID string, userID string) ([]*entities.DrugPlan, error)
 	GetDrugPlans(userID string) ([]*entities.DrugPlan, error)
 	GetDrugPlanByID(id string, userID string) (*entities.DrugPlan, error)
 	UpdateDrugPlanByID(id string, req models.UpdateDrugPlanRequest, userID string) (*entities.DrugPlan, error)
+	ForceGenerateTodayDrugPlans(userID string) (*models.DrugPlanGenerationResponse, error)
+	ForceGenerateTodayDrugPlansByResidentID(residentID string, userID string) (*models.DrugPlanGenerationResponse, error)
+	TakeDrugPlanByID(id string, req models.TakeDrugPlanByIDRequest, userID string) (*entities.DrugPlan, error)
+	OmitDrugPlanByID(id string, req models.OmitDrugPlanByIDRequest, userID string) (*entities.DrugPlan, error)
+	TakeDrugPlansByResidentIDToday(residentID string, req models.TakeDrugPlansByResidentRequest, userID string) ([]*entities.DrugPlan, error)
+	OmitDrugPlansByResidentIDToday(residentID string, req models.OmitDrugPlansByResidentRequest, userID string) ([]*entities.DrugPlan, error)
 	DeleteDrugPlanByID(id string, userID string) error
 }
 
@@ -382,6 +389,253 @@ func parseOptionalDateTime(value *string) (*time.Time, error) {
 	return &parsed, nil
 }
 
+func (uc *DrugUseCaseImpl) cleanupExpiredAsNeededPersonalDrugs(residentID *string) (int, error) {
+	today := time.Now()
+	expiredPersonalDrugs, err := uc.drugRepo.GetExpiredAsNeededPersonalDrugs(today, residentID)
+	if err != nil {
+		return 0, errors.New("failed to get expired as-needed personal drugs: " + err.Error())
+	}
+
+	deletedCount := 0
+	for _, personalDrug := range expiredPersonalDrugs {
+		if err := uc.drugRepo.DeleteDrugPlansByPdID(personalDrug.ID); err != nil {
+			return deletedCount, errors.New("failed to delete expired as-needed drug plans: " + err.Error())
+		}
+
+		if err := uc.drugRepo.DeletePersonalDrug(personalDrug.ID); err != nil {
+			return deletedCount, errors.New("failed to delete expired as-needed personal drug: " + err.Error())
+		}
+
+		deletedCount++
+	}
+
+	return deletedCount, nil
+}
+
+func (uc *DrugUseCaseImpl) ensureTodayDrugPlansWithResult(residentID *string) (*models.DrugPlanGenerationResponse, error) {
+	deletedCount, err := uc.cleanupExpiredAsNeededPersonalDrugs(residentID)
+	if err != nil {
+		return nil, err
+	}
+
+	today := time.Now()
+	personalDrugs, err := uc.drugRepo.GetActivePersonalDrugsForDate(today, residentID)
+	if err != nil {
+		return nil, errors.New("failed to get active personal drugs for lazy generation: " + err.Error())
+	}
+
+	generatedCount := 0
+	skippedCount := 0
+
+	for _, personalDrug := range personalDrugs {
+		exists, existsErr := uc.drugRepo.HasDrugPlanForPersonalDrugOnDate(personalDrug.ID, today)
+		if existsErr != nil {
+			return nil, errors.New("failed to check existing daily drug plan: " + existsErr.Error())
+		}
+		if exists {
+			skippedCount++
+			continue
+		}
+
+		initialIsOmitted := false
+		now := time.Now()
+		_, createErr := uc.drugRepo.CreateDrugPlan(&entities.DrugPlan{
+			ID:             uuid.New().String(),
+			PdID:           personalDrug.ID,
+			IsTaken:        false,
+			TakenAt:        nil,
+			GivenByStaffID: "",
+			IsOmitted:      &initialIsOmitted,
+			OmittedReason:  nil,
+			Notes:          nil,
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		})
+		if createErr != nil {
+			return nil, errors.New("failed to create lazy daily drug plan: " + createErr.Error())
+		}
+
+		generatedCount++
+	}
+
+	response := &models.DrugPlanGenerationResponse{
+		GeneratedCount:       generatedCount,
+		SkippedExistingCount: skippedCount,
+		ExpiredDeletedCount:  deletedCount,
+		Scope:                "all",
+	}
+
+	if residentID != nil && *residentID != "" {
+		response.Scope = "resident"
+		response.ResidentID = *residentID
+	}
+
+	return response, nil
+}
+
+func (uc *DrugUseCaseImpl) ensureTodayDrugPlans(residentID *string) error {
+	_, err := uc.ensureTodayDrugPlansWithResult(residentID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (uc *DrugUseCaseImpl) ForceGenerateTodayDrugPlans(userID string) (*models.DrugPlanGenerationResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	return uc.ensureTodayDrugPlansWithResult(nil)
+}
+
+func (uc *DrugUseCaseImpl) ForceGenerateTodayDrugPlansByResidentID(residentID string, userID string) (*models.DrugPlanGenerationResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	residentExists, err := uc.drugRepo.ResidentExistsByID(residentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident not found")
+	}
+
+	return uc.ensureTodayDrugPlansWithResult(&residentID)
+}
+
+func normalizeOptionalText(value *string) *string {
+	if value == nil {
+		return nil
+	}
+
+	v := strings.TrimSpace(*value)
+	if v == "" {
+		return nil
+	}
+
+	return &v
+}
+
+func isTodayInBangkok(t time.Time) bool {
+	loc, err := time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		return false
+	}
+
+	now := time.Now().In(loc)
+	target := t.In(loc)
+
+	return now.Year() == target.Year() && now.YearDay() == target.YearDay()
+}
+
+func (uc *DrugUseCaseImpl) resolveMedicalStaffIDByName(firstName string, lastName string) (string, error) {
+	firstName = strings.TrimSpace(firstName)
+	lastName = strings.TrimSpace(lastName)
+	if firstName == "" || lastName == "" {
+		return "", errors.New("staff_first_name and staff_last_name are required")
+	}
+
+	users, err := uc.userRepo.GetUsersByFirstAndLastName(firstName, lastName)
+	if err != nil {
+		return "", errors.New("failed to find staff by name: " + err.Error())
+	}
+
+	if len(users) == 0 {
+		return "", errors.New("staff not found by provided name")
+	}
+
+	staffIDs := make([]string, 0)
+	for _, user := range users {
+		if user == nil {
+			continue
+		}
+
+		roleName := strings.TrimSpace(user.Role.Name)
+		if roleName == "" {
+			role, roleErr := uc.userRepo.GetRoleByID(user.RoleID)
+			if roleErr != nil {
+				continue
+			}
+			roleName = role.Name
+		}
+
+		if roleName != user_constants.RoleMedicalStaff {
+			continue
+		}
+
+		staff, staffErr := uc.userRepo.GetStaffByUserID(user.ID)
+		if staffErr != nil {
+			continue
+		}
+
+		staffIDs = append(staffIDs, staff.ID)
+	}
+
+	if len(staffIDs) == 0 {
+		return "", errors.New("provided staff name is not a medical staff")
+	}
+
+	if len(staffIDs) > 1 {
+		return "", errors.New("multiple medical staff found with the same name")
+	}
+
+	return staffIDs[0], nil
+}
+
+func (uc *DrugUseCaseImpl) applyDrugPlanActionByID(id string, givenByStaffID string, isTaken bool, omittedReason *string, note *string, userID string) (*entities.DrugPlan, error) {
+	current, err := uc.drugRepo.GetDrugPlanByID(id)
+	if err != nil {
+		return nil, errors.New("drug plan not found: " + err.Error())
+	}
+
+	if !isTodayInBangkok(current.CreatedAt) {
+		return nil, errors.New("drug plan action is allowed for today records only")
+	}
+
+	oldValue, _ := json.Marshal(current)
+
+	now := time.Now()
+	isOmitted := !isTaken
+
+	current.IsTaken = isTaken
+	current.IsOmitted = &isOmitted
+	current.TakenAt = &now
+	current.GivenByStaffID = givenByStaffID
+	current.Notes = normalizeOptionalText(note)
+	current.UpdatedAt = now
+
+	if isTaken {
+		current.OmittedReason = nil
+	} else {
+		current.OmittedReason = normalizeOptionalText(omittedReason)
+		if current.OmittedReason == nil {
+			return nil, errors.New("omitted_reason is required when omitting a drug")
+		}
+	}
+
+	updated, err := uc.drugRepo.UpdateDrugPlan(current)
+	if err != nil {
+		return nil, errors.New("failed to update drug plan: " + err.Error())
+	}
+
+	newValue, _ := json.Marshal(updated)
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "drug_plans",
+		RecordID:  updated.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  string(oldValue),
+		NewValue:  string(newValue),
+	}
+	_, _ = uc.auditLogRepo.CreateAuditLog(auditLog)
+
+	return updated, nil
+}
+
 func validateAsNeededDateRange(takeType string, startDate *time.Time, endDate *time.Time) error {
 	if normalizeEnumInput(takeType) != "as_needed" {
 		return nil
@@ -486,6 +740,10 @@ func (uc *DrugUseCaseImpl) GetPersonalDrugsOverview(req models.PersonalDrugOverv
 		return nil, err
 	}
 
+	if _, err := uc.cleanupExpiredAsNeededPersonalDrugs(nil); err != nil {
+		return nil, err
+	}
+
 	if req.TimeOfDay != nil && strings.TrimSpace(*req.TimeOfDay) != "" {
 		if err := validateTimeOfDay(*req.TimeOfDay); err != nil {
 			return nil, err
@@ -521,6 +779,10 @@ func (uc *DrugUseCaseImpl) GetPersonalDrugsByResidentIDToday(residentID string, 
 		return nil, errors.New("resident not found")
 	}
 
+	if _, err := uc.cleanupExpiredAsNeededPersonalDrugs(&residentID); err != nil {
+		return nil, err
+	}
+
 	result, err := uc.drugRepo.GetPersonalDrugsByResidentIDToday(residentID)
 	if err != nil {
 		return nil, errors.New("failed to get personal drugs by resident: " + err.Error())
@@ -541,6 +803,10 @@ func (uc *DrugUseCaseImpl) GetPersonalDrugsByResidentID(residentID string, userI
 		return nil, errors.New("resident not found")
 	}
 
+	if _, err := uc.cleanupExpiredAsNeededPersonalDrugs(&residentID); err != nil {
+		return nil, err
+	}
+
 	result, err := uc.drugRepo.GetPersonalDrugsByResidentID(residentID)
 	if err != nil {
 		return nil, errors.New("failed to get personal drugs by resident: " + err.Error())
@@ -550,6 +816,10 @@ func (uc *DrugUseCaseImpl) GetPersonalDrugsByResidentID(residentID string, userI
 
 func (uc *DrugUseCaseImpl) GetPersonalDrugByID(id string, userID string) (*entities.PersonalDrug, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	if _, err := uc.cleanupExpiredAsNeededPersonalDrugs(nil); err != nil {
 		return nil, err
 	}
 
@@ -715,7 +985,7 @@ func (uc *DrugUseCaseImpl) CreateDrugPlan(req models.CreateDrugPlanRequest, user
 		return nil, errors.New("staff not found: " + err.Error())
 	}
 
-	initialIsOmmitted := false
+	initialIsOmitted := false
 
 	now := time.Now()
 	drugPlan := &entities.DrugPlan{
@@ -724,8 +994,8 @@ func (uc *DrugUseCaseImpl) CreateDrugPlan(req models.CreateDrugPlanRequest, user
 		IsTaken:        false,
 		TakenAt:        nil,
 		GivenByStaffID: req.GivenByStaffID,
-		IsOmmitted:     &initialIsOmmitted,
-		OmmittedReason: nil,
+		IsOmitted:      &initialIsOmitted,
+		OmittedReason:  nil,
 		Notes:          req.Notes,
 		CreatedAt:      now,
 		UpdatedAt:      now,
@@ -756,6 +1026,10 @@ func (uc *DrugUseCaseImpl) GetDrugPlansTodayResidentSummary(userID string) (*mod
 		return nil, err
 	}
 
+	if err := uc.ensureTodayDrugPlans(nil); err != nil {
+		return nil, err
+	}
+
 	result, err := uc.drugRepo.GetDrugPlansTodayResidentSummary()
 	if err != nil {
 		return nil, errors.New("failed to get drug plans summary: " + err.Error())
@@ -769,6 +1043,10 @@ func (uc *DrugUseCaseImpl) GetDrugPlansToday(userID string) ([]*entities.DrugPla
 		return nil, err
 	}
 
+	if err := uc.ensureTodayDrugPlans(nil); err != nil {
+		return nil, err
+	}
+
 	result, err := uc.drugRepo.GetDrugPlansToday()
 	if err != nil {
 		return nil, errors.New("failed to get today's drug plans: " + err.Error())
@@ -779,6 +1057,10 @@ func (uc *DrugUseCaseImpl) GetDrugPlansToday(userID string) ([]*entities.DrugPla
 
 func (uc *DrugUseCaseImpl) GetDrugPlansOverview(req models.DrugPlanOverviewQueryParams, userID string) ([]*entities.DrugPlan, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	if err := uc.ensureTodayDrugPlans(nil); err != nil {
 		return nil, err
 	}
 
@@ -804,6 +1086,79 @@ func (uc *DrugUseCaseImpl) GetDrugPlansOverview(req models.DrugPlanOverviewQuery
 	return result, nil
 }
 
+func (uc *DrugUseCaseImpl) GetDrugAdministrationHistory(req models.DrugAdministrationHistoryQueryParams, userID string) (*models.DrugAdministrationHistoryResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	if req.Date != nil && strings.TrimSpace(*req.Date) != "" {
+		if _, err := parseDateInput(*req.Date); err != nil {
+			return nil, errors.New("invalid date: " + err.Error())
+		}
+		d := strings.TrimSpace(*req.Date)
+		req.Date = &d
+	}
+
+	if req.TimeOfDay != nil && strings.TrimSpace(*req.TimeOfDay) != "" {
+		if err := validateTimeOfDay(*req.TimeOfDay); err != nil {
+			return nil, err
+		}
+	}
+
+	if req.Status != nil && strings.TrimSpace(*req.Status) != "" {
+		status := strings.ToLower(strings.TrimSpace(*req.Status))
+		if status != "taken" && status != "omitted" && status != "pending" {
+			return nil, errors.New("status must be one of: taken, omitted, pending")
+		}
+		req.Status = &status
+	}
+
+	page := 1
+	if req.Page != nil && *req.Page > 0 {
+		page = *req.Page
+	}
+
+	pageSize := 20
+	if req.PageSize != nil && *req.PageSize > 0 {
+		pageSize = *req.PageSize
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	shouldEnsureToday := true
+	if req.Date != nil && strings.TrimSpace(*req.Date) != "" {
+		parsedDate, _ := parseDateInput(*req.Date)
+		shouldEnsureToday = isTodayInBangkok(parsedDate)
+	}
+
+	if shouldEnsureToday {
+		if err := uc.ensureTodayDrugPlans(nil); err != nil {
+			return nil, err
+		}
+	}
+
+	items, total, err := uc.drugRepo.GetDrugAdministrationHistory(req, page, pageSize)
+	if err != nil {
+		return nil, errors.New("failed to get drug administration history: " + err.Error())
+	}
+
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+
+	return &models.DrugAdministrationHistoryResponse{
+		Items: items,
+		Pagination: models.DrugAdministrationHistoryPagination{
+			Page:       page,
+			PageSize:   pageSize,
+			TotalItems: int(total),
+			TotalPages: totalPages,
+		},
+	}, nil
+}
+
 func (uc *DrugUseCaseImpl) GetDrugPlansByResidentID(residentID string, userID string) ([]*entities.DrugPlan, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
@@ -815,6 +1170,10 @@ func (uc *DrugUseCaseImpl) GetDrugPlansByResidentID(residentID string, userID st
 	}
 	if !residentExists {
 		return nil, errors.New("resident not found")
+	}
+
+	if err := uc.ensureTodayDrugPlans(&residentID); err != nil {
+		return nil, err
 	}
 
 	result, err := uc.drugRepo.GetDrugPlansByResidentID(residentID)
@@ -838,6 +1197,10 @@ func (uc *DrugUseCaseImpl) GetDrugPlansByResidentIDToday(residentID string, user
 		return nil, errors.New("resident not found")
 	}
 
+	if err := uc.ensureTodayDrugPlans(&residentID); err != nil {
+		return nil, err
+	}
+
 	result, err := uc.drugRepo.GetDrugPlansByResidentIDToday(residentID)
 	if err != nil {
 		return nil, errors.New("failed to get today's drug plans by resident: " + err.Error())
@@ -851,6 +1214,10 @@ func (uc *DrugUseCaseImpl) GetDrugPlans(userID string) ([]*entities.DrugPlan, er
 		return nil, err
 	}
 
+	if err := uc.ensureTodayDrugPlans(nil); err != nil {
+		return nil, err
+	}
+
 	result, err := uc.drugRepo.GetAllDrugPlans()
 	if err != nil {
 		return nil, errors.New("failed to get drug plans: " + err.Error())
@@ -861,6 +1228,10 @@ func (uc *DrugUseCaseImpl) GetDrugPlans(userID string) ([]*entities.DrugPlan, er
 
 func (uc *DrugUseCaseImpl) GetDrugPlanByID(id string, userID string) (*entities.DrugPlan, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	if err := uc.ensureTodayDrugPlans(nil); err != nil {
 		return nil, err
 	}
 
@@ -910,15 +1281,15 @@ func (uc *DrugUseCaseImpl) UpdateDrugPlanByID(id string, req models.UpdateDrugPl
 		current.TakenAt = parsedTakenAt
 	}
 
-	if req.IsOmmitted != nil {
-		current.IsOmmitted = req.IsOmmitted
+	if req.IsOmitted != nil {
+		current.IsOmitted = req.IsOmitted
 	}
 
-	if req.OmmittedReason != nil {
-		if strings.TrimSpace(*req.OmmittedReason) == "" {
-			current.OmmittedReason = nil
+	if req.OmittedReason != nil {
+		if strings.TrimSpace(*req.OmittedReason) == "" {
+			current.OmittedReason = nil
 		} else {
-			current.OmmittedReason = req.OmmittedReason
+			current.OmittedReason = req.OmittedReason
 		}
 	}
 
@@ -930,7 +1301,7 @@ func (uc *DrugUseCaseImpl) UpdateDrugPlanByID(id string, req models.UpdateDrugPl
 		}
 	}
 
-	if current.IsOmmitted != nil && *current.IsOmmitted && (current.OmmittedReason == nil || strings.TrimSpace(*current.OmmittedReason) == "") {
+	if current.IsOmitted != nil && *current.IsOmitted && (current.OmittedReason == nil || strings.TrimSpace(*current.OmittedReason) == "") {
 		return nil, errors.New("omitted_reason is required when is_omitted is true")
 	}
 
@@ -954,6 +1325,112 @@ func (uc *DrugUseCaseImpl) UpdateDrugPlanByID(id string, req models.UpdateDrugPl
 	_, _ = uc.auditLogRepo.CreateAuditLog(auditLog)
 
 	return updated, nil
+}
+
+func (uc *DrugUseCaseImpl) TakeDrugPlanByID(id string, req models.TakeDrugPlanByIDRequest, userID string) (*entities.DrugPlan, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	staffID, err := uc.resolveMedicalStaffIDByName(req.StaffFirstName, req.StaffLastName)
+	if err != nil {
+		return nil, err
+	}
+
+	return uc.applyDrugPlanActionByID(id, staffID, true, nil, req.Note, userID)
+}
+
+func (uc *DrugUseCaseImpl) OmitDrugPlanByID(id string, req models.OmitDrugPlanByIDRequest, userID string) (*entities.DrugPlan, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	staffID, err := uc.resolveMedicalStaffIDByName(req.StaffFirstName, req.StaffLastName)
+	if err != nil {
+		return nil, err
+	}
+
+	omittedReason := strings.TrimSpace(req.OmittedReason)
+	if omittedReason == "" {
+		return nil, errors.New("omitted_reason is required")
+	}
+
+	return uc.applyDrugPlanActionByID(id, staffID, false, &omittedReason, req.Note, userID)
+}
+
+func (uc *DrugUseCaseImpl) TakeDrugPlansByResidentIDToday(residentID string, req models.TakeDrugPlansByResidentRequest, userID string) ([]*entities.DrugPlan, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	residentExists, err := uc.drugRepo.ResidentExistsByID(residentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident not found")
+	}
+
+	staffID, err := uc.resolveMedicalStaffIDByName(req.StaffFirstName, req.StaffLastName)
+	if err != nil {
+		return nil, err
+	}
+
+	drugPlans, err := uc.drugRepo.GetDrugPlansByResidentIDToday(residentID)
+	if err != nil {
+		return nil, errors.New("failed to get today's drug plans by resident: " + err.Error())
+	}
+
+	updatedPlans := make([]*entities.DrugPlan, 0, len(drugPlans))
+	for _, drugPlan := range drugPlans {
+		updated, updateErr := uc.applyDrugPlanActionByID(drugPlan.ID, staffID, true, nil, req.Note, userID)
+		if updateErr != nil {
+			return nil, updateErr
+		}
+		updatedPlans = append(updatedPlans, updated)
+	}
+
+	return updatedPlans, nil
+}
+
+func (uc *DrugUseCaseImpl) OmitDrugPlansByResidentIDToday(residentID string, req models.OmitDrugPlansByResidentRequest, userID string) ([]*entities.DrugPlan, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	residentExists, err := uc.drugRepo.ResidentExistsByID(residentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident not found")
+	}
+
+	staffID, err := uc.resolveMedicalStaffIDByName(req.StaffFirstName, req.StaffLastName)
+	if err != nil {
+		return nil, err
+	}
+
+	omittedReason := strings.TrimSpace(req.OmittedReason)
+	if omittedReason == "" {
+		return nil, errors.New("omitted_reason is required")
+	}
+
+	drugPlans, err := uc.drugRepo.GetDrugPlansByResidentIDToday(residentID)
+	if err != nil {
+		return nil, errors.New("failed to get today's drug plans by resident: " + err.Error())
+	}
+
+	updatedPlans := make([]*entities.DrugPlan, 0, len(drugPlans))
+	for _, drugPlan := range drugPlans {
+		updated, updateErr := uc.applyDrugPlanActionByID(drugPlan.ID, staffID, false, &omittedReason, req.Note, userID)
+		if updateErr != nil {
+			return nil, updateErr
+		}
+		updatedPlans = append(updatedPlans, updated)
+	}
+
+	return updatedPlans, nil
 }
 
 func (uc *DrugUseCaseImpl) DeleteDrugPlanByID(id string, userID string) error {

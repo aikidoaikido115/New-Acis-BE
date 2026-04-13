@@ -49,8 +49,8 @@ type CreateDrugPlanRequest struct {
 	IsTaken        bool    `json:"is_taken"`
 	TakenAt        *string `json:"taken_at"`
 	GivenByStaffID string  `json:"given_by_staff_id" binding:"required"`
-	IsOmmitted     *bool   `json:"is_omitted"`
-	OmmittedReason *string `json:"omitted_reason"`
+	IsOmitted      *bool   `json:"is_omitted"`
+	OmittedReason  *string `json:"omitted_reason"`
 	Notes          *string `json:"notes"`
 }
 
@@ -59,8 +59,8 @@ type UpdateDrugPlanRequest struct {
 	IsTaken        *bool   `json:"is_taken"`
 	TakenAt        *string `json:"taken_at"`
 	GivenByStaffID *string `json:"given_by_staff_id"`
-	IsOmmitted     *bool   `json:"is_omitted"`
-	OmmittedReason *string `json:"omitted_reason"`
+	IsOmitted      *bool   `json:"is_omitted"`
+	OmittedReason  *string `json:"omitted_reason"`
 	Notes          *string `json:"notes"`
 }
 
@@ -68,4 +68,39 @@ type DrugPlanOverviewQueryParams struct {
 	TimeOfDay *string `json:"time_of_day" form:"time_of_day" query:"time_of_day"`
 	TakeType  *string `json:"take_type" form:"take_type" query:"take_type"`
 	Search    *string `json:"search" form:"search" query:"search"`
+}
+
+type DrugAdministrationHistoryQueryParams struct {
+	Date      *string `json:"date" form:"date" query:"date"`
+	TimeOfDay *string `json:"time_of_day" form:"time_of_day" query:"time_of_day"`
+	Status    *string `json:"status" form:"status" query:"status"`
+	Search    *string `json:"search" form:"search" query:"search"`
+	Page      *int    `json:"page" form:"page" query:"page"`
+	PageSize  *int    `json:"page_size" form:"page_size" query:"page_size"`
+}
+
+type TakeDrugPlanByIDRequest struct {
+	StaffFirstName string  `json:"staff_first_name" binding:"required"`
+	StaffLastName  string  `json:"staff_last_name" binding:"required"`
+	Note           *string `json:"note"`
+}
+
+type OmitDrugPlanByIDRequest struct {
+	StaffFirstName string  `json:"staff_first_name" binding:"required"`
+	StaffLastName  string  `json:"staff_last_name" binding:"required"`
+	OmittedReason  string  `json:"omitted_reason" binding:"required"`
+	Note           *string `json:"note"`
+}
+
+type TakeDrugPlansByResidentRequest struct {
+	StaffFirstName string  `json:"staff_first_name" binding:"required"`
+	StaffLastName  string  `json:"staff_last_name" binding:"required"`
+	Note           *string `json:"note"`
+}
+
+type OmitDrugPlansByResidentRequest struct {
+	StaffFirstName string  `json:"staff_first_name" binding:"required"`
+	StaffLastName  string  `json:"staff_last_name" binding:"required"`
+	OmittedReason  string  `json:"omitted_reason" binding:"required"`
+	Note           *string `json:"note"`
 }

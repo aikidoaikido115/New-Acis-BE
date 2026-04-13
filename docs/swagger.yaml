@@ -258,6 +258,47 @@ definitions:
     required:
     - resident_id
     type: object
+  models.DrugAdministrationHistoryItem:
+    properties:
+      action_at:
+        type: string
+      drug_dose:
+        type: string
+      drug_name:
+        type: string
+      drug_plan_id:
+        type: string
+      given_by_staff_name:
+        type: string
+      note:
+        type: string
+      resident_name:
+        type: string
+      status:
+        type: string
+      time_of_day:
+        type: string
+    type: object
+  models.DrugAdministrationHistoryPagination:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total_items:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  models.DrugAdministrationHistoryResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/models.DrugAdministrationHistoryItem'
+        type: array
+      pagination:
+        $ref: '#/definitions/models.DrugAdministrationHistoryPagination'
+    type: object
   models.DrugAllergyRequest:
     properties:
       allergy_name:
@@ -276,6 +317,19 @@ definitions:
       drug_allergy_id:
         type: string
     type: object
+  models.DrugPlanGenerationResponse:
+    properties:
+      expired_deleted_count:
+        type: integer
+      generated_count:
+        type: integer
+      resident_id:
+        type: string
+      scope:
+        type: string
+      skipped_existing_count:
+        type: integer
+    type: object
   models.DrugPlanResidentSummaryResponse:
     properties:
       given_residents:
@@ -284,6 +338,36 @@ definitions:
         type: integer
       waiting_residents:
         type: integer
+    type: object
+  models.OmitDrugPlanByIDRequest:
+    properties:
+      note:
+        type: string
+      omitted_reason:
+        type: string
+      staff_first_name:
+        type: string
+      staff_last_name:
+        type: string
+    required:
+    - omitted_reason
+    - staff_first_name
+    - staff_last_name
+    type: object
+  models.OmitDrugPlansByResidentRequest:
+    properties:
+      note:
+        type: string
+      omitted_reason:
+        type: string
+      staff_first_name:
+        type: string
+      staff_last_name:
+        type: string
+    required:
+    - omitted_reason
+    - staff_first_name
+    - staff_last_name
     type: object
   models.ResidentAllergyItemResponse:
     properties:
@@ -350,6 +434,30 @@ definitions:
         type: integer
       total_not_drug_allergic:
         type: integer
+    type: object
+  models.TakeDrugPlanByIDRequest:
+    properties:
+      note:
+        type: string
+      staff_first_name:
+        type: string
+      staff_last_name:
+        type: string
+    required:
+    - staff_first_name
+    - staff_last_name
+    type: object
+  models.TakeDrugPlansByResidentRequest:
+    properties:
+      note:
+        type: string
+      staff_first_name:
+        type: string
+      staff_last_name:
+        type: string
+    required:
+    - staff_first_name
+    - staff_last_name
     type: object
   models.UpdateDrugMasterRequest:
     properties:
@@ -2039,6 +2147,355 @@ paths:
       summary: Update Drug Plan By ID
       tags:
       - DrugPlan
+  /api/emr/drug-plans/{id}/omit:
+    patch:
+      consumes:
+      - application/json
+      description: Mark a specific today's drug plan as omitted and update given_by_staff_id
+        from provided staff name
+      parameters:
+      - description: Drug Plan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Omit drug plan payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.OmitDrugPlanByIDRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Omit Drug Plan By ID (Today)
+      tags:
+      - DrugPlan
+  /api/emr/drug-plans/{id}/take:
+    patch:
+      consumes:
+      - application/json
+      description: Mark a specific today's drug plan as taken and update given_by_staff_id
+        from provided staff name
+      parameters:
+      - description: Drug Plan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Take drug plan payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.TakeDrugPlanByIDRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Take Drug Plan By ID (Today)
+      tags:
+      - DrugPlan
+  /api/emr/drug-plans/generate-today:
+    post:
+      consumes:
+      - application/json
+      description: Manually trigger lazy generation for today's drug plans across
+        all residents
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/models.DrugPlanGenerationResponse'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Force Generate Today's Drug Plans (All)
+      tags:
+      - DrugPlan
+  /api/emr/drug-plans/generate-today/resident/{resident_id}:
+    post:
+      consumes:
+      - application/json
+      description: Manually trigger lazy generation for today's drug plans of a specific
+        resident
+      parameters:
+      - description: Resident ID
+        in: path
+        name: resident_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/models.DrugPlanGenerationResponse'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Force Generate Today's Drug Plans (Resident)
+      tags:
+      - DrugPlan
+  /api/emr/drug-plans/history:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve drug administration history with filters and pagination
+      parameters:
+      - description: Date filter (YYYY-MM-DD). Defaults to today
+        in: query
+        name: date
+        type: string
+      - description: Search by resident first_name, last_name, nickname
+        in: query
+        name: search
+        type: string
+      - description: Time of day filter
+        in: query
+        name: time_of_day
+        type: string
+      - description: Status filter
+        enum:
+        - taken
+        - omitted
+        - pending
+        in: query
+        name: status
+        type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 20, max 100)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/models.DrugAdministrationHistoryResponse'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Drug Administration History
+      tags:
+      - DrugPlan
   /api/emr/drug-plans/istaken-summary:
     get:
       consumes:
@@ -2239,6 +2696,160 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Resident Drug Plans Today
+      tags:
+      - DrugPlan
+  /api/emr/drug-plans/resident/{resident_id}/omit:
+    patch:
+      consumes:
+      - application/json
+      description: Mark all today's drug plans of a resident as omitted by applying
+        the single-item action to each record
+      parameters:
+      - description: Resident ID
+        in: path
+        name: resident_id
+        required: true
+        type: string
+      - description: Bulk omit payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.OmitDrugPlansByResidentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Omit All Resident Drug Plans (Today)
+      tags:
+      - DrugPlan
+  /api/emr/drug-plans/resident/{resident_id}/take:
+    patch:
+      consumes:
+      - application/json
+      description: Mark all today's drug plans of a resident as taken by applying
+        the single-item action to each record
+      parameters:
+      - description: Resident ID
+        in: path
+        name: resident_id
+        required: true
+        type: string
+      - description: Bulk take payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.TakeDrugPlansByResidentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Take All Resident Drug Plans (Today)
       tags:
       - DrugPlan
   /api/emr/drug-plans/resident/all:

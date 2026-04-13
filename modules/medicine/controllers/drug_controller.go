@@ -646,6 +646,89 @@ func (c *DrugController) CreateDrugPlanHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// ForceGenerateTodayDrugPlans godoc
+// @Summary Force Generate Today's Drug Plans (All)
+// @Description Manually trigger lazy generation for today's drug plans across all residents
+// @Tags DrugPlan
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.DrugPlanGenerationResponse}
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/drug-plans/generate-today [post]
+func (c *DrugController) ForceGenerateTodayDrugPlansHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.drugUsecase.ForceGenerateTodayDrugPlans(userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "today's drug plans generated successfully",
+		"result":      result,
+	})
+}
+
+// ForceGenerateTodayDrugPlansByResident godoc
+// @Summary Force Generate Today's Drug Plans (Resident)
+// @Description Manually trigger lazy generation for today's drug plans of a specific resident
+// @Tags DrugPlan
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param resident_id path string true "Resident ID"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.DrugPlanGenerationResponse}
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/drug-plans/generate-today/resident/{resident_id} [post]
+func (c *DrugController) ForceGenerateTodayDrugPlansByResidentHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Params("resident_id")
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.drugUsecase.ForceGenerateTodayDrugPlansByResidentID(residentID, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "today's resident drug plans generated successfully",
+		"result":      result,
+	})
+}
+
 // GetDrugPlansTodayResidentSummary godoc
 // @Summary Get Drug Plans Resident Summary (Today)
 // @Description Retrieve resident-level summary for today's drug plans using is_taken status
@@ -776,6 +859,63 @@ func (c *DrugController) GetDrugPlansOverviewHandler(ctx *fiber.Ctx) error {
 		"status":      "Success",
 		"status_code": fiber.StatusOK,
 		"message":     "drug plans overview retrieved successfully",
+		"result":      result,
+	})
+}
+
+// GetDrugAdministrationHistory godoc
+// @Summary Get Drug Administration History
+// @Description Retrieve drug administration history with filters and pagination
+// @Tags DrugPlan
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param date query string false "Date filter (YYYY-MM-DD). Defaults to today"
+// @Param search query string false "Search by resident first_name, last_name, nickname"
+// @Param time_of_day query string false "Time of day filter"
+// @Param status query string false "Status filter" Enums(taken, omitted, pending)
+// @Param page query int false "Page number (default 1)"
+// @Param page_size query int false "Page size (default 20, max 100)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.DrugAdministrationHistoryResponse}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/drug-plans/history [get]
+func (c *DrugController) GetDrugAdministrationHistoryHandler(ctx *fiber.Ctx) error {
+	var req models.DrugAdministrationHistoryQueryParams
+	if err := ctx.QueryParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.drugUsecase.GetDrugAdministrationHistory(req, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "drug administration history retrieved successfully",
 		"result":      result,
 	})
 }
@@ -1017,6 +1157,222 @@ func (c *DrugController) UpdateDrugPlanByIDHandler(ctx *fiber.Ctx) error {
 		"status":      "Success",
 		"status_code": fiber.StatusOK,
 		"message":     "drug plan updated successfully",
+		"result":      result,
+	})
+}
+
+// TakeDrugPlanByID godoc
+// @Summary Take Drug Plan By ID (Today)
+// @Description Mark a specific today's drug plan as taken and update given_by_staff_id from provided staff name
+// @Tags DrugPlan
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Drug Plan ID"
+// @Param request body models.TakeDrugPlanByIDRequest true "Take drug plan payload"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/drug-plans/{id}/take [patch]
+func (c *DrugController) TakeDrugPlanByIDHandler(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	var req models.TakeDrugPlanByIDRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.drugUsecase.TakeDrugPlanByID(id, req, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "drug plan marked as taken successfully",
+		"result":      result,
+	})
+}
+
+// OmitDrugPlanByID godoc
+// @Summary Omit Drug Plan By ID (Today)
+// @Description Mark a specific today's drug plan as omitted and update given_by_staff_id from provided staff name
+// @Tags DrugPlan
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Drug Plan ID"
+// @Param request body models.OmitDrugPlanByIDRequest true "Omit drug plan payload"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/drug-plans/{id}/omit [patch]
+func (c *DrugController) OmitDrugPlanByIDHandler(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	var req models.OmitDrugPlanByIDRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.drugUsecase.OmitDrugPlanByID(id, req, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "drug plan marked as omitted successfully",
+		"result":      result,
+	})
+}
+
+// TakeDrugPlansByResidentToday godoc
+// @Summary Take All Resident Drug Plans (Today)
+// @Description Mark all today's drug plans of a resident as taken by applying the single-item action to each record
+// @Tags DrugPlan
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param resident_id path string true "Resident ID"
+// @Param request body models.TakeDrugPlansByResidentRequest true "Bulk take payload"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/drug-plans/resident/{resident_id}/take [patch]
+func (c *DrugController) TakeDrugPlansByResidentTodayHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Params("resident_id")
+	var req models.TakeDrugPlansByResidentRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.drugUsecase.TakeDrugPlansByResidentIDToday(residentID, req, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "today's resident drug plans marked as taken successfully",
+		"result":      result,
+	})
+}
+
+// OmitDrugPlansByResidentToday godoc
+// @Summary Omit All Resident Drug Plans (Today)
+// @Description Mark all today's drug plans of a resident as omitted by applying the single-item action to each record
+// @Tags DrugPlan
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param resident_id path string true "Resident ID"
+// @Param request body models.OmitDrugPlansByResidentRequest true "Bulk omit payload"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/emr/drug-plans/resident/{resident_id}/omit [patch]
+func (c *DrugController) OmitDrugPlansByResidentTodayHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Params("resident_id")
+	var req models.OmitDrugPlansByResidentRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.drugUsecase.OmitDrugPlansByResidentIDToday(residentID, req, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "today's resident drug plans marked as omitted successfully",
 		"result":      result,
 	})
 }
