@@ -33,6 +33,11 @@ type AllergyRequest struct {
 	NoteText    *string `json:"note_text"`
 }
 
+type DrugAllergyRequest struct {
+	AllergyName string  `json:"allergy_name" binding:"required"`
+	NoteText    *string `json:"note_text"`
+}
+
 type CreateIntakeLabelByResidentRequest struct {
 	ResidentID string               `json:"resident_id" binding:"required"`
 	Labels     []IntakeLabelRequest `json:"labels" binding:"required"`
@@ -41,6 +46,11 @@ type CreateIntakeLabelByResidentRequest struct {
 type CreateAllergyByResidentRequest struct {
 	ResidentID string           `json:"resident_id" binding:"required"`
 	Allergies  []AllergyRequest `json:"allergies" binding:"required"`
+}
+
+type CreateDrugAllergyByResidentRequest struct {
+	ResidentID    string               `json:"resident_id" binding:"required"`
+	DrugAllergies []DrugAllergyRequest `json:"drug_allergies" binding:"required"`
 }
 
 type UpdateResidentRequest struct {
@@ -147,4 +157,55 @@ type ResidentQueryParams struct {
 	LabelIDs []string `json:"label_ids" form:"label_ids" query:"label_ids"` // empty = ทุกกลุ่ม
 	Status   *string  `json:"status" form:"status" query:"status"`          // nil = ทั้ง active และ inactive
 	Search   *string  `json:"search" form:"search" query:"search"`          // nil = ไม่กรอง, มีค่า = LIKE ชื่อ/นามสกุล/ชื่อเล่น
+}
+
+type CreateNurseNoteRequest struct {
+	ResidentID string `json:"resident_id" binding:"required"`
+	Category   string `json:"category" binding:"required"`
+	Content    string `json:"content" binding:"required"`
+	Priority   string `json:"priority" binding:"required"`
+	SendNote   bool   `json:"send_note"`
+}
+
+type UpdateNurseNoteRequest struct {
+	Category *string `json:"category"`
+	Content  *string `json:"content"`
+	Priority *string `json:"priority"`
+	SendNote *bool   `json:"send_note"`
+}
+
+type CreateWoundCareNoteRequest struct {
+	ResidentID string  `json:"resident_id" binding:"required"`
+	Location   string  `json:"location" binding:"required"`
+	WoundType  string  `json:"wound_type" binding:"required"`
+	Size       *string `json:"size"`
+	Treatment  *string `json:"treatment"`
+	Supplies   *string `json:"supplies"`
+	Status     *string `json:"status"`
+	ImageURL   *string `json:"image_url"`
+	Note       *string `json:"note"`
+}
+
+type UpdateWoundCareNoteRequest struct {
+	Location  *string `json:"location"`
+	WoundType *string `json:"wound_type"`
+	Size      *string `json:"size"`
+	Treatment *string `json:"treatment"`
+	Supplies  *string `json:"supplies"`
+	Status    *string `json:"status"`
+	ImageURL  *string `json:"image_url"`
+	Note      *string `json:"note"`
+}
+
+type CreateRelativeNoteRequest struct {
+	ResidentID string `json:"resident_id" binding:"required"`
+	Relation   string `json:"relation" binding:"required"`
+	Content    string `json:"content" binding:"required"`
+	SendNote   bool   `json:"send_note"`
+}
+
+type UpdateRelativeNoteRequest struct {
+	Relation *string `json:"relation"`
+	Content  *string `json:"content"`
+	SendNote *bool   `json:"send_note"`
 }

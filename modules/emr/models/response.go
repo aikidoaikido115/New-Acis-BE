@@ -36,9 +36,9 @@ type ResidentOverviewResponse struct {
 }
 
 type AllergyStatisticDashboardResponse struct {
-	AllergyID   string `json:"allergy_id"`
-	AllergyName string `json:"allergy_name"`
-	Count       int64  `json:"count"`
+	AllergyID     string `json:"allergy_id"`
+	AllergyName   string `json:"allergy_name"`
+	ResidentCount int64  `json:"resident_count"`
 }
 
 type ResidentAllergyStatsDashboardResponse struct {
@@ -58,4 +58,29 @@ type ResidentAllergyListResponse struct {
 	FirstName  string                        `json:"first_name"`
 	LastName   string                        `json:"last_name"`
 	Allergies  []ResidentAllergyItemResponse `json:"allergies"`
+}
+
+type DrugAllergyStatisticDashboardResponse struct {
+	DrugAllergyID string `json:"drug_allergy_id"`
+	AllergyName   string `json:"allergy_name"`
+	Count         int64  `json:"count"`
+}
+
+type ResidentDrugAllergyStatsDashboardResponse struct {
+	TotalNotDrugAllergic int64                                   `json:"total_not_drug_allergic"`
+	TotalDrugAllergic    int64                                   `json:"total_drug_allergic"`
+	DrugAllergyDetails   []DrugAllergyStatisticDashboardResponse `json:"drug_allergy_details"`
+}
+
+type ResidentDrugAllergyItemResponse struct {
+	DrugAllergyID string  `json:"drug_allergy_id"`
+	AllergyName   string  `json:"allergy_name"`
+	NoteText      *string `json:"note_text"`
+}
+
+type ResidentDrugAllergyListResponse struct {
+	ResidentID    string                            `json:"resident_id"`
+	FirstName     string                            `json:"first_name"`
+	LastName      string                            `json:"last_name"`
+	DrugAllergies []ResidentDrugAllergyItemResponse `json:"drug_allergies"`
 }

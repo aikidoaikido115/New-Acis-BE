@@ -30,7 +30,14 @@ func main() {
 		&entities.MealPlan{},
 		&entities.Allergy{},
 		&entities.ResidentAllergies{},
+		&entities.DrugAllergy{},
+		&entities.ResidentDA{},
 		&entities.DrugMaster{},
+		&entities.PersonalDrug{},
+		&entities.DrugPlan{},
+		&entities.NurseNote{},
+		&entities.WoundCareNote{},
+		&entities.RelativeNote{},
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to load gorm schema: %v\n", err)

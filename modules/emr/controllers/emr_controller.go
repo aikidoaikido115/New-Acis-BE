@@ -5,6 +5,8 @@ import (
 	// "mime/multipart"
 	// "strconv"
 	// "mime/multipart"
+	"mime/multipart"
+	"strings"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/models"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/usecases"
@@ -107,7 +109,17 @@ func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
 // @Router /api/emr/residents/{id} [get]
 func (c *EmrController) GetResidentByIDHandler(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
-	resident, err := c.emrUsecase.GetResidentByID(id)
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	resident, err := c.emrUsecase.GetResidentByID(id, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -148,7 +160,17 @@ func (c *EmrController) GetResidentByRoomIDHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	residents, err := c.emrUsecase.GetResidentByRoomID(roomID)
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	residents, err := c.emrUsecase.GetResidentByRoomID(roomID, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -176,7 +198,17 @@ func (c *EmrController) GetResidentByRoomIDHandler(ctx *fiber.Ctx) error {
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/residents/all [get]
 func (c *EmrController) GetAllResidentsHandler(ctx *fiber.Ctx) error {
-	residents, err := c.emrUsecase.GetAllResidents()
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	residents, err := c.emrUsecase.GetAllResidents(userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -217,7 +249,17 @@ func (c *EmrController) GetResidentOverviewHandler(ctx *fiber.Ctx) error {
 			"result":      nil,
 		})
 	}
-	response, err := c.emrUsecase.GetResidentOverview(req)
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	response, err := c.emrUsecase.GetResidentOverview(req, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -301,7 +343,17 @@ func (c *EmrController) UpdateResidentByIDHandler(ctx *fiber.Ctx) error {
 // @Router /api/emr/rooms/{id} [get]
 func (c *EmrController) GetRoomByIDHandler(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
-	room, err := c.emrUsecase.GetRoomByID(id)
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	room, err := c.emrUsecase.GetRoomByID(id, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -329,7 +381,17 @@ func (c *EmrController) GetRoomByIDHandler(ctx *fiber.Ctx) error {
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/rooms [get]
 func (c *EmrController) GetAllRoomsHandler(ctx *fiber.Ctx) error {
-	rooms, err := c.emrUsecase.GetAllRooms()
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	rooms, err := c.emrUsecase.GetAllRooms(userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -469,7 +531,17 @@ func (c *EmrController) UpdateRoomByIDHandler(ctx *fiber.Ctx) error {
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/dashboard/residents [get]
 func (c *EmrController) GetNumberOfResidentsDashboardHandler(ctx *fiber.Ctx) error {
-	response, err := c.emrUsecase.GetNumberOfResidentsDashboard()
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	response, err := c.emrUsecase.GetNumberOfResidentsDashboard(userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -497,7 +569,17 @@ func (c *EmrController) GetNumberOfResidentsDashboardHandler(ctx *fiber.Ctx) err
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/dashboard/resident-gender-stats [get]
 func (c *EmrController) GetResidentGenderStatsDashboardHandler(ctx *fiber.Ctx) error {
-	response, err := c.emrUsecase.GetResidentGenderStatsDashboard()
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	response, err := c.emrUsecase.GetResidentGenderStatsDashboard(userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -525,7 +607,17 @@ func (c *EmrController) GetResidentGenderStatsDashboardHandler(ctx *fiber.Ctx) e
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/dashboard/resident-allergy-stats [get]
 func (c *EmrController) GetResidentAllergyStatsDashboardHandler(ctx *fiber.Ctx) error {
-	response, err := c.emrUsecase.GetResidentAllergyStatsDashboard()
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	response, err := c.emrUsecase.GetResidentAllergyStatsDashboard(userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -543,6 +635,45 @@ func (c *EmrController) GetResidentAllergyStatsDashboardHandler(ctx *fiber.Ctx) 
 	})
 }
 
+// GetResidentDrugAllergyStatsDashboard godoc
+// @Summary Get Resident Drug Allergy Stats for Dashboard
+// @Description Retrieve drug allergy summary for dashboard including drug-allergic count, non-drug-allergic count, and grouped drug allergy details
+// @Tags Dashboard
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.ResidentDrugAllergyStatsDashboardResponse} "Resident drug allergy stats retrieved successfully"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/dashboard/resident-drug-allergy-stats [get]
+func (c *EmrController) GetResidentDrugAllergyStatsDashboardHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	response, err := c.emrUsecase.GetResidentDrugAllergyStatsDashboard(userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "resident drug allergy stats retrieved successfully",
+		"result":      response,
+	})
+}
+
 // GetAllIntakeLabels godoc
 // @Summary Get All Intake Labels
 // @Description Retrieve a list of all available intake label types (e.g., Blood Pressure, Temperature, Heart Rate)
@@ -554,7 +685,17 @@ func (c *EmrController) GetResidentAllergyStatsDashboardHandler(ctx *fiber.Ctx) 
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/intake-labels/all [get]
 func (c *EmrController) GetAllIntakeLabelsHandler(ctx *fiber.Ctx) error {
-	labels, err := c.emrUsecase.GetAllIntakeLabels()
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	labels, err := c.emrUsecase.GetAllIntakeLabels(userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -593,7 +734,17 @@ func (c *EmrController) GetResidentLabelsByResidentIDHandler(ctx *fiber.Ctx) err
 			"result":      nil,
 		})
 	}
-	labels, err := c.emrUsecase.GetResidentLabelsByResidentID(residentID)
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	labels, err := c.emrUsecase.GetResidentLabelsByResidentID(residentID, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -674,7 +825,17 @@ func (c *EmrController) CreateIntakeLabelByResidentIDHandler(ctx *fiber.Ctx) err
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/allergies/all [get]
 func (c *EmrController) GetAllAllergiesHandler(ctx *fiber.Ctx) error {
-	allergies, err := c.emrUsecase.GetAllAllergies()
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	allergies, err := c.emrUsecase.GetAllAllergies(userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -716,7 +877,17 @@ func (c *EmrController) GetResidentAllergiesByResidentIDHandler(ctx *fiber.Ctx) 
 		})
 	}
 
-	allergies, err := c.emrUsecase.GetResidentAllergiesByResidentID(residentID)
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	allergies, err := c.emrUsecase.GetResidentAllergiesByResidentID(residentID, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -745,7 +916,17 @@ func (c *EmrController) GetResidentAllergiesByResidentIDHandler(ctx *fiber.Ctx) 
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/allergies/residents/all [get]
 func (c *EmrController) GetAllResidentAllergiesHandler(ctx *fiber.Ctx) error {
-	result, err := c.emrUsecase.GetAllResidentAllergies()
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.GetAllResidentAllergies(userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -812,6 +993,189 @@ func (c *EmrController) CreateAllergyByResidentIDHandler(ctx *fiber.Ctx) error {
 		"status":      "Success",
 		"status_code": fiber.StatusCreated,
 		"message":     "allergies created successfully",
+		"result":      result,
+	})
+}
+
+// GetAllDrugAllergies godoc
+// @Summary Get All Drug Allergies
+// @Description Retrieve all drug allergy master records
+// @Tags Drug Allergy
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "Drug allergies retrieved successfully"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/drug-allergies/all [get]
+func (c *EmrController) GetAllDrugAllergiesHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	drugAllergies, err := c.emrUsecase.GetAllDrugAllergies(userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "drug allergies retrieved successfully",
+		"result":      drugAllergies,
+	})
+}
+
+// GetResidentDrugAllergiesByResidentID godoc
+// @Summary Get Resident Drug Allergies by Resident ID
+// @Description Retrieve all drug allergies associated with a specific resident using resident_id query parameter
+// @Tags Drug Allergy
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param resident_id query string true "Resident ID"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "Resident drug allergies retrieved successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing resident_id query parameter"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/drug-allergies [get]
+func (c *EmrController) GetResidentDrugAllergiesByResidentIDHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Query("resident_id")
+
+	if residentID == "" {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     "resident_id query parameter is required",
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	drugAllergies, err := c.emrUsecase.GetResidentDrugAllergiesByResidentID(residentID, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "resident drug allergies retrieved successfully",
+		"result":      drugAllergies,
+	})
+}
+
+// GetAllResidentDrugAllergies godoc
+// @Summary Get All Resident Drug Allergies
+// @Description Retrieve all residents with first name, last name, resident ID, and their drug allergies list
+// @Tags Drug Allergy
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]models.ResidentDrugAllergyListResponse} "All resident drug allergies retrieved successfully"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/drug-allergies/residents/all [get]
+func (c *EmrController) GetAllResidentDrugAllergiesHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.GetAllResidentDrugAllergies(userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "all resident drug allergies retrieved successfully",
+		"result":      result,
+	})
+}
+
+// CreateDrugAllergyByResidentID godoc
+// @Summary Create Drug Allergies for Resident
+// @Description Create one or more drug allergy records for a specific resident. New drug allergy master values are auto-created when they do not exist.
+// @Tags Drug Allergy
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body models.CreateDrugAllergyByResidentRequest true "Resident ID and array of drug allergies"
+// @Success 201 {object} object{status=string,status_code=int,message=string,result=[]object} "Drug allergies created successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing required fields or invalid data"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing or invalid authentication"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/drug-allergies [post]
+func (c *EmrController) CreateDrugAllergyByResidentIDHandler(ctx *fiber.Ctx) error {
+	var req models.CreateDrugAllergyByResidentRequest
+
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.CreateDrugAllergyByResidentID(req.ResidentID, req.DrugAllergies, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusCreated,
+		"message":     "drug allergies created successfully",
 		"result":      result,
 	})
 }
@@ -1554,4 +1918,672 @@ func (c *EmrController) UpdateLaboratoryValueByIDHandler(ctx *fiber.Ctx) error {
 		"message":     "laboratory value updated successfully",
 		"result":      updatedLaboratoryValue,
 	})
+}
+
+func (c *EmrController) CreateNurseNoteHandler(ctx *fiber.Ctx) error {
+	var req models.CreateNurseNoteRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	note := &entities.NurseNote{
+		ResidentID: req.ResidentID,
+		Category:   req.Category,
+		Content:    req.Content,
+		Priority:   req.Priority,
+		SendNote:   req.SendNote,
+	}
+
+	created, err := c.emrUsecase.CreateNurseNote(note, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusCreated,
+		"message":     "nurse note created successfully",
+		"result":      created,
+	})
+}
+
+func (c *EmrController) GetNurseNotesOverviewHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.GetNurseNotesOverview(userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "nurse notes overview retrieved successfully",
+		"result":      result,
+	})
+}
+
+func (c *EmrController) GetNurseNotesByResidentHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Query("resident_id")
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.GetNurseNotesByResidentID(residentID, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "nurse notes retrieved successfully",
+		"result":      result,
+	})
+}
+
+func (c *EmrController) UpdateNurseNoteByIDHandler(ctx *fiber.Ctx) error {
+	var req models.UpdateNurseNoteRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	note := &entities.NurseNote{}
+	if req.Category != nil {
+		note.Category = *req.Category
+	}
+	if req.Content != nil {
+		note.Content = *req.Content
+	}
+	if req.Priority != nil {
+		note.Priority = *req.Priority
+	}
+	if req.SendNote != nil {
+		note.SendNote = *req.SendNote
+	}
+
+	updated, err := c.emrUsecase.UpdateNurseNoteByID(ctx.Params("id"), note, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "nurse note updated successfully",
+		"result":      updated,
+	})
+}
+
+func (c *EmrController) DeleteNurseNoteByIDHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	if err := c.emrUsecase.DeleteNurseNoteByID(ctx.Params("id"), userID); err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "nurse note deleted successfully",
+		"result":      nil,
+	})
+}
+
+func (c *EmrController) CreateWoundCareNoteHandler(ctx *fiber.Ctx) error {
+	var req models.CreateWoundCareNoteRequest
+
+	var imageFile multipart.File
+	if strings.HasPrefix(strings.ToLower(ctx.Get("Content-Type")), "multipart/form-data") {
+		req = models.CreateWoundCareNoteRequest{
+			ResidentID: ctx.FormValue("resident_id"),
+			Location:   ctx.FormValue("location"),
+			WoundType:  ctx.FormValue("wound_type"),
+			Size:       optionalFormString(ctx.FormValue("size")),
+			Treatment:  optionalFormString(ctx.FormValue("treatment")),
+			Supplies:   optionalFormString(ctx.FormValue("supplies")),
+			Status:     optionalFormString(ctx.FormValue("status")),
+			ImageURL:   optionalFormString(ctx.FormValue("image_url")),
+			Note:       optionalFormString(ctx.FormValue("note")),
+		}
+
+		fileHeader, err := ctx.FormFile("image")
+		if err == nil && fileHeader != nil {
+			file, openErr := fileHeader.Open()
+			if openErr != nil {
+				return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+					"status":      fiber.ErrBadRequest.Message,
+					"status_code": fiber.ErrBadRequest.Code,
+					"message":     "failed to open uploaded image: " + openErr.Error(),
+					"result":      nil,
+				})
+			}
+			imageFile = file
+			defer imageFile.Close()
+		}
+	} else {
+		if err := ctx.BodyParser(&req); err != nil {
+			return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"status":      fiber.ErrBadRequest.Message,
+				"status_code": fiber.ErrBadRequest.Code,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	note := &entities.WoundCareNote{
+		ResidentID: req.ResidentID,
+		Location:   req.Location,
+		WoundType:  req.WoundType,
+		Size:       req.Size,
+		Treatment:  req.Treatment,
+		Supplies:   req.Supplies,
+		Status:     req.Status,
+		ImageURL:   req.ImageURL,
+		Note:       req.Note,
+	}
+
+	created, err := c.emrUsecase.CreateWoundCareNote(note, userID, imageFile)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusCreated,
+		"message":     "wound care note created successfully",
+		"result":      created,
+	})
+}
+
+func (c *EmrController) GetWoundCareNotesOverviewHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.GetWoundCareNotesOverview(userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "wound care notes overview retrieved successfully",
+		"result":      result,
+	})
+}
+
+func (c *EmrController) GetWoundCareNotesByResidentHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Query("resident_id")
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.GetWoundCareNotesByResidentID(residentID, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "wound care notes retrieved successfully",
+		"result":      result,
+	})
+}
+
+func (c *EmrController) UpdateWoundCareNoteByIDHandler(ctx *fiber.Ctx) error {
+	var req models.UpdateWoundCareNoteRequest
+
+	var imageFile multipart.File
+	if strings.HasPrefix(strings.ToLower(ctx.Get("Content-Type")), "multipart/form-data") {
+		form, err := ctx.MultipartForm()
+		if err != nil {
+			return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"status":      fiber.ErrBadRequest.Message,
+				"status_code": fiber.ErrBadRequest.Code,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
+
+		if v, ok := getMultipartField(form, "location"); ok {
+			req.Location = &v
+		}
+		if v, ok := getMultipartField(form, "wound_type"); ok {
+			req.WoundType = &v
+		}
+		if v, ok := getMultipartField(form, "size"); ok {
+			req.Size = &v
+		}
+		if v, ok := getMultipartField(form, "treatment"); ok {
+			req.Treatment = &v
+		}
+		if v, ok := getMultipartField(form, "supplies"); ok {
+			req.Supplies = &v
+		}
+		if v, ok := getMultipartField(form, "status"); ok {
+			req.Status = &v
+		}
+		if v, ok := getMultipartField(form, "image_url"); ok {
+			req.ImageURL = &v
+		}
+		if v, ok := getMultipartField(form, "note"); ok {
+			req.Note = &v
+		}
+
+		fileHeader, err := ctx.FormFile("image")
+		if err == nil && fileHeader != nil {
+			file, openErr := fileHeader.Open()
+			if openErr != nil {
+				return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+					"status":      fiber.ErrBadRequest.Message,
+					"status_code": fiber.ErrBadRequest.Code,
+					"message":     "failed to open uploaded image: " + openErr.Error(),
+					"result":      nil,
+				})
+			}
+			imageFile = file
+			defer imageFile.Close()
+		}
+	} else {
+		if err := ctx.BodyParser(&req); err != nil {
+			return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"status":      fiber.ErrBadRequest.Message,
+				"status_code": fiber.ErrBadRequest.Code,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	note := &entities.WoundCareNote{
+		Location:  derefString(req.Location),
+		WoundType: derefString(req.WoundType),
+		Size:      req.Size,
+		Treatment: req.Treatment,
+		Supplies:  req.Supplies,
+		Status:    req.Status,
+		ImageURL:  req.ImageURL,
+		Note:      req.Note,
+	}
+
+	updated, err := c.emrUsecase.UpdateWoundCareNoteByID(ctx.Params("id"), note, userID, imageFile)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "wound care note updated successfully",
+		"result":      updated,
+	})
+}
+
+func (c *EmrController) DeleteWoundCareNoteByIDHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	if err := c.emrUsecase.DeleteWoundCareNoteByID(ctx.Params("id"), userID); err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "wound care note deleted successfully",
+		"result":      nil,
+	})
+}
+
+func (c *EmrController) CreateRelativeNoteHandler(ctx *fiber.Ctx) error {
+	var req models.CreateRelativeNoteRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	note := &entities.RelativeNote{
+		ResidentID: req.ResidentID,
+		Relation:   req.Relation,
+		Content:    req.Content,
+		SendNote:   req.SendNote,
+	}
+
+	created, err := c.emrUsecase.CreateRelativeNote(note, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusCreated,
+		"message":     "relative note created successfully",
+		"result":      created,
+	})
+}
+
+func (c *EmrController) GetRelativeNotesOverviewHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.GetRelativeNotesOverview(userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "relative notes overview retrieved successfully",
+		"result":      result,
+	})
+}
+
+func (c *EmrController) GetRelativeNotesByResidentHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Query("resident_id")
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.GetRelativeNotesByResidentID(residentID, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "relative notes retrieved successfully",
+		"result":      result,
+	})
+}
+
+func (c *EmrController) UpdateRelativeNoteByIDHandler(ctx *fiber.Ctx) error {
+	var req models.UpdateRelativeNoteRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	note := &entities.RelativeNote{}
+	if req.Relation != nil {
+		note.Relation = *req.Relation
+	}
+	if req.Content != nil {
+		note.Content = *req.Content
+	}
+	if req.SendNote != nil {
+		note.SendNote = *req.SendNote
+	}
+
+	updated, err := c.emrUsecase.UpdateRelativeNoteByID(ctx.Params("id"), note, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "relative note updated successfully",
+		"result":      updated,
+	})
+}
+
+func (c *EmrController) DeleteRelativeNoteByIDHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	if err := c.emrUsecase.DeleteRelativeNoteByID(ctx.Params("id"), userID); err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "relative note deleted successfully",
+		"result":      nil,
+	})
+}
+
+func derefString(input *string) string {
+	if input == nil {
+		return ""
+	}
+	return *input
+}
+
+func optionalFormString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func getMultipartField(form *multipart.Form, key string) (string, bool) {
+	if form == nil || form.Value == nil {
+		return "", false
+	}
+	values, ok := form.Value[key]
+	if !ok || len(values) == 0 {
+		return "", false
+	}
+	return values[0], true
 }

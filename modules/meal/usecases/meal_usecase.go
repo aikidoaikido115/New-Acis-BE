@@ -217,7 +217,7 @@ func (uc *MealUseCaseImpl) CreateMealPlan(mealPlan *entities.MealPlan, userID st
 		allergyDetails = append(allergyDetails, aiinfra.AllergyDetail{
 			AllergyID:   detail.AllergyID,
 			AllergyName: detail.AllergyName,
-			Count:       int(detail.Count),
+			Count:       int(detail.ResidentCount),
 		})
 	}
 
