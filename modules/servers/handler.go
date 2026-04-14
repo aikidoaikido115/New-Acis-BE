@@ -112,6 +112,7 @@ func SetupUserRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.
 
 	userGroup := app.Group("/api/user")
 	userGroup.Get("/", middlewares.JWTMiddleware(jwt), userController.GetUserByIDHandler)
+	userGroup.Get("/search", middlewares.JWTMiddleware(jwt), userController.GetUsersByFirstAndLastNameHandler)
 	userGroup.Patch("/", middlewares.JWTMiddleware(jwt), userController.UpdateUserByIDHandler)
 	userGroup.Post("/staff/files", middlewares.JWTMiddleware(jwt), userController.CreateStaffFileHandler)
 }
@@ -220,6 +221,7 @@ func SetupMealRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 
 	mealPlanGroup := app.Group("/api/meals/meal-plans")
 	mealPlanGroup.Post("/", middlewares.JWTMiddleware(jwt), mealController.CreateMealPlanHandler)
+	mealPlanGroup.Post("/manual", middlewares.JWTMiddleware(jwt), mealController.CreateMealPlanManualHandler)
 	mealPlanGroup.Get("/", middlewares.JWTMiddleware(jwt), mealController.GetAllMealPlansHandler)
 	mealPlanGroup.Get("/today", middlewares.JWTMiddleware(jwt), mealController.GetMealPlansTodayHandler)
 	mealPlanGroup.Get("/:id", middlewares.JWTMiddleware(jwt), mealController.GetMealPlanByIDHandler)

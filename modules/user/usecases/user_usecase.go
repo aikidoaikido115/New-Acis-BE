@@ -31,6 +31,7 @@ type UserUsecase interface {
 
 	GetUserByID(id string) (*entities.User, error)
 	GetAllUsers() ([]*entities.User, error)
+	GetUsersByFirstAndLastName(firstName string, lastName string) ([]*entities.User, error)
 	UpdateUserByID(id string, user *entities.User, file multipart.File) (*entities.User, error)
 
 	ForgotPassword(email string) error
@@ -264,7 +265,13 @@ func (u *UserUseCaseImpl) GetAllUsers() ([]*entities.User, error) {
 	}
 	return users, nil
 }
-
+func (u *UserUseCaseImpl) GetUsersByFirstAndLastName(firstName string, lastName string) ([]*entities.User, error) {
+	users, err := u.userrepo.GetUsersByFirstAndLastName(firstName, lastName)
+	if err != nil {
+		return nil, errors.New("failed to get users by first and last name: " + err.Error())
+	}
+	return users, nil
+}
 func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file multipart.File) (*entities.User, error) {
 	existingUser, err := u.userrepo.GetUserByID(id)
 	if err != nil {

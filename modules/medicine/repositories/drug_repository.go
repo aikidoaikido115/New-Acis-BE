@@ -41,7 +41,7 @@ type DrugRepository interface {
 	GetPersonalDrugsByTimeOfDayToday(timeOfDay string) ([]*entities.PersonalDrug, error)
 	GetPersonalDrugsByTakeTypeToday(takeType string) ([]*entities.PersonalDrug, error)
 	SearchPersonalDrugsTodayByResidentName(search string) ([]*entities.PersonalDrug, error)
-	GetPersonalDrugsTodayCustom(timeOfDay *string, search *string, takeType *string) ([]*entities.PersonalDrug, error)
+	GetPersonalDrugsTodayCustom(timeOfDay *string, search *string, takeType *string, page int, pageSize int) ([]*entities.PersonalDrug, int64, error)
 	GetActivePersonalDrugsForDate(date time.Time, residentID *string) ([]*entities.PersonalDrug, error)
 	GetExpiredAsNeededPersonalDrugs(date time.Time, residentID *string) ([]*entities.PersonalDrug, error)
 	ResidentExistsByID(id string) (bool, error)
@@ -55,7 +55,7 @@ type DrugRepository interface {
 	GetDrugPlansToday() ([]*entities.DrugPlan, error)
 	GetDrugPlansByResidentID(residentID string) ([]*entities.DrugPlan, error)
 	GetDrugPlansByResidentIDToday(residentID string) ([]*entities.DrugPlan, error)
-	GetDrugPlansTodayCustom(timeOfDay *string, search *string, takeType *string) ([]*entities.DrugPlan, error)
+	GetDrugPlansTodayCustom(timeOfDay *string, search *string, takeType *string, page int, pageSize int) ([]*entities.DrugPlan, int64, error)
 	GetDrugAdministrationHistory(req models.DrugAdministrationHistoryQueryParams, page int, pageSize int) ([]models.DrugAdministrationHistoryItem, int64, error)
 	GetDrugPlansTodayResidentSummary() (*models.DrugPlanResidentSummaryResponse, error)
 	HasDrugPlanForPersonalDrugOnDate(pdID string, date time.Time) (bool, error)
@@ -256,35 +256,51 @@ func (r *GormDrugRepository) SearchPersonalDrugsTodayByResidentName(search strin
 	return personalDrugs, nil
 }
 
-func (r *GormDrugRepository) GetPersonalDrugsTodayCustom(timeOfDay *string, search *string, takeType *string) ([]*entities.PersonalDrug, error) {
+func (r *GormDrugRepository) GetPersonalDrugsTodayCustom(timeOfDay *string, search *string, takeType *string, page int, pageSize int) ([]*entities.PersonalDrug, int64, error) {
 	var personalDrugs []*entities.PersonalDrug
 
-	query := r.db.
-		Preload("Resident").
-		Preload("DrugMaster").
-		Where("personal_drugs.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
-		Where("personal_drugs.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
-
-	if timeOfDay != nil && *timeOfDay != "" {
-		query = query.Where("personal_drugs.time_of_day ILIKE ?", "%"+*timeOfDay+"%")
-	}
-
-	if takeType != nil && *takeType != "" {
-		query = query.Where("LOWER(personal_drugs.take_type) = LOWER(?)", *takeType)
-	}
-
-	if search != nil && *search != "" {
-		like := "%" + *search + "%"
+	applyFilters := func(query *gorm.DB) *gorm.DB {
 		query = query.
-			Joins("JOIN residents ON personal_drugs.resident_id = residents.id").
-			Where("(residents.first_name ILIKE ? OR residents.last_name ILIKE ? OR residents.nickname ILIKE ?)", like, like, like)
+			Where("personal_drugs.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
+			Where("personal_drugs.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
+
+		if timeOfDay != nil && *timeOfDay != "" {
+			query = query.Where("personal_drugs.time_of_day ILIKE ?", "%"+*timeOfDay+"%")
+		}
+
+		if takeType != nil && *takeType != "" {
+			query = query.Where("LOWER(personal_drugs.take_type) = LOWER(?)", *takeType)
+		}
+
+		if search != nil && *search != "" {
+			like := "%" + *search + "%"
+			query = query.
+				Joins("JOIN residents ON personal_drugs.resident_id = residents.id").
+				Where("(residents.first_name ILIKE ? OR residents.last_name ILIKE ? OR residents.nickname ILIKE ?)", like, like, like)
+		}
+
+		return query
 	}
 
-	if err := query.Order("personal_drugs.created_at DESC").Find(&personalDrugs).Error; err != nil {
-		return nil, err
+	var total int64
+	if err := applyFilters(r.db.Model(&entities.PersonalDrug{})).Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
 
-	return personalDrugs, nil
+	query := applyFilters(
+		r.db.
+			Preload("Resident").
+			Preload("DrugMaster").
+			Model(&entities.PersonalDrug{}),
+	)
+
+	offset := (page - 1) * pageSize
+
+	if err := query.Order("personal_drugs.created_at DESC").Offset(offset).Limit(pageSize).Find(&personalDrugs).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return personalDrugs, total, nil
 }
 
 func (r *GormDrugRepository) GetActivePersonalDrugsForDate(date time.Time, residentID *string) ([]*entities.PersonalDrug, error) {
@@ -456,37 +472,53 @@ func (r *GormDrugRepository) GetDrugPlansByResidentIDToday(residentID string) ([
 	return drugPlans, nil
 }
 
-func (r *GormDrugRepository) GetDrugPlansTodayCustom(timeOfDay *string, search *string, takeType *string) ([]*entities.DrugPlan, error) {
+func (r *GormDrugRepository) GetDrugPlansTodayCustom(timeOfDay *string, search *string, takeType *string, page int, pageSize int) ([]*entities.DrugPlan, int64, error) {
 	var drugPlans []*entities.DrugPlan
 
-	query := r.db.
-		Preload("PersonalDrug").
-		Preload("PersonalDrug.Resident").
-		Preload("PersonalDrug.DrugMaster").
-		Joins("JOIN personal_drugs ON drug_plans.pd_id = personal_drugs.id").
-		Where("drug_plans.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
-		Where("drug_plans.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
-
-	if timeOfDay != nil && *timeOfDay != "" {
-		query = query.Where("personal_drugs.time_of_day ILIKE ?", "%"+*timeOfDay+"%")
-	}
-
-	if takeType != nil && *takeType != "" {
-		query = query.Where("LOWER(personal_drugs.take_type) = LOWER(?)", *takeType)
-	}
-
-	if search != nil && *search != "" {
-		like := "%" + *search + "%"
+	applyFilters := func(query *gorm.DB) *gorm.DB {
 		query = query.
-			Joins("JOIN residents ON personal_drugs.resident_id = residents.id").
-			Where("(residents.first_name ILIKE ? OR residents.last_name ILIKE ? OR residents.nickname ILIKE ?)", like, like, like)
+			Joins("JOIN personal_drugs ON drug_plans.pd_id = personal_drugs.id").
+			Where("drug_plans.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
+			Where("drug_plans.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
+
+		if timeOfDay != nil && *timeOfDay != "" {
+			query = query.Where("personal_drugs.time_of_day ILIKE ?", "%"+*timeOfDay+"%")
+		}
+
+		if takeType != nil && *takeType != "" {
+			query = query.Where("LOWER(personal_drugs.take_type) = LOWER(?)", *takeType)
+		}
+
+		if search != nil && *search != "" {
+			like := "%" + *search + "%"
+			query = query.
+				Joins("JOIN residents ON personal_drugs.resident_id = residents.id").
+				Where("(residents.first_name ILIKE ? OR residents.last_name ILIKE ? OR residents.nickname ILIKE ?)", like, like, like)
+		}
+
+		return query
 	}
 
-	if err := query.Order("drug_plans.created_at DESC").Find(&drugPlans).Error; err != nil {
-		return nil, err
+	var total int64
+	if err := applyFilters(r.db.Model(&entities.DrugPlan{})).Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
 
-	return drugPlans, nil
+	query := applyFilters(
+		r.db.
+			Preload("PersonalDrug").
+			Preload("PersonalDrug.Resident").
+			Preload("PersonalDrug.DrugMaster").
+			Model(&entities.DrugPlan{}),
+	)
+
+	offset := (page - 1) * pageSize
+
+	if err := query.Order("drug_plans.created_at DESC").Offset(offset).Limit(pageSize).Find(&drugPlans).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return drugPlans, total, nil
 }
 
 func (r *GormDrugRepository) GetDrugAdministrationHistory(req models.DrugAdministrationHistoryQueryParams, page int, pageSize int) ([]models.DrugAdministrationHistoryItem, int64, error) {

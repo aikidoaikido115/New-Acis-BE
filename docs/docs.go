@@ -2653,6 +2653,18 @@ const docTemplate = `{
                         "description": "Search by resident first_name, last_name, nickname",
                         "name": "search",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 20, max 100)",
+                        "name": "page_size",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4391,6 +4403,18 @@ const docTemplate = `{
                         "description": "Filter by laboratory value status",
                         "name": "laboratory_value_status",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 20, max 100)",
+                        "name": "page_size",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4403,7 +4427,7 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "result": {
-                                    "type": "object"
+                                    "$ref": "#/definitions/models.LaboratoryValuesOverviewResponse"
                                 },
                                 "status": {
                                     "type": "string"
@@ -5031,6 +5055,18 @@ const docTemplate = `{
                         "description": "Search by resident first_name, last_name, nickname",
                         "name": "search",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 20, max 100)",
+                        "name": "page_size",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -5043,10 +5079,7 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "result": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
+                                    "$ref": "#/definitions/models.PersonalDrugOverviewResponse"
                                 },
                                 "status": {
                                     "type": "string"
@@ -5151,10 +5184,7 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "result": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
+                                    "$ref": "#/definitions/models.DrugPlanOverviewResponse"
                                 },
                                 "status": {
                                     "type": "string"
@@ -5951,6 +5981,18 @@ const docTemplate = `{
                         "description": "Search by first name, last name, or nickname (optional)",
                         "name": "search",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 20, max 100)",
+                        "name": "page_size",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -5963,10 +6005,7 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "result": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
+                                    "$ref": "#/definitions/models.ResidentOverviewListResponse"
                                 },
                                 "status": {
                                     "type": "string"
@@ -6898,6 +6937,18 @@ const docTemplate = `{
                         "description": "Filter by vital sign status",
                         "name": "vitalsign_status",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 20, max 100)",
+                        "name": "page_size",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6910,7 +6961,7 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "result": {
-                                    "type": "object"
+                                    "$ref": "#/definitions/models.VitalSignsOverviewResponse"
                                 },
                                 "status": {
                                     "type": "string"
@@ -7375,6 +7426,113 @@ const docTemplate = `{
                     "Meal"
                 ],
                 "summary": "Create Meal Plan",
+                "parameters": [
+                    {
+                        "description": "Meal plan information",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateMealPlanRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "$ref": "#/definitions/entities.MealPlan"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/meals/meal-plans/manual": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new meal plan in manual mode (AI allergy check is skipped). Only users with Kitchen Staff role can manage meals.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Meal"
+                ],
+                "summary": "Create Meal Plan Manual",
                 "parameters": [
                     {
                         "description": "Meal plan information",
@@ -8227,6 +8385,142 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/user/search": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    },
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get authenticated user's information\nGet users by their first and last name (case-insensitive, space-trimmed)",
+                "consumes": [
+                    "application/json",
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json",
+                    "application/json"
+                ],
+                "tags": [
+                    "User",
+                    "User"
+                ],
+                "summary": "Get Users By First and Last Name",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "First Name",
+                        "name": "first_name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Last Name",
+                        "name": "last_name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Users retrieved successfully",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "array"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Missing required query parameters",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Missing user ID",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/user/staff/files": {
             "post": {
                 "security": [
@@ -8334,6 +8628,109 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "entities.Allergy": {
+            "type": "object",
+            "properties": {
+                "allergy_id": {
+                    "type": "string"
+                },
+                "allergy_name": {
+                    "type": "string"
+                },
+                "resident_allergies": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.ResidentAllergies"
+                    }
+                }
+            }
+        },
+        "entities.DrugAllergy": {
+            "type": "object",
+            "properties": {
+                "allergy_name": {
+                    "type": "string"
+                },
+                "drug_allergy_id": {
+                    "type": "string"
+                },
+                "resident_das": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.ResidentDA"
+                    }
+                }
+            }
+        },
+        "entities.DrugMaster": {
+            "type": "object",
+            "properties": {
+                "dm_id": {
+                    "type": "string"
+                },
+                "dose": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "entities.DrugPlan": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "dpln_id": {
+                    "type": "string"
+                },
+                "given_by_staff_id": {
+                    "type": "string"
+                },
+                "is_omitted": {
+                    "type": "boolean"
+                },
+                "is_taken": {
+                    "type": "boolean"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "omitted_reason": {
+                    "type": "string"
+                },
+                "pd_id": {
+                    "type": "string"
+                },
+                "personalDrug": {
+                    "$ref": "#/definitions/entities.PersonalDrug"
+                },
+                "taken_at": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "entities.IntakeLabels": {
+            "type": "object",
+            "properties": {
+                "label_id": {
+                    "type": "string"
+                },
+                "label_name": {
+                    "type": "string"
+                },
+                "resident_labels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.ResidentLabels"
+                    }
+                }
+            }
+        },
         "entities.LaboratoryValue": {
             "type": "object",
             "properties": {
@@ -8416,6 +8813,204 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "menu_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "entities.PersonalDrug": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "amount_unit": {
+                    "description": "เม็ด ช้อนชา",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "dm_id": {
+                    "type": "string"
+                },
+                "drugMaster": {
+                    "$ref": "#/definitions/entities.DrugMaster"
+                },
+                "end_date": {
+                    "type": "string"
+                },
+                "frequency": {
+                    "description": "จำนวนครั้งต่อวัน",
+                    "type": "integer"
+                },
+                "pd_id": {
+                    "type": "string"
+                },
+                "resident": {
+                    "$ref": "#/definitions/entities.Resident"
+                },
+                "resident_id": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string"
+                },
+                "take_type": {
+                    "description": "regular, as_needed",
+                    "type": "string"
+                },
+                "time_of_day": {
+                    "description": "เช้า่ กลางวัน เย็น ก่อนนอน",
+                    "type": "string"
+                },
+                "timing": {
+                    "description": "ก่อนอาหาร หลังอาหาร",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "entities.Resident": {
+            "type": "object",
+            "properties": {
+                "check_in_date": {
+                    "type": "string"
+                },
+                "date_of_birth": {
+                    "type": "string"
+                },
+                "emergency_hospital_phone": {
+                    "type": "string"
+                },
+                "expected_check_out_date": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "id_card_number": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "nickname": {
+                    "type": "string"
+                },
+                "pre_existing_conditions": {
+                    "type": "string"
+                },
+                "pre_existing_conditions_notes": {
+                    "type": "string"
+                },
+                "preferred_emergency_hospital": {
+                    "type": "string"
+                },
+                "purpose_of_stay": {
+                    "type": "string"
+                },
+                "resident_allergies": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.ResidentAllergies"
+                    }
+                },
+                "resident_das": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.ResidentDA"
+                    }
+                },
+                "resident_id": {
+                    "type": "string"
+                },
+                "resident_labels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.ResidentLabels"
+                    }
+                },
+                "resuscitation_status": {
+                    "type": "string"
+                },
+                "room_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "surgical_history": {
+                    "type": "string"
+                }
+            }
+        },
+        "entities.ResidentAllergies": {
+            "type": "object",
+            "properties": {
+                "allergy": {
+                    "$ref": "#/definitions/entities.Allergy"
+                },
+                "allergy_id": {
+                    "type": "string"
+                },
+                "note_text": {
+                    "description": "ใช้ pointer เพื่อให้สามารถเช็ค null ได้",
+                    "type": "string"
+                },
+                "noted_at": {
+                    "type": "string"
+                },
+                "resident_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "entities.ResidentDA": {
+            "type": "object",
+            "properties": {
+                "drug_allergy": {
+                    "$ref": "#/definitions/entities.DrugAllergy"
+                },
+                "drug_allergy_id": {
+                    "type": "string"
+                },
+                "note_text": {
+                    "description": "ใช้ pointer เพื่อให้สามารถเช็ค null ได้",
+                    "type": "string"
+                },
+                "noted_at": {
+                    "type": "string"
+                },
+                "resident_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "entities.ResidentLabels": {
+            "type": "object",
+            "properties": {
+                "intake_label": {
+                    "$ref": "#/definitions/entities.IntakeLabels"
+                },
+                "label_id": {
+                    "type": "string"
+                },
+                "note_text": {
+                    "description": "ใช้ pointer เพื่อให้สามารถเช็ค null ได้",
+                    "type": "string"
+                },
+                "noted_at": {
+                    "type": "string"
+                },
+                "resident_id": {
                     "type": "string"
                 }
             }
@@ -8831,6 +9426,20 @@ const docTemplate = `{
                 }
             }
         },
+        "models.DrugPlanOverviewResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.DrugPlan"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/models.DrugAdministrationHistoryPagination"
+                }
+            }
+        },
         "models.DrugPlanResidentSummaryResponse": {
             "type": "object",
             "properties": {
@@ -8842,6 +9451,20 @@ const docTemplate = `{
                 },
                 "waiting_residents": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.LaboratoryValuesOverviewResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.LaboratoryValue"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/models.OverviewPagination"
                 }
             }
         },
@@ -8886,6 +9509,37 @@ const docTemplate = `{
                 },
                 "staff_last_name": {
                     "type": "string"
+                }
+            }
+        },
+        "models.OverviewPagination": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total_items": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.PersonalDrugOverviewResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.PersonalDrug"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/models.DrugAdministrationHistoryPagination"
                 }
             }
         },
@@ -8988,6 +9642,46 @@ const docTemplate = `{
                 },
                 "total_not_drug_allergic": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.ResidentOverviewListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ResidentOverviewResponse"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/models.OverviewPagination"
+                }
+            }
+        },
+        "models.ResidentOverviewResponse": {
+            "type": "object",
+            "properties": {
+                "first_name": {
+                    "type": "string"
+                },
+                "intake_labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "nickname": {
+                    "type": "string"
+                },
+                "resident_id": {
+                    "type": "string"
+                },
+                "room_number": {
+                    "type": "string"
                 }
             }
         },
@@ -9110,6 +9804,20 @@ const docTemplate = `{
                 },
                 "timing": {
                     "type": "string"
+                }
+            }
+        },
+        "models.VitalSignsOverviewResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entities.VitalSign"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/models.OverviewPagination"
                 }
             }
         }

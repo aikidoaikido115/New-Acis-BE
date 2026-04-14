@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+)
 
 type DrugPlanResidentSummaryResponse struct {
 	TotalResidents   int64 `json:"total_residents"`
@@ -37,5 +41,15 @@ type DrugAdministrationHistoryPagination struct {
 
 type DrugAdministrationHistoryResponse struct {
 	Items      []DrugAdministrationHistoryItem     `json:"items"`
+	Pagination DrugAdministrationHistoryPagination `json:"pagination"`
+}
+
+type PersonalDrugOverviewResponse struct {
+	Items      []*entities.PersonalDrug            `json:"items"`
+	Pagination DrugAdministrationHistoryPagination `json:"pagination"`
+}
+
+type DrugPlanOverviewResponse struct {
+	Items      []*entities.DrugPlan                `json:"items"`
 	Pagination DrugAdministrationHistoryPagination `json:"pagination"`
 }

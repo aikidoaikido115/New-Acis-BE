@@ -28,6 +28,8 @@ type PersonalDrugOverviewQueryParams struct {
 	TimeOfDay *string `json:"time_of_day" form:"time_of_day" query:"time_of_day"`
 	TakeType  *string `json:"take_type" form:"take_type" query:"take_type"`
 	Search    *string `json:"search" form:"search" query:"search"`
+	Page      *int    `json:"page" form:"page" query:"page"`
+	PageSize  *int    `json:"page_size" form:"page_size" query:"page_size"`
 }
 
 type UpdatePersonalDrugRequest struct {
@@ -68,6 +70,8 @@ type DrugPlanOverviewQueryParams struct {
 	TimeOfDay *string `json:"time_of_day" form:"time_of_day" query:"time_of_day"`
 	TakeType  *string `json:"take_type" form:"take_type" query:"take_type"`
 	Search    *string `json:"search" form:"search" query:"search"`
+	Page      *int    `json:"page" form:"page" query:"page"`
+	PageSize  *int    `json:"page_size" form:"page_size" query:"page_size"`
 }
 
 type DrugAdministrationHistoryQueryParams struct {

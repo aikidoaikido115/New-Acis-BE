@@ -474,6 +474,80 @@ func (c *UserController) ChangePasswordHandler(ctx *fiber.Ctx) error {
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
 // @Failure 404 {object} object{status=string,status_code=int,message=string,result=any} "User not found"
 // @Router /api/user [get]
+// GetUsersByFirstAndLastNameHandler godoc
+// @Summary Get Users By First and Last Name
+// @Description Get users by their first and last name (case-insensitive, space-trimmed)
+// @Tags User
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param first_name query string true "First Name"
+// @Param last_name query string true "Last Name"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=array} "Users retrieved successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing required query parameters"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/user/search [get]
+func (c *UserController) GetUsersByFirstAndLastNameHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.StatusUnauthorized,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	var req models.GetUsersByFirstAndLastNameRequest
+
+	if err := ctx.QueryParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	if req.FirstName == "" || req.LastName == "" {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     "first_name and last_name are required",
+			"result":      nil,
+		})
+	}
+
+	users, err := c.userusecase.GetUsersByFirstAndLastName(req.FirstName, req.LastName)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "Users retrieved successfully",
+		"result":      users,
+	})
+}
+
+// GetUserByIDHandler godoc
+// @Summary Get User Information
+// @Description Get authenticated user's information
+// @Tags User
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "User Info retrieved successfully"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 404 {object} object{status=string,status_code=int,message=string,result=any} "User not found"
+// @Router /api/user [get]
 func (c *UserController) GetUserByIDHandler(ctx *fiber.Ctx) error {
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {

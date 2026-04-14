@@ -307,7 +307,9 @@ func (c *DrugController) CreatePersonalDrugHandler(ctx *fiber.Ctx) error {
 // @Param time_of_day query string false "Time of day filter"
 // @Param take_type query string false "Take type filter" Enums(regular, as_needed)
 // @Param search query string false "Search by resident first_name, last_name, nickname"
-// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
+// @Param page query int false "Page number (default 1)"
+// @Param page_size query int false "Page size (default 20, max 100)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.PersonalDrugOverviewResponse}
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
@@ -359,7 +361,7 @@ func (c *DrugController) GetPersonalDrugsOverviewHandler(ctx *fiber.Ctx) error {
 // @Produce json
 // @Security BearerAuth
 // @Param resident_id query string true "Resident ID"
-// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.DrugPlanOverviewResponse}
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
@@ -819,6 +821,8 @@ func (c *DrugController) GetDrugPlansTodayHandler(ctx *fiber.Ctx) error {
 // @Param time_of_day query string false "Time of day filter"
 // @Param take_type query string false "Take type filter" Enums(regular, as_needed)
 // @Param search query string false "Search by resident first_name, last_name, nickname"
+// @Param page query int false "Page number (default 1)"
+// @Param page_size query int false "Page size (default 20, max 100)"
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}

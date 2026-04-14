@@ -1,5 +1,7 @@
 package models
 
+import "github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+
 type NumberOfResidentsDashboardResponse struct {
 	TotalResidents         int16 `json:"total_residents"`
 	IndependentResidents   int16 `json:"independent_residents"`
@@ -33,6 +35,28 @@ type ResidentOverviewResponse struct {
 	Nickname     *string  `json:"nickname"`
 	RoomNumber   string   `json:"room_number"`
 	IntakeLabels []string `json:"intake_labels"`
+}
+
+type OverviewPagination struct {
+	Page       int `json:"page"`
+	PageSize   int `json:"page_size"`
+	TotalItems int `json:"total_items"`
+	TotalPages int `json:"total_pages"`
+}
+
+type ResidentOverviewListResponse struct {
+	Items      []*ResidentOverviewResponse `json:"items"`
+	Pagination OverviewPagination          `json:"pagination"`
+}
+
+type VitalSignsOverviewResponse struct {
+	Items      []*entities.VitalSign `json:"items"`
+	Pagination OverviewPagination    `json:"pagination"`
+}
+
+type LaboratoryValuesOverviewResponse struct {
+	Items      []*entities.LaboratoryValue `json:"items"`
+	Pagination OverviewPagination          `json:"pagination"`
 }
 
 type AllergyStatisticDashboardResponse struct {
