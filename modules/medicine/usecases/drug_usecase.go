@@ -25,7 +25,7 @@ type DrugUsecase interface {
 	DeleteDrugMasterByID(id string, userID string) error
 
 	CreatePersonalDrug(req models.CreatePersonalDrugRequest, userID string) (*entities.PersonalDrug, error)
-	GetPersonalDrugsOverview(req models.PersonalDrugOverviewQueryParams, userID string) ([]*entities.PersonalDrug, error)
+	GetPersonalDrugsOverview(req models.PersonalDrugOverviewQueryParams, userID string) (*models.PersonalDrugOverviewResponse, error)
 	GetPersonalDrugsByResidentID(residentID string, userID string) ([]*entities.PersonalDrug, error)
 	GetPersonalDrugsByResidentIDToday(residentID string, userID string) ([]*entities.PersonalDrug, error)
 	GetPersonalDrugByID(id string, userID string) (*entities.PersonalDrug, error)
@@ -35,7 +35,7 @@ type DrugUsecase interface {
 	CreateDrugPlan(req models.CreateDrugPlanRequest, userID string) (*entities.DrugPlan, error)
 	GetDrugPlansTodayResidentSummary(userID string) (*models.DrugPlanResidentSummaryResponse, error)
 	GetDrugPlansToday(userID string) ([]*entities.DrugPlan, error)
-	GetDrugPlansOverview(req models.DrugPlanOverviewQueryParams, userID string) ([]*entities.DrugPlan, error)
+	GetDrugPlansOverview(req models.DrugPlanOverviewQueryParams, userID string) (*models.DrugPlanOverviewResponse, error)
 	GetDrugAdministrationHistory(req models.DrugAdministrationHistoryQueryParams, userID string) (*models.DrugAdministrationHistoryResponse, error)
 	GetDrugPlansByResidentID(residentID string, userID string) ([]*entities.DrugPlan, error)
 	GetDrugPlansByResidentIDToday(residentID string, userID string) ([]*entities.DrugPlan, error)
@@ -735,7 +735,7 @@ func (uc *DrugUseCaseImpl) CreatePersonalDrug(req models.CreatePersonalDrugReque
 	return created, nil
 }
 
-func (uc *DrugUseCaseImpl) GetPersonalDrugsOverview(req models.PersonalDrugOverviewQueryParams, userID string) ([]*entities.PersonalDrug, error) {
+func (uc *DrugUseCaseImpl) GetPersonalDrugsOverview(req models.PersonalDrugOverviewQueryParams, userID string) (*models.PersonalDrugOverviewResponse, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
@@ -758,12 +758,44 @@ func (uc *DrugUseCaseImpl) GetPersonalDrugsOverview(req models.PersonalDrugOverv
 		req.TakeType = &v
 	}
 
-	result, err := uc.drugRepo.GetPersonalDrugsTodayCustom(req.TimeOfDay, req.Search, req.TakeType)
+	page := 1
+	if req.Page != nil {
+		if *req.Page <= 0 {
+			return nil, errors.New("page must be greater than 0")
+		}
+		page = *req.Page
+	}
+
+	pageSize := 20
+	if req.PageSize != nil {
+		if *req.PageSize <= 0 {
+			return nil, errors.New("page_size must be greater than 0")
+		}
+		pageSize = *req.PageSize
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	result, total, err := uc.drugRepo.GetPersonalDrugsTodayCustom(req.TimeOfDay, req.Search, req.TakeType, page, pageSize)
 	if err != nil {
 		return nil, errors.New("failed to get personal drugs overview: " + err.Error())
 	}
 
-	return result, nil
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+
+	return &models.PersonalDrugOverviewResponse{
+		Items: result,
+		Pagination: models.DrugAdministrationHistoryPagination{
+			Page:       page,
+			PageSize:   pageSize,
+			TotalItems: int(total),
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (uc *DrugUseCaseImpl) GetPersonalDrugsByResidentIDToday(residentID string, userID string) ([]*entities.PersonalDrug, error) {
@@ -1055,7 +1087,7 @@ func (uc *DrugUseCaseImpl) GetDrugPlansToday(userID string) ([]*entities.DrugPla
 	return result, nil
 }
 
-func (uc *DrugUseCaseImpl) GetDrugPlansOverview(req models.DrugPlanOverviewQueryParams, userID string) ([]*entities.DrugPlan, error) {
+func (uc *DrugUseCaseImpl) GetDrugPlansOverview(req models.DrugPlanOverviewQueryParams, userID string) (*models.DrugPlanOverviewResponse, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
@@ -1078,12 +1110,44 @@ func (uc *DrugUseCaseImpl) GetDrugPlansOverview(req models.DrugPlanOverviewQuery
 		req.TakeType = &v
 	}
 
-	result, err := uc.drugRepo.GetDrugPlansTodayCustom(req.TimeOfDay, req.Search, req.TakeType)
+	page := 1
+	if req.Page != nil {
+		if *req.Page <= 0 {
+			return nil, errors.New("page must be greater than 0")
+		}
+		page = *req.Page
+	}
+
+	pageSize := 20
+	if req.PageSize != nil {
+		if *req.PageSize <= 0 {
+			return nil, errors.New("page_size must be greater than 0")
+		}
+		pageSize = *req.PageSize
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	result, total, err := uc.drugRepo.GetDrugPlansTodayCustom(req.TimeOfDay, req.Search, req.TakeType, page, pageSize)
 	if err != nil {
 		return nil, errors.New("failed to get drug plans overview: " + err.Error())
 	}
 
-	return result, nil
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+
+	return &models.DrugPlanOverviewResponse{
+		Items: result,
+		Pagination: models.DrugAdministrationHistoryPagination{
+			Page:       page,
+			PageSize:   pageSize,
+			TotalItems: int(total),
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (uc *DrugUseCaseImpl) GetDrugAdministrationHistory(req models.DrugAdministrationHistoryQueryParams, userID string) (*models.DrugAdministrationHistoryResponse, error) {

@@ -1,5 +1,72 @@
 basePath: /
 definitions:
+  entities.Allergy:
+    properties:
+      allergy_id:
+        type: string
+      allergy_name:
+        type: string
+      resident_allergies:
+        items:
+          $ref: '#/definitions/entities.ResidentAllergies'
+        type: array
+    type: object
+  entities.DrugAllergy:
+    properties:
+      allergy_name:
+        type: string
+      drug_allergy_id:
+        type: string
+      resident_das:
+        items:
+          $ref: '#/definitions/entities.ResidentDA'
+        type: array
+    type: object
+  entities.DrugMaster:
+    properties:
+      dm_id:
+        type: string
+      dose:
+        type: string
+      name:
+        type: string
+    type: object
+  entities.DrugPlan:
+    properties:
+      created_at:
+        type: string
+      dpln_id:
+        type: string
+      given_by_staff_id:
+        type: string
+      is_omitted:
+        type: boolean
+      is_taken:
+        type: boolean
+      notes:
+        type: string
+      omitted_reason:
+        type: string
+      pd_id:
+        type: string
+      personalDrug:
+        $ref: '#/definitions/entities.PersonalDrug'
+      taken_at:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  entities.IntakeLabels:
+    properties:
+      label_id:
+        type: string
+      label_name:
+        type: string
+      resident_labels:
+        items:
+          $ref: '#/definitions/entities.ResidentLabels'
+        type: array
+    type: object
   entities.LaboratoryValue:
     properties:
       blood_glucose:
@@ -55,6 +122,139 @@ definitions:
       menu_id:
         type: string
       menu_name:
+        type: string
+    type: object
+  entities.PersonalDrug:
+    properties:
+      amount:
+        type: string
+      amount_unit:
+        description: เม็ด ช้อนชา
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      dm_id:
+        type: string
+      drugMaster:
+        $ref: '#/definitions/entities.DrugMaster'
+      end_date:
+        type: string
+      frequency:
+        description: จำนวนครั้งต่อวัน
+        type: integer
+      pd_id:
+        type: string
+      resident:
+        $ref: '#/definitions/entities.Resident'
+      resident_id:
+        type: string
+      start_date:
+        type: string
+      take_type:
+        description: regular, as_needed
+        type: string
+      time_of_day:
+        description: เช้า่ กลางวัน เย็น ก่อนนอน
+        type: string
+      timing:
+        description: ก่อนอาหาร หลังอาหาร
+        type: string
+      updated_at:
+        type: string
+    type: object
+  entities.Resident:
+    properties:
+      check_in_date:
+        type: string
+      date_of_birth:
+        type: string
+      emergency_hospital_phone:
+        type: string
+      expected_check_out_date:
+        type: string
+      first_name:
+        type: string
+      gender:
+        type: string
+      id_card_number:
+        type: string
+      last_name:
+        type: string
+      nickname:
+        type: string
+      pre_existing_conditions:
+        type: string
+      pre_existing_conditions_notes:
+        type: string
+      preferred_emergency_hospital:
+        type: string
+      purpose_of_stay:
+        type: string
+      resident_allergies:
+        items:
+          $ref: '#/definitions/entities.ResidentAllergies'
+        type: array
+      resident_das:
+        items:
+          $ref: '#/definitions/entities.ResidentDA'
+        type: array
+      resident_id:
+        type: string
+      resident_labels:
+        items:
+          $ref: '#/definitions/entities.ResidentLabels'
+        type: array
+      resuscitation_status:
+        type: string
+      room_id:
+        type: string
+      status:
+        type: string
+      surgical_history:
+        type: string
+    type: object
+  entities.ResidentAllergies:
+    properties:
+      allergy:
+        $ref: '#/definitions/entities.Allergy'
+      allergy_id:
+        type: string
+      note_text:
+        description: ใช้ pointer เพื่อให้สามารถเช็ค null ได้
+        type: string
+      noted_at:
+        type: string
+      resident_id:
+        type: string
+    type: object
+  entities.ResidentDA:
+    properties:
+      drug_allergy:
+        $ref: '#/definitions/entities.DrugAllergy'
+      drug_allergy_id:
+        type: string
+      note_text:
+        description: ใช้ pointer เพื่อให้สามารถเช็ค null ได้
+        type: string
+      noted_at:
+        type: string
+      resident_id:
+        type: string
+    type: object
+  entities.ResidentLabels:
+    properties:
+      intake_label:
+        $ref: '#/definitions/entities.IntakeLabels'
+      label_id:
+        type: string
+      note_text:
+        description: ใช้ pointer เพื่อให้สามารถเช็ค null ได้
+        type: string
+      noted_at:
+        type: string
+      resident_id:
         type: string
     type: object
   entities.VitalSign:
@@ -330,6 +530,15 @@ definitions:
       skipped_existing_count:
         type: integer
     type: object
+  models.DrugPlanOverviewResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/entities.DrugPlan'
+        type: array
+      pagination:
+        $ref: '#/definitions/models.DrugAdministrationHistoryPagination'
+    type: object
   models.DrugPlanResidentSummaryResponse:
     properties:
       given_residents:
@@ -338,6 +547,15 @@ definitions:
         type: integer
       waiting_residents:
         type: integer
+    type: object
+  models.LaboratoryValuesOverviewResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/entities.LaboratoryValue'
+        type: array
+      pagination:
+        $ref: '#/definitions/models.OverviewPagination'
     type: object
   models.OmitDrugPlanByIDRequest:
     properties:
@@ -368,6 +586,26 @@ definitions:
     - omitted_reason
     - staff_first_name
     - staff_last_name
+    type: object
+  models.OverviewPagination:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total_items:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  models.PersonalDrugOverviewResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/entities.PersonalDrug'
+        type: array
+      pagination:
+        $ref: '#/definitions/models.DrugAdministrationHistoryPagination'
     type: object
   models.ResidentAllergyItemResponse:
     properties:
@@ -434,6 +672,32 @@ definitions:
         type: integer
       total_not_drug_allergic:
         type: integer
+    type: object
+  models.ResidentOverviewListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/models.ResidentOverviewResponse'
+        type: array
+      pagination:
+        $ref: '#/definitions/models.OverviewPagination'
+    type: object
+  models.ResidentOverviewResponse:
+    properties:
+      first_name:
+        type: string
+      intake_labels:
+        items:
+          type: string
+        type: array
+      last_name:
+        type: string
+      nickname:
+        type: string
+      resident_id:
+        type: string
+      room_number:
+        type: string
     type: object
   models.TakeDrugPlanByIDRequest:
     properties:
@@ -514,6 +778,15 @@ definitions:
         type: string
       timing:
         type: string
+    type: object
+  models.VitalSignsOverviewResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/entities.VitalSign'
+        type: array
+      pagination:
+        $ref: '#/definitions/models.OverviewPagination'
     type: object
 info:
   contact: {}
@@ -2569,6 +2842,14 @@ paths:
         in: query
         name: search
         type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 20, max 100)
+        in: query
+        name: page_size
+        type: integer
       produces:
       - application/json
       responses:
@@ -3455,6 +3736,14 @@ paths:
         in: query
         name: laboratory_value_status
         type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 20, max 100)
+        in: query
+        name: page_size
+        type: integer
       produces:
       - application/json
       responses:
@@ -3465,7 +3754,7 @@ paths:
               message:
                 type: string
               result:
-                type: object
+                $ref: '#/definitions/models.LaboratoryValuesOverviewResponse'
               status:
                 type: string
               status_code:
@@ -3983,6 +4272,14 @@ paths:
         in: query
         name: search
         type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 20, max 100)
+        in: query
+        name: page_size
+        type: integer
       produces:
       - application/json
       responses:
@@ -3993,9 +4290,7 @@ paths:
               message:
                 type: string
               result:
-                items:
-                  type: object
-                type: array
+                $ref: '#/definitions/models.PersonalDrugOverviewResponse'
               status:
                 type: string
               status_code:
@@ -4063,9 +4358,7 @@ paths:
               message:
                 type: string
               result:
-                items:
-                  type: object
-                type: array
+                $ref: '#/definitions/models.DrugPlanOverviewResponse'
               status:
                 type: string
               status_code:
@@ -4551,6 +4844,14 @@ paths:
         in: query
         name: search
         type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 20, max 100)
+        in: query
+        name: page_size
+        type: integer
       produces:
       - application/json
       responses:
@@ -4561,9 +4862,7 @@ paths:
               message:
                 type: string
               result:
-                items:
-                  type: object
-                type: array
+                $ref: '#/definitions/models.ResidentOverviewListResponse'
               status:
                 type: string
               status_code:
@@ -5095,6 +5394,14 @@ paths:
         in: query
         name: vitalsign_status
         type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 20, max 100)
+        in: query
+        name: page_size
+        type: integer
       produces:
       - application/json
       responses:
@@ -5105,7 +5412,7 @@ paths:
               message:
                 type: string
               result:
-                type: object
+                $ref: '#/definitions/models.VitalSignsOverviewResponse'
               status:
                 type: string
               status_code:
@@ -5453,6 +5760,76 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Meal Plan by ID
+      tags:
+      - Meal
+  /api/meals/meal-plans/manual:
+    post:
+      consumes:
+      - application/json
+      description: Create a new meal plan in manual mode (AI allergy check is skipped).
+        Only users with Kitchen Staff role can manage meals.
+      parameters:
+      - description: Meal plan information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateMealPlanRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.MealPlan'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Meal Plan Manual
       tags:
       - Meal
   /api/meals/meal-plans/today:
@@ -5896,6 +6273,97 @@ paths:
       - BearerAuth: []
       summary: Update User Information
       tags:
+      - User
+  /api/user/search:
+    get:
+      consumes:
+      - application/json
+      - application/json
+      description: |-
+        Get authenticated user's information
+        Get users by their first and last name (case-insensitive, space-trimmed)
+      parameters:
+      - description: First Name
+        in: query
+        name: first_name
+        required: true
+        type: string
+      - description: Last Name
+        in: query
+        name: last_name
+        required: true
+        type: string
+      produces:
+      - application/json
+      - application/json
+      responses:
+        "200":
+          description: Users retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request - Missing required query parameters
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized - Missing user ID
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: User not found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      - BearerAuth: []
+      summary: Get Users By First and Last Name
+      tags:
+      - User
       - User
   /api/user/staff/files:
     post:

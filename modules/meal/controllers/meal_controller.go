@@ -294,6 +294,71 @@ func (c *MealController) CreateMealPlanHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// CreateMealPlanManualHandler godoc
+// @Summary Create Meal Plan Manual
+// @Description Create a new meal plan in manual mode (AI allergy check is skipped). Only users with Kitchen Staff role can manage meals.
+// @Tags Meal
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body models.CreateMealPlanRequest true "Meal plan information"
+// @Success 201 {object} object{status=string,status_code=int,message=string,result=entities.MealPlan}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/meals/meal-plans/manual [post]
+func (c *MealController) CreateMealPlanManualHandler(ctx *fiber.Ctx) error {
+	var req models.CreateMealPlanRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	mealPlan := &entities.MealPlan{
+		MenuID:       req.MenuID,
+		BackUpMenuID: req.BackUpMenuID,
+		MainAmount:   req.MainAmount,
+		BackUpAmount: req.BackUpAmount,
+		MealType:     req.MealType,
+	}
+
+	createdMealPlan, _, err := c.mealUsecase.CreateMealPlan(mealPlan, userID, true)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusCreated,
+		"message":     "meal plan created successfully (manual mode)",
+		"result": fiber.Map{
+			"meal_plan":      createdMealPlan,
+			"allergy_check":  nil,
+			"has_ai_warning": false,
+			"manual_mode":    true,
+		},
+	})
+}
+
 // GetMealPlanByIDHandler godoc
 // @Summary Get Meal Plan by ID
 // @Description Get a meal plan by ID. Only users with Kitchen Staff role can manage meals.

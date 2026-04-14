@@ -36,7 +36,7 @@ type EmrUsecase interface {
 	GetResidentByID(id string, userID string) (*entities.Resident, error)
 	GetResidentByRoomID(roomID string, userID string) ([]*entities.Resident, error)
 	GetAllResidents(userID string) ([]*entities.Resident, error)
-	GetResidentOverview(req models.ResidentQueryParams, userID string) ([]*models.ResidentOverviewResponse, error)
+	GetResidentOverview(req models.ResidentQueryParams, userID string) (*models.ResidentOverviewListResponse, error)
 	UpdateResidentByID(residentID string, data models.UpdateResidentRequest, userID string) (*entities.Resident, error)
 
 	// Dashboard operations
@@ -80,7 +80,7 @@ type EmrUsecase interface {
 	// VitalSign operations
 	CreateVitalSign(vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error)
 
-	GetVitalSignsOverview(req models.VitalSignQueryParams, userID string) ([]*entities.VitalSign, error)
+	GetVitalSignsOverview(req models.VitalSignQueryParams, userID string) (*models.VitalSignsOverviewResponse, error)
 	GetVitalSignsByResident(residentID string, isLatest string, userID string) ([]*entities.VitalSign, error)
 	GetRoomVitalSigns(roomID string, isLatest string, userID string) ([]*entities.VitalSign, error)
 	GetVitalSignsHistory(residentID string, userID string) ([]*entities.VitalSign, error)
@@ -90,7 +90,7 @@ type EmrUsecase interface {
 
 	// LaboratoryValue operations
 	CreateLaboratoryValue(laboratoryValue *entities.LaboratoryValue, userID string) (*entities.LaboratoryValue, error)
-	GetLaboratoryValuesOverview(req models.LaboratoryValueQueryParams, userID string) ([]*entities.LaboratoryValue, error)
+	GetLaboratoryValuesOverview(req models.LaboratoryValueQueryParams, userID string) (*models.LaboratoryValuesOverviewResponse, error)
 	GetLaboratoryValuesByResident(residentID string, isLatest string, userID string) ([]*entities.LaboratoryValue, error)
 	GetRoomLaboratoryValues(roomID string, isLatest string, userID string) ([]*entities.LaboratoryValue, error)
 	GetLaboratoryValuesHistory(residentID string, userID string) ([]*entities.LaboratoryValue, error)
@@ -317,13 +317,14 @@ func (uc *EmrUseCaseImpl) GetAllResidents(userID string) ([]*entities.Resident, 
 	return residents, nil
 }
 
-func (uc *EmrUseCaseImpl) GetResidentOverview(req models.ResidentQueryParams, userID string) ([]*models.ResidentOverviewResponse, error) {
+func (uc *EmrUseCaseImpl) GetResidentOverview(req models.ResidentQueryParams, userID string) (*models.ResidentOverviewListResponse, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
 
 	var (
 		residents []*entities.Resident
+		total     int64
 		err       error
 	)
 
@@ -344,16 +345,46 @@ func (uc *EmrUseCaseImpl) GetResidentOverview(req models.ResidentQueryParams, us
 		(req.Search != nil && *req.Search != "") ||
 		(req.Status != nil && *req.Status != "")
 
+	page := 1
+	if req.Page != nil {
+		if *req.Page <= 0 {
+			return nil, errors.New("page must be greater than 0")
+		}
+		page = *req.Page
+	}
+
+	pageSize := 20
+	if req.PageSize != nil {
+		if *req.PageSize <= 0 {
+			return nil, errors.New("page_size must be greater than 0")
+		}
+		pageSize = *req.PageSize
+	} else if req.Limit > 0 {
+		pageSize = req.Limit
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	hasPagination := req.Page != nil || req.PageSize != nil || req.Limit > 0 || req.Offset > 0
+	if req.Page == nil && req.Offset > 0 {
+		page = (req.Offset / pageSize) + 1
+	}
+
+	req.Limit = pageSize
+	req.Offset = (page - 1) * pageSize
+
 	if req.Status != nil && *req.Status != "" && *req.Status != emr_constants.Active && *req.Status != emr_constants.InActive {
 		return nil, errors.New("status must be 'active' or 'inactive'")
 	}
 
 	log.Printf("เข้ามาใน overview")
-	if hasFilter {
-		residents, err = uc.emrrepo.GetResidentsCustom(req)
+	if hasFilter || hasPagination {
+		residents, total, err = uc.emrrepo.GetResidentsCustom(req)
 		log.Printf("มีการใช้ filter ใน GetResidentOverview: floor=%v, label_ids=%v, search=%v, status=%v | จำนวน residents ที่ได้จาก custom query: %d", req.Floor, req.LabelIDs, req.Search, req.Status, len(residents))
 	} else {
 		residents, err = uc.emrrepo.GetAllResidents()
+		total = int64(len(residents))
 		log.Printf("ไม่มีการใช้ filter ใน GetResidentOverview | จำนวน residents ที่ได้จาก GetAllResidents: %d", len(residents))
 	}
 	if err != nil {
@@ -376,7 +407,20 @@ func (uc *EmrUseCaseImpl) GetResidentOverview(req models.ResidentQueryParams, us
 			IntakeLabels: labelNames,
 		})
 	}
-	return response, nil
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+
+	return &models.ResidentOverviewListResponse{
+		Items: response,
+		Pagination: models.OverviewPagination{
+			Page:       page,
+			PageSize:   pageSize,
+			TotalItems: int(total),
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.UpdateResidentRequest, userID string) (*entities.Resident, error) {
@@ -1421,7 +1465,7 @@ func filterVitalSignsByStatus(vitalSigns []*entities.VitalSign, status string) [
 	return result
 }
 
-func (uc *EmrUseCaseImpl) GetVitalSignsOverview(req models.VitalSignQueryParams, userID string) ([]*entities.VitalSign, error) {
+func (uc *EmrUseCaseImpl) GetVitalSignsOverview(req models.VitalSignQueryParams, userID string) (*models.VitalSignsOverviewResponse, error) {
 
 	user, err := uc.userrepo.GetUserByID(userID)
 	if err != nil {
@@ -1441,26 +1485,72 @@ func (uc *EmrUseCaseImpl) GetVitalSignsOverview(req models.VitalSignQueryParams,
 		return nil, errors.New("vitalsign_status must be 'all', 'normal', or 'abnormal'")
 	}
 
+	page := 1
+	if req.Page != nil {
+		if *req.Page <= 0 {
+			return nil, errors.New("page must be greater than 0")
+		}
+		page = *req.Page
+	}
+
+	pageSize := 20
+	if req.PageSize != nil {
+		if *req.PageSize <= 0 {
+			return nil, errors.New("page_size must be greater than 0")
+		}
+		pageSize = *req.PageSize
+	} else if req.Limit > 0 {
+		pageSize = req.Limit
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	hasPagination := req.Page != nil || req.PageSize != nil || req.Limit > 0 || req.Offset > 0
+	if req.Page == nil && req.Offset > 0 {
+		page = (req.Offset / pageSize) + 1
+	}
+
+	limit := pageSize
+	offset := (page - 1) * pageSize
+
 	// กรณีธรรมดา: ทั้งหมด วันนี้
 	var vitalSigns []*entities.VitalSign
+	var total int64
 
-	if req.Floor == nil && len(req.LabelIDs) == 0 {
+	if req.Floor == nil && len(req.LabelIDs) == 0 && !hasPagination {
 		vitalSigns, err = uc.emrrepo.GetVitalSignsToday(false)
+		total = int64(len(vitalSigns))
 	} else {
 		// กรณีมี filter: ใช้ Custom
 		params := models.VitalSignQueryParams{
 			Floor:    req.Floor,
 			LabelIDs: req.LabelIDs,
 			IsLatest: false,
-			Limit:    100,
+			Limit:    limit,
+			Offset:   offset,
 		}
-		vitalSigns, err = uc.emrrepo.GetVitalSignsCustom(params)
+		vitalSigns, total, err = uc.emrrepo.GetVitalSignsCustom(params)
 	}
 	if err != nil {
 		return nil, err
 	}
-	// log.Printf("ก่อนจะกรอง vital signs ทั้งหมด: %d รายการ | vitalsign_status='%s'", len(vitalSigns), req.VitalSignStatus)
-	return filterVitalSignsByStatus(vitalSigns, req.VitalSignStatus), nil
+	filtered := filterVitalSignsByStatus(vitalSigns, req.VitalSignStatus)
+
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+
+	return &models.VitalSignsOverviewResponse{
+		Items: filtered,
+		Pagination: models.OverviewPagination{
+			Page:       page,
+			PageSize:   pageSize,
+			TotalItems: int(total),
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (uc *EmrUseCaseImpl) GetVitalSignsByResident(residentID string, isLatest string, userID string) ([]*entities.VitalSign, error) {
@@ -1899,7 +1989,7 @@ func filterLaboratoryValuesByStatus(labs []*entities.LaboratoryValue, status str
 	return result
 }
 
-func (uc *EmrUseCaseImpl) GetLaboratoryValuesOverview(req models.LaboratoryValueQueryParams, userID string) ([]*entities.LaboratoryValue, error) {
+func (uc *EmrUseCaseImpl) GetLaboratoryValuesOverview(req models.LaboratoryValueQueryParams, userID string) (*models.LaboratoryValuesOverviewResponse, error) {
 	user, err := uc.userrepo.GetUserByID(userID)
 	if err != nil {
 		return nil, errors.New("failed to get user: " + err.Error())
@@ -1916,22 +2006,69 @@ func (uc *EmrUseCaseImpl) GetLaboratoryValuesOverview(req models.LaboratoryValue
 		return nil, errors.New("laboratory_value_status must be 'all', 'normal', or 'abnormal'")
 	}
 
+	page := 1
+	if req.Page != nil {
+		if *req.Page <= 0 {
+			return nil, errors.New("page must be greater than 0")
+		}
+		page = *req.Page
+	}
+
+	pageSize := 20
+	if req.PageSize != nil {
+		if *req.PageSize <= 0 {
+			return nil, errors.New("page_size must be greater than 0")
+		}
+		pageSize = *req.PageSize
+	} else if req.Limit > 0 {
+		pageSize = req.Limit
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	hasPagination := req.Page != nil || req.PageSize != nil || req.Limit > 0 || req.Offset > 0
+	if req.Page == nil && req.Offset > 0 {
+		page = (req.Offset / pageSize) + 1
+	}
+
+	limit := pageSize
+	offset := (page - 1) * pageSize
+
 	var labs []*entities.LaboratoryValue
-	if req.Floor == nil && len(req.LabelIDs) == 0 {
+	var total int64
+	if req.Floor == nil && len(req.LabelIDs) == 0 && !hasPagination {
 		labs, err = uc.emrrepo.GetLaboratoryValuesToday(false)
+		total = int64(len(labs))
 	} else {
 		params := models.LaboratoryValueQueryParams{
 			Floor:    req.Floor,
 			LabelIDs: req.LabelIDs,
 			IsLatest: false,
-			Limit:    100,
+			Limit:    limit,
+			Offset:   offset,
 		}
-		labs, err = uc.emrrepo.GetLaboratoryValuesCustom(params)
+		labs, total, err = uc.emrrepo.GetLaboratoryValuesCustom(params)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return filterLaboratoryValuesByStatus(labs, req.LaboratoryValueStatus), nil
+	filtered := filterLaboratoryValuesByStatus(labs, req.LaboratoryValueStatus)
+
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+
+	return &models.LaboratoryValuesOverviewResponse{
+		Items: filtered,
+		Pagination: models.OverviewPagination{
+			Page:       page,
+			PageSize:   pageSize,
+			TotalItems: int(total),
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (uc *EmrUseCaseImpl) GetLaboratoryValuesByResident(residentID string, isLatest string, userID string) ([]*entities.LaboratoryValue, error) {

@@ -103,7 +103,9 @@ type VitalSignQueryParams struct {
 	LabelIDs        []string   `json:"label_ids" form:"label_ids" query:"label_ids"` // empty = ทุกกลุ่ม, มีค่า = กรองตาม label
 	StartDate       *time.Time `json:"start_date" form:"start_date" query:"start_date"`
 	EndDate         *time.Time `json:"end_date" form:"end_date" query:"end_date"`
-	IsLatest        bool       `json:"is_latest" form:"is_latest" query:"is_latest"`                      // true = Latest (DISTINCT ON resident_id), false = All
+	IsLatest        bool       `json:"is_latest" form:"is_latest" query:"is_latest"` // true = Latest (DISTINCT ON resident_id), false = All
+	Page            *int       `json:"page" form:"page" query:"page"`
+	PageSize        *int       `json:"page_size" form:"page_size" query:"page_size"`
 	Limit           int        `json:"limit" form:"limit" query:"limit"`                                  // default 100
 	Offset          int        `json:"offset" form:"offset" query:"offset"`                               // default 0
 	VitalSignStatus string     `json:"vitalsign_status" form:"vitalsign_status" query:"vitalsign_status"` // เพิ่ม query tag ตรงนี้
@@ -137,6 +139,8 @@ type LaboratoryValueQueryParams struct {
 	StartDate             *time.Time `json:"start_date" form:"start_date" query:"start_date"`
 	EndDate               *time.Time `json:"end_date" form:"end_date" query:"end_date"`
 	IsLatest              bool       `json:"is_latest" form:"is_latest" query:"is_latest"`
+	Page                  *int       `json:"page" form:"page" query:"page"`
+	PageSize              *int       `json:"page_size" form:"page_size" query:"page_size"`
 	Limit                 int        `json:"limit" form:"limit" query:"limit"`
 	Offset                int        `json:"offset" form:"offset" query:"offset"`
 	LaboratoryValueStatus string     `json:"laboratory_value_status" form:"laboratory_value_status" query:"laboratory_value_status"`
@@ -157,6 +161,10 @@ type ResidentQueryParams struct {
 	LabelIDs []string `json:"label_ids" form:"label_ids" query:"label_ids"` // empty = ทุกกลุ่ม
 	Status   *string  `json:"status" form:"status" query:"status"`          // nil = ทั้ง active และ inactive
 	Search   *string  `json:"search" form:"search" query:"search"`          // nil = ไม่กรอง, มีค่า = LIKE ชื่อ/นามสกุล/ชื่อเล่น
+	Page     *int     `json:"page" form:"page" query:"page"`
+	PageSize *int     `json:"page_size" form:"page_size" query:"page_size"`
+	Limit    int      `json:"limit" form:"limit" query:"limit"`
+	Offset   int      `json:"offset" form:"offset" query:"offset"`
 }
 
 type CreateNurseNoteRequest struct {
