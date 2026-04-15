@@ -26,7 +26,7 @@ import (
 
 type UserUsecase interface {
 	Register(user *entities.User, roleName string, file multipart.File) (*entities.User, error)
-	Login(username, email, password string) (string, *entities.User, error)
+	Login(username, email, password string, remember bool) (string, *entities.User, error)
 	ResetPassword(userID, oldPassword, newPassword string) error
 
 	GetUserByID(id string) (*entities.User, error)
@@ -166,7 +166,7 @@ func (u *UserUseCaseImpl) Register(user *entities.User, roleName string, file mu
 	return createdUser, nil
 }
 
-func (u *UserUseCaseImpl) Login(username, email, password string) (string, *entities.User, error) {
+func (u *UserUseCaseImpl) Login(username, email, password string, remember bool) (string, *entities.User, error) {
 	if username != "" && email != "" {
 		return "", nil, errors.New("please provide either username or email, not both")
 	}
@@ -192,11 +192,16 @@ func (u *UserUseCaseImpl) Login(username, email, password string) (string, *enti
 		return "", nil, errors.New("invalid password")
 	}
 
+	expiryDuration := time.Hour * 2
+	if remember {
+		expiryDuration = time.Hour * 24 * 2
+	}
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(time.Hour * 2).Unix(), // หมดอายุใน 2 ชั่วโมง
-		"iat":     time.Now().Unix(),                    // เวลาที่ออก
-		"jti":     uuid.New().String(),                  // ให้ token นี้ unique
+		"exp":     time.Now().Add(expiryDuration).Unix(),
+		"iat":     time.Now().Unix(),   // เวลาที่ออก
+		"jti":     uuid.New().String(), // ให้ token นี้ unique
 	})
 
 	tokenString, err := token.SignedString([]byte(u.jwtSecret))
