@@ -192,7 +192,7 @@ func (u *UserUseCaseImpl) Login(username, email, password string, remember bool)
 		return "", nil, errors.New("invalid password")
 	}
 
-	expiryDuration := time.Hour * 2
+	expiryDuration := time.Minute * 30
 	if remember {
 		expiryDuration = time.Hour * 24 * 2
 	}

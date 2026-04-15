@@ -307,6 +307,9 @@ const docTemplate = `{
                                 "password": {
                                     "type": "string"
                                 },
+                                "remember": {
+                                    "type": "boolean"
+                                },
                                 "username": {
                                     "type": "string"
                                 }
