@@ -82,6 +82,13 @@ definitions:
       vital_sign_id:
         type: string
     type: object
+  models.AdjustWarehouseItemRequest:
+    properties:
+      mode:
+        type: string
+      quantity:
+        type: integer
+    type: object
   models.AllergyRequest:
     properties:
       allergy_name:
@@ -99,6 +106,13 @@ definitions:
         type: string
       resident_count:
         type: integer
+    type: object
+  models.ApproveTransactionsRequest:
+    properties:
+      transactionIds:
+        items:
+          type: string
+        type: array
     type: object
   models.CreateAllergyByResidentRequest:
     properties:
@@ -258,6 +272,23 @@ definitions:
     required:
     - resident_id
     type: object
+  models.CreateWarehouseItemRequest:
+    properties:
+      category:
+        type: string
+      code:
+        type: string
+      description:
+        type: string
+      minimumQuantity:
+        type: integer
+      name:
+        type: string
+      quantity:
+        type: integer
+      unit:
+        type: string
+    type: object
   models.DrugAllergyRequest:
     properties:
       allergy_name:
@@ -284,6 +315,15 @@ definitions:
         type: integer
       waiting_residents:
         type: integer
+    type: object
+  models.RejectTransactionsRequest:
+    properties:
+      reason:
+        type: string
+      transactionIds:
+        items:
+          type: string
+        type: array
     type: object
   models.ResidentAllergyItemResponse:
     properties:
@@ -405,6 +445,54 @@ definitions:
       time_of_day:
         type: string
       timing:
+        type: string
+    type: object
+  models.UpdateWarehouseItemRequest:
+    properties:
+      category:
+        type: string
+      code:
+        type: string
+      description:
+        type: string
+      minimumQuantity:
+        type: integer
+      name:
+        type: string
+      quantity:
+        type: integer
+      unit:
+        type: string
+    type: object
+  models.WarehouseTransactionResponse:
+    properties:
+      approvalStatus:
+        type: string
+      approvedAt:
+        type: string
+      approvedBy:
+        type: string
+      code:
+        type: string
+      date:
+        type: string
+      id:
+        type: string
+      itemCode:
+        type: string
+      itemName:
+        type: string
+      operator:
+        type: string
+      quantity:
+        type: integer
+      rejectedAt:
+        type: string
+      rejectedBy:
+        type: string
+      rejectionReason:
+        type: string
+      type:
         type: string
     type: object
 info:
@@ -5354,6 +5442,628 @@ paths:
       summary: Upload Staff Files
       tags:
       - User
+  /api/warehouse/items:
+    get:
+      description: Get warehouse items with optional search and category filters
+      parameters:
+      - description: Search by item name or code
+        in: query
+        name: search
+        type: string
+      - description: Category (MED, EQU, CON)
+        in: query
+        name: category
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Warehouse Items
+      tags:
+      - Warehouse
+    post:
+      consumes:
+      - application/json
+      description: Create a new warehouse item
+      parameters:
+      - description: Warehouse item payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateWarehouseItemRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Warehouse Item
+      tags:
+      - Warehouse
+  /api/warehouse/items/{id}:
+    delete:
+      description: Delete a warehouse item by item ID
+      parameters:
+      - description: Warehouse item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete Warehouse Item By ID
+      tags:
+      - Warehouse
+    patch:
+      consumes:
+      - application/json
+      description: Update warehouse item fields by item ID
+      parameters:
+      - description: Warehouse item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Warehouse item update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateWarehouseItemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Warehouse Item By ID
+      tags:
+      - Warehouse
+  /api/warehouse/items/{id}/adjust:
+    post:
+      consumes:
+      - application/json
+      description: Adjust item quantity by restock or withdraw mode
+      parameters:
+      - description: Warehouse item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Adjust warehouse item payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.AdjustWarehouseItemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Adjust Warehouse Item Quantity
+      tags:
+      - Warehouse
+  /api/warehouse/transactions:
+    get:
+      description: Get warehouse transaction history with optional filters
+      parameters:
+      - description: Start date in YYYY-MM-DD
+        in: query
+        name: startDate
+        type: string
+      - description: End date in YYYY-MM-DD
+        in: query
+        name: endDate
+        type: string
+      - description: Search by item name or item code
+        in: query
+        name: searchItem
+        type: string
+      - description: Search by operator name
+        in: query
+        name: searchUser
+        type: string
+      - description: Approval status (รออนุมัติ, อนุมัติ, ไม่อนุมัติ)
+        in: query
+        name: status
+        type: string
+      - description: Transaction type (เพิ่มสินค้าใหม่, เติมสินค้า, เบิกสินค้า, นำออก)
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/models.WarehouseTransactionResponse'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Warehouse Transactions
+      tags:
+      - Warehouse
+  /api/warehouse/transactions/{id}:
+    get:
+      description: Get warehouse transaction detail by transaction ID
+      parameters:
+      - description: Warehouse transaction ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/models.WarehouseTransactionResponse'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Warehouse Transaction By ID
+      tags:
+      - Warehouse
+  /api/warehouse/transactions/approve:
+    patch:
+      consumes:
+      - application/json
+      description: Approve selected pending warehouse transactions
+      parameters:
+      - description: Approve transactions payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ApproveTransactionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/models.WarehouseTransactionResponse'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Approve Warehouse Transactions
+      tags:
+      - Warehouse
+  /api/warehouse/transactions/reject:
+    patch:
+      consumes:
+      - application/json
+      description: Reject selected pending warehouse transactions with reason
+      parameters:
+      - description: Reject transactions payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.RejectTransactionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/models.WarehouseTransactionResponse'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Reject Warehouse Transactions
+      tags:
+      - Warehouse
 schemes:
 - https
 - http
