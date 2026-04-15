@@ -16,6 +16,9 @@ import (
 	userController "github.com/aikidoaikido115/New-Acis-BE/modules/user/controllers"
 	userRepository "github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
 	userUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/user/usecases"
+	warehouseController "github.com/aikidoaikido115/New-Acis-BE/modules/warehouse/controllers"
+	warehouseRepository "github.com/aikidoaikido115/New-Acis-BE/modules/warehouse/repositories"
+	warehouseUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/warehouse/usecases"
 
 	auditLogRepository "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
 
@@ -81,6 +84,7 @@ func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa co
 	SetupEmrRoutes(app, db, jwt, supa)
 	SetupMedicineRoutes(app, db, jwt)
 	SetupMealRoutes(app, db, jwt)
+	SetupWarehouseRoutes(app, db, jwt)
 
 	// API group
 	api := app.Group("/api")
@@ -260,4 +264,25 @@ func SetupMedicineRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	drugPlanGroup.Get("/:id", middlewares.JWTMiddleware(jwt), drugController.GetDrugPlanByIDHandler)
 	drugPlanGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), drugController.UpdateDrugPlanByIDHandler)
 	drugPlanGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), drugController.DeleteDrugPlanByIDHandler)
+}
+
+func SetupWarehouseRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
+	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
+	userRepository := userRepository.NewGormUserRepository(db)
+	warehouseRepository := warehouseRepository.NewGormWarehouseRepository(db)
+	warehouseUsecase := warehouseUsecase.NewWarehouseUseCase(warehouseRepository, auditLogRepository, userRepository)
+	warehouseController := warehouseController.NewWarehouseController(warehouseUsecase)
+
+	warehouseItemGroup := app.Group("/api/warehouse/items")
+	warehouseItemGroup.Get("/", middlewares.JWTMiddleware(jwt), warehouseController.GetWarehouseItemsHandler)
+	warehouseItemGroup.Post("/", middlewares.JWTMiddleware(jwt), warehouseController.CreateWarehouseItemHandler)
+	warehouseItemGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), warehouseController.UpdateWarehouseItemByIDHandler)
+	warehouseItemGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), warehouseController.DeleteWarehouseItemByIDHandler)
+	warehouseItemGroup.Post("/:id/adjust", middlewares.JWTMiddleware(jwt), warehouseController.AdjustWarehouseItemByIDHandler)
+
+	warehouseTransactionGroup := app.Group("/api/warehouse/transactions")
+	warehouseTransactionGroup.Get("/", middlewares.JWTMiddleware(jwt), warehouseController.GetWarehouseTransactionsHandler)
+	warehouseTransactionGroup.Get("/:id", middlewares.JWTMiddleware(jwt), warehouseController.GetWarehouseTransactionByIDHandler)
+	warehouseTransactionGroup.Patch("/approve", middlewares.JWTMiddleware(jwt), warehouseController.ApproveTransactionsHandler)
+	warehouseTransactionGroup.Patch("/reject", middlewares.JWTMiddleware(jwt), warehouseController.RejectTransactionsHandler)
 }
