@@ -4,6 +4,7 @@ type LoginRequest struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
 	Password string `json:"password" binding:"required"`
+	Remember bool   `json:"remember"`
 }
 
 type ResetPasswordRequest struct {

@@ -160,7 +160,7 @@ func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
 // @Tags Authentication
 // @Accept json
 // @Produce json
-// @Param request body object{username=string,email=string,password=string} true "Login credentials (provide EITHER username OR email with password, not both)"
+// @Param request body object{username=string,email=string,password=string,remember=bool} true "Login credentials (provide EITHER username OR email with password, not both)"
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=object{token=string,user_id=string,username=string,email=string,profile_image=string}} "Login successful"
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing credentials, sent both username and email, or missing password"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
@@ -195,7 +195,7 @@ func (c *UserController) LoginHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	token, user, err := c.userusecase.Login(req.Username, req.Email, req.Password)
+	token, user, err := c.userusecase.Login(req.Username, req.Email, req.Password, req.Remember)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
