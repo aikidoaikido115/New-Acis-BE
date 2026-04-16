@@ -13,6 +13,9 @@ import (
 	medicineController "github.com/aikidoaikido115/New-Acis-BE/modules/medicine/controllers"
 	medicineRepository "github.com/aikidoaikido115/New-Acis-BE/modules/medicine/repositories"
 	medicineUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/medicine/usecases"
+	supportController "github.com/aikidoaikido115/New-Acis-BE/modules/support/controllers"
+	supportRepository "github.com/aikidoaikido115/New-Acis-BE/modules/support/repositories"
+	supportUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/support/usecases"
 	userController "github.com/aikidoaikido115/New-Acis-BE/modules/user/controllers"
 	userRepository "github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
 	userUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/user/usecases"
@@ -85,6 +88,7 @@ func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa co
 	SetupMedicineRoutes(app, db, jwt)
 	SetupMealRoutes(app, db, jwt)
 	SetupWarehouseRoutes(app, db, jwt)
+	SetupSupportRoutes(app, db, jwt)
 
 	// API group
 	api := app.Group("/api")
@@ -285,4 +289,18 @@ func SetupWarehouseRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	warehouseTransactionGroup.Get("/:id", middlewares.JWTMiddleware(jwt), warehouseController.GetWarehouseTransactionByIDHandler)
 	warehouseTransactionGroup.Patch("/approve", middlewares.JWTMiddleware(jwt), warehouseController.ApproveTransactionsHandler)
 	warehouseTransactionGroup.Patch("/reject", middlewares.JWTMiddleware(jwt), warehouseController.RejectTransactionsHandler)
+}
+
+func SetupSupportRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
+	userRepository := userRepository.NewGormUserRepository(db)
+	supportRepository := supportRepository.NewGormSupportRepository(db)
+	supportUsecase := supportUsecase.NewSupportUseCase(supportRepository, userRepository)
+	supportController := supportController.NewSupportController(supportUsecase)
+
+	supportGroup := app.Group("/api/support/tickets")
+	supportGroup.Get("/", middlewares.JWTMiddleware(jwt), supportController.GetSupportTicketsHandler)
+	supportGroup.Get("/:id", middlewares.JWTMiddleware(jwt), supportController.GetSupportTicketByIDHandler)
+	supportGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), supportController.DeleteSupportTicketByIDHandler)
+	supportGroup.Patch("/:id/status", middlewares.JWTMiddleware(jwt), supportController.UpdateSupportTicketStatusHandler)
+	supportGroup.Post("/", middlewares.JWTMiddleware(jwt), supportController.CreateSupportTicketHandler)
 }
