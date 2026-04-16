@@ -8178,6 +8178,667 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/support/tickets": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get support tickets with optional status and search filters (Medical Staff only)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Support"
+                ],
+                "summary": "Get support tickets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search by reporter name/email/subject/message",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Ticket status (open, in_progress, resolved)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reporter role (Medical Staff, Kitchen Staff)",
+                        "name": "reporterRole",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/entities.SupportTicket"
+                                    }
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a support ticket from medical or kitchen staff",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Support"
+                ],
+                "summary": "Create support ticket",
+                "parameters": [
+                    {
+                        "description": "Support ticket payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateSupportTicketRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "$ref": "#/definitions/entities.SupportTicket"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/support/tickets/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get support ticket detail by ID (Medical Staff only)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Support"
+                ],
+                "summary": "Get support ticket by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Support ticket ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "$ref": "#/definitions/entities.SupportTicket"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete support ticket by ID when status is resolved (Medical Staff only)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Support"
+                ],
+                "summary": "Delete support ticket by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Support ticket ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/support/tickets/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update support ticket status (Medical Staff only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Support"
+                ],
+                "summary": "Update support ticket status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Support ticket ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Support ticket status payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateSupportTicketStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "$ref": "#/definitions/entities.SupportTicket"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/user": {
             "get": {
                 "security": [
@@ -8628,6 +9289,967 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/warehouse/items": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get warehouse items with optional search and category filters",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Warehouse"
+                ],
+                "summary": "Get Warehouse Items",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search by item name or code",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Category (MED, EQU, CON)",
+                        "name": "category",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new warehouse item",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Warehouse"
+                ],
+                "summary": "Create Warehouse Item",
+                "parameters": [
+                    {
+                        "description": "Warehouse item payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateWarehouseItemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "object"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/warehouse/items/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a warehouse item by item ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Warehouse"
+                ],
+                "summary": "Delete Warehouse Item By ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Warehouse item ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update warehouse item fields by item ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Warehouse"
+                ],
+                "summary": "Update Warehouse Item By ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Warehouse item ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Warehouse item update payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateWarehouseItemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "object"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/warehouse/items/{id}/adjust": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Adjust item quantity by restock or withdraw mode",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Warehouse"
+                ],
+                "summary": "Adjust Warehouse Item Quantity",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Warehouse item ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Adjust warehouse item payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AdjustWarehouseItemRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "object"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/warehouse/transactions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get warehouse transaction history with optional filters",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Warehouse"
+                ],
+                "summary": "Get Warehouse Transactions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start date in YYYY-MM-DD",
+                        "name": "startDate",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date in YYYY-MM-DD",
+                        "name": "endDate",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by item name or item code",
+                        "name": "searchItem",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by operator name",
+                        "name": "searchUser",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Approval status (รออนุมัติ, อนุมัติ, ไม่อนุมัติ)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Transaction type (เพิ่มสินค้าใหม่, เติมสินค้า, เบิกสินค้า, นำออก)",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/models.WarehouseTransactionResponse"
+                                    }
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/warehouse/transactions/approve": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Approve selected pending warehouse transactions",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Warehouse"
+                ],
+                "summary": "Approve Warehouse Transactions",
+                "parameters": [
+                    {
+                        "description": "Approve transactions payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ApproveTransactionsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/models.WarehouseTransactionResponse"
+                                    }
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/warehouse/transactions/reject": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Reject selected pending warehouse transactions with reason",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Warehouse"
+                ],
+                "summary": "Reject Warehouse Transactions",
+                "parameters": [
+                    {
+                        "description": "Reject transactions payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.RejectTransactionsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/models.WarehouseTransactionResponse"
+                                    }
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/warehouse/transactions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get warehouse transaction detail by transaction ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Warehouse"
+                ],
+                "summary": "Get Warehouse Transaction By ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Warehouse transaction ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "$ref": "#/definitions/models.WarehouseTransactionResponse"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -9018,6 +10640,41 @@ const docTemplate = `{
                 }
             }
         },
+        "entities.SupportTicket": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by_user_id": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "reporter_role": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "subject": {
+                    "type": "string"
+                },
+                "support_ticket_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "entities.VitalSign": {
             "type": "object",
             "properties": {
@@ -9056,6 +10713,17 @@ const docTemplate = `{
                 }
             }
         },
+        "models.AdjustWarehouseItemRequest": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.AllergyRequest": {
             "type": "object",
             "required": [
@@ -9081,6 +10749,17 @@ const docTemplate = `{
                 },
                 "resident_count": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.ApproveTransactionsRequest": {
+            "type": "object",
+            "properties": {
+                "transactionIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -9289,6 +10968,29 @@ const docTemplate = `{
                 }
             }
         },
+        "models.CreateSupportTicketRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "message",
+                "name",
+                "subject"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "subject": {
+                    "type": "string"
+                }
+            }
+        },
         "models.CreateVitalSignRequest": {
             "type": "object",
             "required": [
@@ -9315,6 +11017,32 @@ const docTemplate = `{
                 },
                 "temperature": {
                     "type": "number"
+                }
+            }
+        },
+        "models.CreateWarehouseItemRequest": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "minimumQuantity": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "unit": {
+                    "type": "string"
                 }
             }
         },
@@ -9543,6 +11271,20 @@ const docTemplate = `{
                 },
                 "pagination": {
                     "$ref": "#/definitions/models.DrugAdministrationHistoryPagination"
+                }
+            }
+        },
+        "models.RejectTransactionsRequest": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string"
+                },
+                "transactionIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -9810,6 +11552,43 @@ const docTemplate = `{
                 }
             }
         },
+        "models.UpdateSupportTicketStatusRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.UpdateWarehouseItemRequest": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "minimumQuantity": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "unit": {
+                    "type": "string"
+                }
+            }
+        },
         "models.VitalSignsOverviewResponse": {
             "type": "object",
             "properties": {
@@ -9821,6 +11600,53 @@ const docTemplate = `{
                 },
                 "pagination": {
                     "$ref": "#/definitions/models.OverviewPagination"
+                }
+            }
+        },
+        "models.WarehouseTransactionResponse": {
+            "type": "object",
+            "properties": {
+                "approvalStatus": {
+                    "type": "string"
+                },
+                "approvedAt": {
+                    "type": "string"
+                },
+                "approvedBy": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "itemCode": {
+                    "type": "string"
+                },
+                "itemName": {
+                    "type": "string"
+                },
+                "operator": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "rejectedAt": {
+                    "type": "string"
+                },
+                "rejectedBy": {
+                    "type": "string"
+                },
+                "rejectionReason": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         }

@@ -13,4 +13,10 @@ if (Test-Path $envFile) {
 }
 
 # รัน atlas command
-atlas $args
+if (Test-Path ".\\atlas.exe") {
+    & ".\\atlas.exe" @args
+} elseif (Test-Path ".\\atlas") {
+    & ".\\atlas" @args
+} else {
+    atlas @args
+}
