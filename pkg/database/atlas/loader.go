@@ -38,6 +38,7 @@ func main() {
 		&entities.NurseNote{},
 		&entities.WoundCareNote{},
 		&entities.RelativeNote{},
+		&entities.Activity{},
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to load gorm schema: %v\n", err)

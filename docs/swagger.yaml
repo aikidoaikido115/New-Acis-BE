@@ -1,5 +1,22 @@
 basePath: /
 definitions:
+  entities.Activity:
+    properties:
+      activity_id:
+        type: string
+      activity_name:
+        type: string
+      activity_type:
+        type: string
+      description:
+        type: string
+      location:
+        type: string
+      staff:
+        $ref: '#/definitions/entities.Staff'
+      staff_id:
+        type: string
+    type: object
   entities.Allergy:
     properties:
       allergy_id:
@@ -257,6 +274,47 @@ definitions:
       resident_id:
         type: string
     type: object
+  entities.Role:
+    properties:
+      name:
+        type: string
+    type: object
+  entities.Staff:
+    properties:
+      staff_id:
+        type: string
+      user:
+        $ref: '#/definitions/entities.User'
+      user_id:
+        type: string
+    type: object
+  entities.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      gender:
+        type: string
+      last_name:
+        type: string
+      nickname:
+        type: string
+      profile_image:
+        type: string
+      role:
+        $ref: '#/definitions/entities.Role'
+      role_id:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      username:
+        type: string
+    type: object
   entities.VitalSign:
     properties:
       blood_pressure_diastolic:
@@ -299,6 +357,20 @@ definitions:
         type: string
       resident_count:
         type: integer
+    type: object
+  models.CreateActivityRequest:
+    properties:
+      activity_name:
+        type: string
+      activity_type:
+        type: string
+      description:
+        type: string
+      location:
+        type: string
+    required:
+    - activity_name
+    - activity_type
     type: object
   models.CreateAllergyByResidentRequest:
     properties:
@@ -723,6 +795,19 @@ definitions:
     - staff_first_name
     - staff_last_name
     type: object
+  models.UpdateActivityRequest:
+    properties:
+      activity_name:
+        type: string
+      activity_type:
+        type: string
+      description:
+        type: string
+      location:
+        type: string
+      staff_id:
+        type: string
+    type: object
   models.UpdateDrugMasterRequest:
     properties:
       dose:
@@ -793,6 +878,345 @@ info:
   description: This is a sample for New-Acis API.
   title: New-Acis API
 paths:
+  /api/activities:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all activity records
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/entities.Activity'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get All Activities
+      tags:
+      - Activity
+    post:
+      consumes:
+      - application/json
+      description: Create a new activity record
+      parameters:
+      - description: Activity payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateActivityRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.Activity'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Activity
+      tags:
+      - Activity
+  /api/activities/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an activity record
+      parameters:
+      - description: Activity ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete Activity by ID
+      tags:
+      - Activity
+    get:
+      consumes:
+      - application/json
+      description: Retrieve activity by ID
+      parameters:
+      - description: Activity ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.Activity'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Activity by ID
+      tags:
+      - Activity
+    patch:
+      consumes:
+      - application/json
+      description: Update an activity record
+      parameters:
+      - description: Activity ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Activity update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateActivityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.Activity'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Activity by ID
+      tags:
+      - Activity
   /api/auth/forgotpassword:
     post:
       consumes:

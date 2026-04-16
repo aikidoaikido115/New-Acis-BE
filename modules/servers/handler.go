@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/configs"
+	activityController "github.com/aikidoaikido115/New-Acis-BE/modules/activity/controllers"
+	activityRepository "github.com/aikidoaikido115/New-Acis-BE/modules/activity/repositories"
+	activityUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/activity/usecases"
 
 	mealController "github.com/aikidoaikido115/New-Acis-BE/modules/meal/controllers"
 	mealRepository "github.com/aikidoaikido115/New-Acis-BE/modules/meal/repositories"
@@ -81,6 +84,7 @@ func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa co
 	SetupEmrRoutes(app, db, jwt, supa)
 	SetupMedicineRoutes(app, db, jwt)
 	SetupMealRoutes(app, db, jwt)
+	SetupActivityRoutes(app, db, jwt)
 
 	// API group
 	api := app.Group("/api")
@@ -269,4 +273,18 @@ func SetupMedicineRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	drugPlanGroup.Patch("/:id/omit", middlewares.JWTMiddleware(jwt), drugController.OmitDrugPlanByIDHandler)
 	drugPlanGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), drugController.UpdateDrugPlanByIDHandler)
 	drugPlanGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), drugController.DeleteDrugPlanByIDHandler)
+}
+
+func SetupActivityRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
+	activityRepository := activityRepository.NewGormActivityRepository(db)
+	userRepository := userRepository.NewGormUserRepository(db)
+	activityUsecase := activityUsecase.NewActivityUseCase(activityRepository, userRepository)
+	activityController := activityController.NewActivityController(activityUsecase)
+
+	activityGroup := app.Group("/api/activities")
+	activityGroup.Post("/", middlewares.JWTMiddleware(jwt), activityController.CreateActivityHandler)
+	activityGroup.Get("/", middlewares.JWTMiddleware(jwt), activityController.GetAllActivitiesHandler)
+	activityGroup.Get("/:id", middlewares.JWTMiddleware(jwt), activityController.GetActivityByIDHandler)
+	activityGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), activityController.UpdateActivityByIDHandler)
+	activityGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), activityController.DeleteActivityByIDHandler)
 }
