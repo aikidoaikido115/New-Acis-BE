@@ -284,6 +284,10 @@ func (uc *WarehouseUseCaseImpl) UpdateWarehouseItemByID(id string, req models.Up
 
 	if quantityAdjustmentAmount > 0 {
 		if _, txErr := uc.createTransactionRecord(updatedItem, quantityAdjustmentType, quantityAdjustmentAmount, operatorUser); txErr != nil {
+			if itemChanged {
+				log.Printf("warning: warehouse item %s updated successfully but failed to create quantity adjustment transaction: %v", updatedItem.ID, txErr)
+				return updatedItem, nil
+			}
 			return nil, errors.New("failed to create warehouse quantity adjustment transaction: " + txErr.Error())
 		}
 	}
