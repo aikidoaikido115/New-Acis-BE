@@ -24,6 +24,7 @@ type UserRepository interface {
 
 	GetUserByEmail(email string) (*entities.User, error)
 	GetUserByID(id string) (*entities.User, error)
+	GetUsersByFirstAndLastName(firstName string, lastName string) ([]*entities.User, error)
 	GetStaffByID(id string) (*entities.Staff, error)
 	GetStaffByUserID(userID string) (*entities.Staff, error)
 	GetStaffFileByID(id string) (*entities.StaffsFiles, error)
@@ -36,7 +37,7 @@ type UserRepository interface {
 	UpdateUserByID(user *entities.User) error
 	CreateOTP(otp *entities.OTP) error
 	GetOTPByUserID(userID string) (*entities.OTP, error)
-	DeleteOTP(userID string) error	
+	DeleteOTP(userID string) error
 	StoreResetToken(temptoken *entities.TempToken) error
 	GetResetToken(userID string) (string, error)
 	DeleteResetToken(userID string) error
@@ -109,6 +110,19 @@ func (r *GormUserRepository) GetUserByID(id string) (*entities.User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *GormUserRepository) GetUsersByFirstAndLastName(firstName string, lastName string) ([]*entities.User, error) {
+	var users []*entities.User
+	if err := r.db.
+		Preload("Role").
+		Where("LOWER(TRIM(first_name)) = LOWER(TRIM(?))", firstName).
+		Where("LOWER(TRIM(last_name)) = LOWER(TRIM(?))", lastName).
+		Find(&users).Error; err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }
 
 func (r *GormUserRepository) GetStaffByID(id string) (*entities.Staff, error) {

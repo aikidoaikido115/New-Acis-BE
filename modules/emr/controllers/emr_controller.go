@@ -236,7 +236,9 @@ func (c *EmrController) GetAllResidentsHandler(ctx *fiber.Ctx) error {
 // @Param label_ids query []string false "List of label IDs (optional)"
 // @Param status query string false "Resident status (optional)"
 // @Param search query string false "Search by first name, last name, or nickname (optional)"
-// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "Resident overview retrieved successfully"
+// @Param page query int false "Page number (default 1)"
+// @Param page_size query int false "Page size (default 20, max 100)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.ResidentOverviewListResponse} "Resident overview retrieved successfully"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/residents/overview [get]
 func (c *EmrController) GetResidentOverviewHandler(ctx *fiber.Ctx) error {
@@ -1251,7 +1253,9 @@ func (c *EmrController) CreateVitalSignHandler(ctx *fiber.Ctx) error {
 // @Param floor query int false "Filter by floor"
 // @Param label_ids query []string false "Filter by label IDs"
 // @Param vitalsign_status query string false "Filter by vital sign status" Enums(all, normal, abnormal)
-// @Success 200 {object} object{status=string,status_code=int,message=string,result=object}
+// @Param page query int false "Page number (default 1)"
+// @Param page_size query int false "Page size (default 20, max 100)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.VitalSignsOverviewResponse}
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
 // @Router /api/emr/vital-signs/overview [get]
@@ -1595,7 +1599,9 @@ func (c *EmrController) CreateLaboratoryValueHandler(ctx *fiber.Ctx) error {
 // @Param label_ids query []string false "Filter by label IDs"
 // @Param urine_type query string false "Filter by urine type (must be 'ml' or 'times' if urine_output is provided)" Enums(ml, times)
 // @Param laboratory_value_status query string false "Filter by laboratory value status" Enums(all, normal, abnormal)
-// @Success 200 {object} object{status=string,status_code=int,message=string,result=object}
+// @Param page query int false "Page number (default 1)"
+// @Param page_size query int false "Page size (default 20, max 100)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.LaboratoryValuesOverviewResponse}
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
 // @Router /api/emr/laboratory-values/overview [get]
