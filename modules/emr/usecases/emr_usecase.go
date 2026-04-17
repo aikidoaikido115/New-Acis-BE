@@ -119,6 +119,13 @@ type EmrUsecase interface {
 	GetRelativeNotesByResidentID(residentID string, userID string) ([]*entities.RelativeNote, error)
 	UpdateRelativeNoteByID(noteID string, note *entities.RelativeNote, userID string) (*entities.RelativeNote, error)
 	DeleteRelativeNoteByID(noteID string, userID string) error
+
+	// DoctorOrder operations
+	CreateDoctorOrder(order *entities.DoctorOrder, userID string) (*entities.DoctorOrder, error)
+	GetDoctorOrdersOverview(userID string) ([]*entities.DoctorOrder, error)
+	GetDoctorOrdersByResidentID(residentID string, userID string) ([]*entities.DoctorOrder, error)
+	UpdateDoctorOrderByID(orderID string, order *entities.DoctorOrder, userID string) (*entities.DoctorOrder, error)
+	DeleteDoctorOrderByID(orderID string, userID string) error
 	//todo search resident by like sql
 	//todo overview resident
 }
@@ -2866,6 +2873,174 @@ func (uc *EmrUseCaseImpl) DeleteRelativeNoteByID(noteID string, userID string) e
 	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
 	if err != nil {
 		log.Printf("[ERROR] Failed to create audit log for deleted relative note %s: %v", noteID, err)
+	}
+
+	return nil
+}
+
+func (uc *EmrUseCaseImpl) CreateDoctorOrder(order *entities.DoctorOrder, userID string) (*entities.DoctorOrder, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	staff, err := uc.userrepo.GetStaffByUserID(userID)
+	if err != nil {
+		return nil, errors.New("failed to get staff ID: " + err.Error())
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(order.ResidentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident does not exist")
+	}
+
+	order.Title = strings.TrimSpace(order.Title)
+	if order.Title == "" {
+		return nil, errors.New("title is required")
+	}
+
+	order.ID = uuid.New().String()
+	order.CreatedByStaffID = staff.ID
+
+	created, err := uc.emrrepo.CreateDoctorOrder(order)
+	if err != nil {
+		return nil, errors.New("failed to create doctor order: " + err.Error())
+	}
+
+	newData, _ := json.Marshal(created)
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "doctor_orders",
+		RecordID:  created.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionInsert,
+		OldValue:  "",
+		NewValue:  string(newData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for doctor order %s: %v", created.ID, err)
+	}
+
+	return created, nil
+}
+
+func (uc *EmrUseCaseImpl) GetDoctorOrdersOverview(userID string) ([]*entities.DoctorOrder, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+	return uc.emrrepo.GetDoctorOrdersOverview()
+}
+
+func (uc *EmrUseCaseImpl) GetDoctorOrdersByResidentID(residentID string, userID string) ([]*entities.DoctorOrder, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	residentExists, err := uc.emrrepo.ResidentExists(residentID)
+	if err != nil {
+		return nil, errors.New("failed to verify resident existence: " + err.Error())
+	}
+	if !residentExists {
+		return nil, errors.New("resident not found")
+	}
+
+	return uc.emrrepo.GetDoctorOrdersByResidentID(residentID)
+}
+
+func (uc *EmrUseCaseImpl) UpdateDoctorOrderByID(orderID string, order *entities.DoctorOrder, userID string) (*entities.DoctorOrder, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	existing, err := uc.emrrepo.GetDoctorOrderByID(orderID)
+	if err != nil {
+		return nil, errors.New("doctor order not found: " + err.Error())
+	}
+
+	oldData, _ := json.Marshal(existing)
+
+	if order.OrderDate != nil {
+		existing.OrderDate = order.OrderDate
+	}
+	if order.OrderType != nil {
+		existing.OrderType = order.OrderType
+	}
+	if strings.TrimSpace(order.Title) != "" {
+		existing.Title = strings.TrimSpace(order.Title)
+	}
+	if order.Details != nil {
+		existing.Details = order.Details
+	}
+	if order.StartDate != nil {
+		existing.StartDate = order.StartDate
+	}
+	if order.EndDate != nil {
+		existing.EndDate = order.EndDate
+	}
+	if order.Frequency != nil {
+		existing.Frequency = order.Frequency
+	}
+	if order.OrderedBy != nil {
+		existing.OrderedBy = order.OrderedBy
+	}
+
+	if strings.TrimSpace(existing.Title) == "" {
+		return nil, errors.New("title is required")
+	}
+
+	updated, err := uc.emrrepo.UpdateDoctorOrderByID(existing)
+	if err != nil {
+		return nil, errors.New("failed to update doctor order: " + err.Error())
+	}
+
+	newData, _ := json.Marshal(updated)
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "doctor_orders",
+		RecordID:  updated.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  string(oldData),
+		NewValue:  string(newData),
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for doctor order %s: %v", updated.ID, err)
+	}
+
+	return updated, nil
+}
+
+func (uc *EmrUseCaseImpl) DeleteDoctorOrderByID(orderID string, userID string) error {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return err
+	}
+
+	existing, err := uc.emrrepo.GetDoctorOrderByID(orderID)
+	if err != nil {
+		return errors.New("doctor order not found: " + err.Error())
+	}
+
+	oldData, _ := json.Marshal(existing)
+	if err := uc.emrrepo.DeleteDoctorOrderByID(orderID); err != nil {
+		return errors.New("failed to delete doctor order: " + err.Error())
+	}
+
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "doctor_orders",
+		RecordID:  orderID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionDelete,
+		OldValue:  string(oldData),
+		NewValue:  "",
+	}
+	_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create audit log for deleted doctor order %s: %v", orderID, err)
 	}
 
 	return nil

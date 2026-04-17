@@ -209,6 +209,13 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	relativeNoteGroup.Get("/resident/all", middlewares.JWTMiddleware(jwt), emrController.GetRelativeNotesByResidentHandler)
 	relativeNoteGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateRelativeNoteByIDHandler)
 	relativeNoteGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), emrController.DeleteRelativeNoteByIDHandler)
+
+	doctorOrderGroup := app.Group("/api/emr/doctor-orders")
+	doctorOrderGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateDoctorOrderHandler)
+	doctorOrderGroup.Get("/overview", middlewares.JWTMiddleware(jwt), emrController.GetDoctorOrdersOverviewHandler)
+	doctorOrderGroup.Get("/resident/all", middlewares.JWTMiddleware(jwt), emrController.GetDoctorOrdersByResidentHandler)
+	doctorOrderGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateDoctorOrderByIDHandler)
+	doctorOrderGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), emrController.DeleteDoctorOrderByIDHandler)
 }
 
 func SetupMealRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
