@@ -349,6 +349,30 @@ definitions:
     - allergies
     - resident_id
     type: object
+  models.CreateDoctorOrderRequest:
+    properties:
+      details:
+        type: string
+      end_date:
+        type: string
+      frequency:
+        type: string
+      order_date:
+        type: string
+      order_type:
+        type: string
+      ordered_by:
+        type: string
+      resident_id:
+        type: string
+      start_date:
+        type: string
+      title:
+        type: string
+    required:
+    - resident_id
+    - title
+    type: object
   models.CreateDrugAllergyByResidentRequest:
     properties:
       drug_allergies:
@@ -801,6 +825,25 @@ definitions:
     required:
     - staff_first_name
     - staff_last_name
+    type: object
+  models.UpdateDoctorOrderRequest:
+    properties:
+      details:
+        type: string
+      end_date:
+        type: string
+      frequency:
+        type: string
+      order_date:
+        type: string
+      order_type:
+        type: string
+      ordered_by:
+        type: string
+      start_date:
+        type: string
+      title:
+        type: string
     type: object
   models.UpdateDrugMasterRequest:
     properties:
@@ -1739,6 +1782,313 @@ paths:
       summary: Get Number of Residents for Dashboard
       tags:
       - Dashboard
+  /api/emr/doctor-orders:
+    post:
+      consumes:
+      - application/json
+      description: Create a new doctor order for a resident
+      parameters:
+      - description: Doctor order payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateDoctorOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Doctor order created successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Doctor Order
+      tags:
+      - DoctorOrder
+  /api/emr/doctor-orders/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a doctor order by ID
+      parameters:
+      - description: Doctor Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Doctor order deleted successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete Doctor Order By ID
+      tags:
+      - DoctorOrder
+    patch:
+      consumes:
+      - application/json
+      description: Update doctor order fields by ID
+      parameters:
+      - description: Doctor Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Doctor order payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateDoctorOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Doctor order updated successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                type: object
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Doctor Order By ID
+      tags:
+      - DoctorOrder
+  /api/emr/doctor-orders/overview:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all doctor orders for overview screen
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Doctor orders overview retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Doctor Orders Overview
+      tags:
+      - DoctorOrder
+  /api/emr/doctor-orders/resident/all:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all doctor orders for a specific resident
+      parameters:
+      - description: Resident ID
+        in: query
+        name: resident_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Doctor orders retrieved successfully
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  type: object
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Doctor Orders By Resident
+      tags:
+      - DoctorOrder
   /api/emr/drug-allergies:
     get:
       consumes:
