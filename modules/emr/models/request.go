@@ -217,3 +217,26 @@ type UpdateRelativeNoteRequest struct {
 	Content  *string `json:"content"`
 	SendNote *bool   `json:"send_note"`
 }
+
+type CreateDoctorOrderRequest struct {
+	ResidentID string  `json:"resident_id" binding:"required"`
+	OrderDate  *string `json:"order_date"`
+	OrderType  *string `json:"order_type"`
+	Title      string  `json:"title" binding:"required"`
+	Details    *string `json:"details"`
+	StartDate  *string `json:"start_date"`
+	EndDate    *string `json:"end_date"`
+	Frequency  *string `json:"frequency"`
+	OrderedBy  *string `json:"ordered_by"`
+}
+
+type UpdateDoctorOrderRequest struct {
+	OrderDate *string `json:"order_date"`
+	OrderType *string `json:"order_type"`
+	Title     *string `json:"title"`
+	Details   *string `json:"details"`
+	StartDate *string `json:"start_date"`
+	EndDate   *string `json:"end_date"`
+	Frequency *string `json:"frequency"`
+	OrderedBy *string `json:"ordered_by"`
+}
