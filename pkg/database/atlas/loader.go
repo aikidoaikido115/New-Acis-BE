@@ -40,6 +40,7 @@ func main() {
 		&entities.RelativeNote{},
 		&entities.Activity{},
 		&entities.ActivitySchedule{},
+		&entities.Participation{},
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to load gorm schema: %v\n", err)
