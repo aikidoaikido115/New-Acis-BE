@@ -1,5 +1,41 @@
 basePath: /
 definitions:
+  entities.Activity:
+    properties:
+      activity_id:
+        type: string
+      activity_name:
+        type: string
+      activity_type:
+        type: string
+      description:
+        type: string
+      location:
+        type: string
+      staff:
+        $ref: '#/definitions/entities.Staff'
+      staff_id:
+        type: string
+    type: object
+  entities.ActivitySchedule:
+    properties:
+      activity:
+        $ref: '#/definitions/entities.Activity'
+      activity_id:
+        type: string
+      as_id:
+        type: string
+      created_at:
+        type: string
+      date:
+        type: string
+      end_time:
+        type: string
+      start_time:
+        type: string
+      updated_at:
+        type: string
+    type: object
   entities.Allergy:
     properties:
       allergy_id:
@@ -54,6 +90,11 @@ definitions:
       taken_at:
         type: string
       updated_at:
+        type: string
+    type: object
+  entities.ImageURL:
+    properties:
+      url:
         type: string
     type: object
   entities.IntakeLabels:
@@ -122,6 +163,21 @@ definitions:
       menu_id:
         type: string
       menu_name:
+        type: string
+    type: object
+  entities.Participation:
+    properties:
+      activity_schedule:
+        $ref: '#/definitions/entities.ActivitySchedule'
+      as_id:
+        type: string
+      img_urls:
+        items:
+          $ref: '#/definitions/entities.ImageURL'
+        type: array
+      is_participating:
+        type: boolean
+      resident_id:
         type: string
     type: object
   entities.PersonalDrug:
@@ -257,6 +313,20 @@ definitions:
       resident_id:
         type: string
     type: object
+  entities.Role:
+    properties:
+      name:
+        type: string
+    type: object
+  entities.Staff:
+    properties:
+      staff_id:
+        type: string
+      user:
+        $ref: '#/definitions/entities.User'
+      user_id:
+        type: string
+    type: object
   entities.SupportTicket:
     properties:
       created_at:
@@ -278,6 +348,33 @@ definitions:
       support_ticket_id:
         type: string
       updated_at:
+        type: string
+    type: object
+  entities.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      gender:
+        type: string
+      last_name:
+        type: string
+      nickname:
+        type: string
+      profile_image:
+        type: string
+      role:
+        $ref: '#/definitions/entities.Role'
+      role_id:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      username:
         type: string
     type: object
   entities.VitalSign:
@@ -303,6 +400,23 @@ definitions:
       updated_at:
         type: string
       vital_sign_id:
+        type: string
+    type: object
+  models.ActivityScheduleWithActivitySyncResponse:
+    properties:
+      activity_name:
+        type: string
+      activity_type:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      end_time:
+        type: string
+      location:
+        type: string
+      start_time:
         type: string
     type: object
   models.AdjustWarehouseItemRequest:
@@ -336,6 +450,73 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  models.BulkUpdateParticipationIsParticipatingByResidentIDsRequest:
+    properties:
+      as_id:
+        type: string
+      is_participating:
+        type: boolean
+      resident_ids:
+        items:
+          type: string
+        type: array
+    required:
+    - as_id
+    - resident_ids
+    type: object
+  models.CreateActivityRequest:
+    properties:
+      activity_name:
+        type: string
+      activity_type:
+        type: string
+      description:
+        type: string
+      location:
+        type: string
+    required:
+    - activity_name
+    - activity_type
+    type: object
+  models.CreateActivityScheduleRequest:
+    properties:
+      activity_id:
+        type: string
+      date:
+        type: string
+      end_time:
+        type: string
+      start_time:
+        type: string
+    required:
+    - activity_id
+    - date
+    - end_time
+    - start_time
+    type: object
+  models.CreateActivityScheduleWithActivitySyncRequest:
+    properties:
+      activity_name:
+        type: string
+      activity_type:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      end_time:
+        type: string
+      location:
+        type: string
+      start_time:
+        type: string
+    required:
+    - activity_name
+    - activity_type
+    - date
+    - end_time
+    - start_time
     type: object
   models.CreateAllergyByResidentRequest:
     properties:
@@ -743,6 +924,27 @@ definitions:
       total_not_allergic:
         type: integer
     type: object
+  models.ResidentByScheduleResponse:
+    properties:
+      first_name:
+        type: string
+      floor:
+        type: integer
+      intake_labels:
+        items:
+          type: string
+        type: array
+      is_participating:
+        type: boolean
+      last_name:
+        type: string
+      nickname:
+        type: string
+      resident_id:
+        type: string
+      room_number:
+        type: string
+    type: object
   models.ResidentDrugAllergyItemResponse:
     properties:
       allergy_name:
@@ -825,6 +1027,47 @@ definitions:
     required:
     - staff_first_name
     - staff_last_name
+    type: object
+  models.UpdateActivityRequest:
+    properties:
+      activity_name:
+        type: string
+      activity_type:
+        type: string
+      description:
+        type: string
+      location:
+        type: string
+      staff_id:
+        type: string
+    type: object
+  models.UpdateActivityScheduleRequest:
+    properties:
+      activity_id:
+        type: string
+      date:
+        type: string
+      end_time:
+        type: string
+      start_time:
+        type: string
+    type: object
+  models.UpdateActivityScheduleWithActivitySyncRequest:
+    properties:
+      activity_name:
+        type: string
+      activity_type:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      end_time:
+        type: string
+      location:
+        type: string
+      start_time:
+        type: string
     type: object
   models.UpdateDoctorOrderRequest:
     properties:
@@ -970,6 +1213,1578 @@ info:
   description: This is a sample for New-Acis API.
   title: New-Acis API
 paths:
+  /api/activities:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all activity records
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/entities.Activity'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get All Activities
+      tags:
+      - Activity
+    post:
+      consumes:
+      - application/json
+      description: Create a new activity record
+      parameters:
+      - description: Activity payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateActivityRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.Activity'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Activity
+      tags:
+      - Activity
+  /api/activities/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an activity record
+      parameters:
+      - description: Activity ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete Activity by ID
+      tags:
+      - Activity
+    get:
+      consumes:
+      - application/json
+      description: Retrieve activity by ID
+      parameters:
+      - description: Activity ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.Activity'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Activity by ID
+      tags:
+      - Activity
+    patch:
+      consumes:
+      - application/json
+      description: Update an activity record
+      parameters:
+      - description: Activity ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Activity update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateActivityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.Activity'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Activity by ID
+      tags:
+      - Activity
+  /api/activity-participations:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all participation records
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/entities.Participation'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get All Participations
+      tags:
+      - Participation
+    post:
+      consumes:
+      - multipart/form-data
+      description: Create a new participation record
+      parameters:
+      - description: Resident ID
+        in: formData
+        name: resident_id
+        required: true
+        type: string
+      - description: Activity Schedule ID
+        in: formData
+        name: as_id
+        required: true
+        type: string
+      - description: Is participating
+        in: formData
+        name: is_participating
+        type: boolean
+      - description: Image files to upload (can select multiple)
+        in: formData
+        name: file
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.Participation'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Participation
+      tags:
+      - Participation
+  /api/activity-participations/{resident_id}/{as_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete participation by resident_id and as_id
+      parameters:
+      - description: Resident ID
+        in: path
+        name: resident_id
+        required: true
+        type: string
+      - description: Activity Schedule ID
+        in: path
+        name: as_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete Participation by Composite Key
+      tags:
+      - Participation
+    get:
+      consumes:
+      - application/json
+      description: Retrieve participation by resident_id and as_id
+      parameters:
+      - description: Resident ID
+        in: path
+        name: resident_id
+        required: true
+        type: string
+      - description: Activity Schedule ID
+        in: path
+        name: as_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.Participation'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Participation by Composite Key
+      tags:
+      - Participation
+    patch:
+      consumes:
+      - multipart/form-data
+      description: Update participation by resident_id and as_id. resident_id and
+        as_id are immutable and accepted from path only.
+      parameters:
+      - description: Resident ID (immutable key)
+        in: path
+        name: resident_id
+        required: true
+        type: string
+      - description: Activity Schedule ID (immutable key)
+        in: path
+        name: as_id
+        required: true
+        type: string
+      - description: Is participating
+        in: formData
+        name: is_participating
+        type: boolean
+      - description: Image files to upload (can select multiple)
+        in: formData
+        name: file
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.Participation'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Participation by Composite Key
+      tags:
+      - Participation
+  /api/activity-participations/is-participating/bulk:
+    patch:
+      consumes:
+      - application/json
+      description: Update is_participating for one or more resident IDs in a single
+        request (scoped by as_id)
+      parameters:
+      - description: Bulk participation update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.BulkUpdateParticipationIsParticipatingByResidentIDsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/entities.Participation'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Bulk Update Participation IsParticipating by Resident IDs
+      tags:
+      - Participation
+  /api/activity-schedules:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all activity schedule records
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/entities.ActivitySchedule'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get All Activity Schedules
+      tags:
+      - ActivitySchedule
+    post:
+      consumes:
+      - application/json
+      description: Create a new activity schedule record
+      parameters:
+      - description: Activity schedule payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateActivityScheduleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.ActivitySchedule'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Activity Schedule
+      tags:
+      - ActivitySchedule
+  /api/activity-schedules/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an activity schedule record
+      parameters:
+      - description: Activity Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete Activity Schedule by ID
+      tags:
+      - ActivitySchedule
+    get:
+      consumes:
+      - application/json
+      description: Retrieve activity schedule by ID
+      parameters:
+      - description: Activity Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.ActivitySchedule'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Activity Schedule by ID
+      tags:
+      - ActivitySchedule
+    patch:
+      consumes:
+      - application/json
+      description: Update an activity schedule record
+      parameters:
+      - description: Activity Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Activity schedule update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateActivityScheduleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.ActivitySchedule'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Activity Schedule by ID
+      tags:
+      - ActivitySchedule
+  /api/activity-schedules/{id}/residents:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve residents in a schedule with room and intake labels. Supports
+        filters by search, floor, and intake label IDs.
+      parameters:
+      - description: Activity Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Search by resident first_name, last_name, nickname
+        in: query
+        name: search
+        type: string
+      - description: Filter by room floor
+        in: query
+        name: floor
+        type: integer
+      - collectionFormat: csv
+        description: Filter by intake label IDs (match all provided labels)
+        in: query
+        items:
+          type: string
+        name: label_ids
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/models.ResidentByScheduleResponse'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Residents by Activity Schedule ID (Custom)
+      tags:
+      - Participation
+  /api/activity-schedules/sync:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve joined activity and activity schedule records. Optional
+        query param date (YYYY-MM-DD) to filter by date.
+      parameters:
+      - description: Filter by date (YYYY-MM-DD)
+        in: query
+        name: date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/models.ActivityScheduleWithActivitySyncResponse'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get All Activity Schedules with Activity Sync
+      tags:
+      - ActivitySchedule
+    post:
+      consumes:
+      - application/json
+      description: Create a new schedule by activity name. Reuse existing activity
+        when attributes match, update activity when attributes changed, or create
+        new activity when name does not exist.
+      parameters:
+      - description: Activity and schedule payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateActivityScheduleWithActivitySyncRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.ActivitySchedule'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Activity Schedule with Activity Sync
+      tags:
+      - ActivitySchedule
+  /api/activity-schedules/sync/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a clean activity-schedule view by schedule ID with only
+        activity_name, activity_type, date, start_time, end_time, location, and description.
+      parameters:
+      - description: Activity Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/models.ActivityScheduleWithActivitySyncResponse'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Activity Schedule with Activity Sync by ID
+      tags:
+      - ActivitySchedule
+    patch:
+      consumes:
+      - application/json
+      description: Partially update activity and activity schedule in one request.
+        If activity_name is changed to an existing name, an error is returned.
+      parameters:
+      - description: Activity Schedule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Activity and schedule partial update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateActivityScheduleWithActivitySyncRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/entities.ActivitySchedule'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update Activity Schedule with Activity Sync by ID
+      tags:
+      - ActivitySchedule
   /api/auth/forgotpassword:
     post:
       consumes:

@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/configs"
+	activityController "github.com/aikidoaikido115/New-Acis-BE/modules/activity/controllers"
+	activityRepository "github.com/aikidoaikido115/New-Acis-BE/modules/activity/repositories"
+	activityUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/activity/usecases"
 
 	mealController "github.com/aikidoaikido115/New-Acis-BE/modules/meal/controllers"
 	mealRepository "github.com/aikidoaikido115/New-Acis-BE/modules/meal/repositories"
@@ -87,6 +90,7 @@ func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa co
 	SetupEmrRoutes(app, db, jwt, supa)
 	SetupMedicineRoutes(app, db, jwt)
 	SetupMealRoutes(app, db, jwt)
+	SetupActivityRoutes(app, db, jwt, supa)
 	SetupWarehouseRoutes(app, db, jwt)
 	SetupSupportRoutes(app, db, jwt)
 
@@ -286,6 +290,40 @@ func SetupMedicineRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	drugPlanGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), drugController.DeleteDrugPlanByIDHandler)
 }
 
+func SetupActivityRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.Supabase) {
+	activityRepository := activityRepository.NewGormActivityRepository(db)
+	userRepository := userRepository.NewGormUserRepository(db)
+	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
+	activityUsecase := activityUsecase.NewActivityUseCase(activityRepository, userRepository, auditLogRepository, supa)
+	activityController := activityController.NewActivityController(activityUsecase)
+
+	activityGroup := app.Group("/api/activities")
+	activityGroup.Post("/", middlewares.JWTMiddleware(jwt), activityController.CreateActivityHandler)
+	activityGroup.Get("/", middlewares.JWTMiddleware(jwt), activityController.GetAllActivitiesHandler)
+	activityGroup.Get("/:id", middlewares.JWTMiddleware(jwt), activityController.GetActivityByIDHandler)
+	activityGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), activityController.UpdateActivityByIDHandler)
+	activityGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), activityController.DeleteActivityByIDHandler)
+
+	activityScheduleGroup := app.Group("/api/activity-schedules")
+	activityScheduleGroup.Post("/sync", middlewares.JWTMiddleware(jwt), activityController.CreateActivityScheduleWithActivitySyncHandler)
+	activityScheduleGroup.Get("/sync", middlewares.JWTMiddleware(jwt), activityController.GetAllActivitySchedulesWithActivitySyncHandler)
+	activityScheduleGroup.Get("/sync/:id", middlewares.JWTMiddleware(jwt), activityController.GetActivityScheduleWithActivitySyncByIDHandler)
+	activityScheduleGroup.Patch("/sync/:id", middlewares.JWTMiddleware(jwt), activityController.UpdateActivityScheduleWithActivitySyncByIDHandler)
+	activityScheduleGroup.Post("/", middlewares.JWTMiddleware(jwt), activityController.CreateActivityScheduleHandler)
+	activityScheduleGroup.Get("/", middlewares.JWTMiddleware(jwt), activityController.GetAllActivitySchedulesHandler)
+	activityScheduleGroup.Get("/:id/residents", middlewares.JWTMiddleware(jwt), activityController.GetResidentsByScheduleIDCustomHandler)
+	activityScheduleGroup.Get("/:id", middlewares.JWTMiddleware(jwt), activityController.GetActivityScheduleByIDHandler)
+	activityScheduleGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), activityController.UpdateActivityScheduleByIDHandler)
+	activityScheduleGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), activityController.DeleteActivityScheduleByIDHandler)
+
+	participationGroup := app.Group("/api/activity-participations")
+	participationGroup.Post("/", middlewares.JWTMiddleware(jwt), activityController.CreateParticipationHandler)
+	participationGroup.Get("/", middlewares.JWTMiddleware(jwt), activityController.GetAllParticipationsHandler)
+	participationGroup.Patch("/is-participating/bulk", middlewares.JWTMiddleware(jwt), activityController.BulkUpdateParticipationIsParticipatingByResidentIDsHandler)
+	participationGroup.Get("/:resident_id/:as_id", middlewares.JWTMiddleware(jwt), activityController.GetParticipationByResidentIDAndASIDHandler)
+	participationGroup.Patch("/:resident_id/:as_id", middlewares.JWTMiddleware(jwt), activityController.UpdateParticipationByResidentIDAndASIDHandler)
+	participationGroup.Delete("/:resident_id/:as_id", middlewares.JWTMiddleware(jwt), activityController.DeleteParticipationByResidentIDAndASIDHandler)
+}
 func SetupWarehouseRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
 	userRepository := userRepository.NewGormUserRepository(db)
