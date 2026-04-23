@@ -687,8 +687,8 @@ func (uc *WarehouseUseCaseImpl) ensureMedicalStaff(userID string) error {
 		return errors.New("failed to get user role: " + err.Error())
 	}
 
-	if role.Name != user_constants.RoleMedicalStaff {
-		return errors.New("only users with 'Medical Staff' role can manage warehouse data")
+	if role.Name != user_constants.RoleMedicalStaff && role.Name != user_constants.RoleSuperAdmin {
+		return errors.New("only users with 'Medical Staff' or 'Super Admin' role can manage warehouse data")
 	}
 
 	return nil

@@ -25,6 +25,10 @@ func SeedRoles(db *gorm.DB) {
 			ID:   "3",
 			Name: user_constants.RoleRelative,
 		},
+		{
+			ID:   "4",
+			Name: user_constants.RoleSuperAdmin,
+		},
 	}
 
 	for _, role := range roles {
