@@ -2569,6 +2569,258 @@ func (c *EmrController) DeleteRelativeNoteByIDHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// CreateDoctorOrderHandler godoc
+// @Summary Create Doctor Order
+// @Description Create a new doctor order for a resident
+// @Tags DoctorOrder
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body models.CreateDoctorOrderRequest true "Doctor order payload"
+// @Success 201 {object} object{status=string,status_code=int,message=string,result=object} "Doctor order created successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/doctor-orders [post]
+func (c *EmrController) CreateDoctorOrderHandler(ctx *fiber.Ctx) error {
+	var req models.CreateDoctorOrderRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	order := &entities.DoctorOrder{
+		ResidentID: req.ResidentID,
+		OrderDate:  req.OrderDate,
+		OrderType:  req.OrderType,
+		Title:      req.Title,
+		Details:    req.Details,
+		StartDate:  req.StartDate,
+		EndDate:    req.EndDate,
+		Frequency:  req.Frequency,
+		OrderedBy:  req.OrderedBy,
+	}
+
+	created, err := c.emrUsecase.CreateDoctorOrder(order, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusCreated,
+		"message":     "doctor order created successfully",
+		"result":      created,
+	})
+}
+
+// GetDoctorOrdersOverviewHandler godoc
+// @Summary Get Doctor Orders Overview
+// @Description Retrieve all doctor orders for overview screen
+// @Tags DoctorOrder
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "Doctor orders overview retrieved successfully"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/doctor-orders/overview [get]
+func (c *EmrController) GetDoctorOrdersOverviewHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.GetDoctorOrdersOverview(userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "doctor orders overview retrieved successfully",
+		"result":      result,
+	})
+}
+
+// GetDoctorOrdersByResidentHandler godoc
+// @Summary Get Doctor Orders By Resident
+// @Description Retrieve all doctor orders for a specific resident
+// @Tags DoctorOrder
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param resident_id query string true "Resident ID"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "Doctor orders retrieved successfully"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/doctor-orders/resident/all [get]
+func (c *EmrController) GetDoctorOrdersByResidentHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Query("resident_id")
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.GetDoctorOrdersByResidentID(residentID, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "doctor orders retrieved successfully",
+		"result":      result,
+	})
+}
+
+// UpdateDoctorOrderByIDHandler godoc
+// @Summary Update Doctor Order By ID
+// @Description Update doctor order fields by ID
+// @Tags DoctorOrder
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Doctor Order ID"
+// @Param request body models.UpdateDoctorOrderRequest true "Doctor order payload"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "Doctor order updated successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/doctor-orders/{id} [patch]
+func (c *EmrController) UpdateDoctorOrderByIDHandler(ctx *fiber.Ctx) error {
+	var req models.UpdateDoctorOrderRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	order := &entities.DoctorOrder{
+		OrderDate: req.OrderDate,
+		OrderType: req.OrderType,
+		Details:   req.Details,
+		StartDate: req.StartDate,
+		EndDate:   req.EndDate,
+		Frequency: req.Frequency,
+		OrderedBy: req.OrderedBy,
+	}
+	if req.Title != nil {
+		order.Title = *req.Title
+	}
+
+	updated, err := c.emrUsecase.UpdateDoctorOrderByID(ctx.Params("id"), order, userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "doctor order updated successfully",
+		"result":      updated,
+	})
+}
+
+// DeleteDoctorOrderByIDHandler godoc
+// @Summary Delete Doctor Order By ID
+// @Description Delete a doctor order by ID
+// @Tags DoctorOrder
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Doctor Order ID"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=any} "Doctor order deleted successfully"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/doctor-orders/{id} [delete]
+func (c *EmrController) DeleteDoctorOrderByIDHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	if err := c.emrUsecase.DeleteDoctorOrderByID(ctx.Params("id"), userID); err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "doctor order deleted successfully",
+		"result":      nil,
+	})
+}
+
 func derefString(input *string) string {
 	if input == nil {
 		return ""

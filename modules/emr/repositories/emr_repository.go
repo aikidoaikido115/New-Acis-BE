@@ -140,6 +140,14 @@ type EmrRepository interface {
 	UpdateRelativeNoteByID(note *entities.RelativeNote) (*entities.RelativeNote, error)
 	DeleteRelativeNoteByID(id string) error
 
+	// DoctorOrder operations
+	CreateDoctorOrder(order *entities.DoctorOrder) (*entities.DoctorOrder, error)
+	GetDoctorOrderByID(id string) (*entities.DoctorOrder, error)
+	GetDoctorOrdersOverview() ([]*entities.DoctorOrder, error)
+	GetDoctorOrdersByResidentID(residentID string) ([]*entities.DoctorOrder, error)
+	UpdateDoctorOrderByID(order *entities.DoctorOrder) (*entities.DoctorOrder, error)
+	DeleteDoctorOrderByID(id string) error
+
 	// todo เพราะมันเจาะจงว่า ค่าไหนของ vital sign อีกทีนึง
 	// GetLatestVitalSignsGreaterThanCustom(params models.VitalSignQueryParams, greaterThan float64) ([]*entities.VitalSign, error)
 	// GetLatestVitalSignsLessThanCustom(params models.VitalSignQueryParams, lessThan float64) ([]*entities.VitalSign, error)
@@ -1370,4 +1378,46 @@ func (r *GormEmrRepository) UpdateRelativeNoteByID(note *entities.RelativeNote) 
 
 func (r *GormEmrRepository) DeleteRelativeNoteByID(id string) error {
 	return r.db.Where("id = ?", id).Delete(&entities.RelativeNote{}).Error
+}
+
+func (r *GormEmrRepository) CreateDoctorOrder(order *entities.DoctorOrder) (*entities.DoctorOrder, error) {
+	if err := r.db.Create(&order).Error; err != nil {
+		return nil, err
+	}
+	return r.GetDoctorOrderByID(order.ID)
+}
+
+func (r *GormEmrRepository) GetDoctorOrderByID(id string) (*entities.DoctorOrder, error) {
+	var order entities.DoctorOrder
+	if err := r.db.Preload("Resident").Where("id = ?", id).First(&order).Error; err != nil {
+		return nil, err
+	}
+	return &order, nil
+}
+
+func (r *GormEmrRepository) GetDoctorOrdersOverview() ([]*entities.DoctorOrder, error) {
+	var orders []*entities.DoctorOrder
+	if err := r.db.Order("created_at DESC").Find(&orders).Error; err != nil {
+		return nil, err
+	}
+	return orders, nil
+}
+
+func (r *GormEmrRepository) GetDoctorOrdersByResidentID(residentID string) ([]*entities.DoctorOrder, error) {
+	var orders []*entities.DoctorOrder
+	if err := r.db.Where("resident_id = ?", residentID).Order("created_at DESC").Find(&orders).Error; err != nil {
+		return nil, err
+	}
+	return orders, nil
+}
+
+func (r *GormEmrRepository) UpdateDoctorOrderByID(order *entities.DoctorOrder) (*entities.DoctorOrder, error) {
+	if err := r.db.Save(&order).Error; err != nil {
+		return nil, err
+	}
+	return r.GetDoctorOrderByID(order.ID)
+}
+
+func (r *GormEmrRepository) DeleteDoctorOrderByID(id string) error {
+	return r.db.Where("id = ?", id).Delete(&entities.DoctorOrder{}).Error
 }

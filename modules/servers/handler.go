@@ -16,9 +16,15 @@ import (
 	medicineController "github.com/aikidoaikido115/New-Acis-BE/modules/medicine/controllers"
 	medicineRepository "github.com/aikidoaikido115/New-Acis-BE/modules/medicine/repositories"
 	medicineUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/medicine/usecases"
+	supportController "github.com/aikidoaikido115/New-Acis-BE/modules/support/controllers"
+	supportRepository "github.com/aikidoaikido115/New-Acis-BE/modules/support/repositories"
+	supportUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/support/usecases"
 	userController "github.com/aikidoaikido115/New-Acis-BE/modules/user/controllers"
 	userRepository "github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
 	userUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/user/usecases"
+	warehouseController "github.com/aikidoaikido115/New-Acis-BE/modules/warehouse/controllers"
+	warehouseRepository "github.com/aikidoaikido115/New-Acis-BE/modules/warehouse/repositories"
+	warehouseUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/warehouse/usecases"
 
 	auditLogRepository "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
 
@@ -85,6 +91,8 @@ func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa co
 	SetupMedicineRoutes(app, db, jwt)
 	SetupMealRoutes(app, db, jwt)
 	SetupActivityRoutes(app, db, jwt, supa)
+	SetupWarehouseRoutes(app, db, jwt)
+	SetupSupportRoutes(app, db, jwt)
 
 	// API group
 	api := app.Group("/api")
@@ -205,6 +213,13 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	relativeNoteGroup.Get("/resident/all", middlewares.JWTMiddleware(jwt), emrController.GetRelativeNotesByResidentHandler)
 	relativeNoteGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateRelativeNoteByIDHandler)
 	relativeNoteGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), emrController.DeleteRelativeNoteByIDHandler)
+
+	doctorOrderGroup := app.Group("/api/emr/doctor-orders")
+	doctorOrderGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateDoctorOrderHandler)
+	doctorOrderGroup.Get("/overview", middlewares.JWTMiddleware(jwt), emrController.GetDoctorOrdersOverviewHandler)
+	doctorOrderGroup.Get("/resident/all", middlewares.JWTMiddleware(jwt), emrController.GetDoctorOrdersByResidentHandler)
+	doctorOrderGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateDoctorOrderByIDHandler)
+	doctorOrderGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), emrController.DeleteDoctorOrderByIDHandler)
 }
 
 func SetupMealRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
@@ -308,4 +323,38 @@ func SetupActivityRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa conf
 	participationGroup.Get("/:resident_id/:as_id", middlewares.JWTMiddleware(jwt), activityController.GetParticipationByResidentIDAndASIDHandler)
 	participationGroup.Patch("/:resident_id/:as_id", middlewares.JWTMiddleware(jwt), activityController.UpdateParticipationByResidentIDAndASIDHandler)
 	participationGroup.Delete("/:resident_id/:as_id", middlewares.JWTMiddleware(jwt), activityController.DeleteParticipationByResidentIDAndASIDHandler)
+}
+func SetupWarehouseRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
+	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
+	userRepository := userRepository.NewGormUserRepository(db)
+	warehouseRepository := warehouseRepository.NewGormWarehouseRepository(db)
+	warehouseUsecase := warehouseUsecase.NewWarehouseUseCase(warehouseRepository, auditLogRepository, userRepository)
+	warehouseController := warehouseController.NewWarehouseController(warehouseUsecase)
+
+	warehouseItemGroup := app.Group("/api/warehouse/items")
+	warehouseItemGroup.Get("/", middlewares.JWTMiddleware(jwt), warehouseController.GetWarehouseItemsHandler)
+	warehouseItemGroup.Post("/", middlewares.JWTMiddleware(jwt), warehouseController.CreateWarehouseItemHandler)
+	warehouseItemGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), warehouseController.UpdateWarehouseItemByIDHandler)
+	warehouseItemGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), warehouseController.DeleteWarehouseItemByIDHandler)
+	warehouseItemGroup.Post("/:id/adjust", middlewares.JWTMiddleware(jwt), warehouseController.AdjustWarehouseItemByIDHandler)
+
+	warehouseTransactionGroup := app.Group("/api/warehouse/transactions")
+	warehouseTransactionGroup.Get("/", middlewares.JWTMiddleware(jwt), warehouseController.GetWarehouseTransactionsHandler)
+	warehouseTransactionGroup.Get("/:id", middlewares.JWTMiddleware(jwt), warehouseController.GetWarehouseTransactionByIDHandler)
+	warehouseTransactionGroup.Patch("/approve", middlewares.JWTMiddleware(jwt), warehouseController.ApproveTransactionsHandler)
+	warehouseTransactionGroup.Patch("/reject", middlewares.JWTMiddleware(jwt), warehouseController.RejectTransactionsHandler)
+}
+
+func SetupSupportRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
+	userRepository := userRepository.NewGormUserRepository(db)
+	supportRepository := supportRepository.NewGormSupportRepository(db)
+	supportUsecase := supportUsecase.NewSupportUseCase(supportRepository, userRepository)
+	supportController := supportController.NewSupportController(supportUsecase)
+
+	supportGroup := app.Group("/api/support/tickets")
+	supportGroup.Get("/", middlewares.JWTMiddleware(jwt), supportController.GetSupportTicketsHandler)
+	supportGroup.Get("/:id", middlewares.JWTMiddleware(jwt), supportController.GetSupportTicketByIDHandler)
+	supportGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), supportController.DeleteSupportTicketByIDHandler)
+	supportGroup.Patch("/:id/status", middlewares.JWTMiddleware(jwt), supportController.UpdateSupportTicketStatusHandler)
+	supportGroup.Post("/", middlewares.JWTMiddleware(jwt), supportController.CreateSupportTicketHandler)
 }
