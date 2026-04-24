@@ -195,8 +195,8 @@ func (uc *SupportUseCaseImpl) ensureAllowedReporter(userID string) (string, erro
 		return "", errors.New("failed to get user role: " + err.Error())
 	}
 
-	if role.Name != user_constants.RoleMedicalStaff && role.Name != user_constants.RoleKitchenStaff && role.Name != user_constants.RoleSuperAdmin {
-		return "", errors.New("only users with 'Medical Staff', 'Kitchen Staff', or 'Super Admin' role can create support tickets")
+	if role.Name != user_constants.RoleMedicalStaff && role.Name != user_constants.RoleKitchenStaff && role.Name != user_constants.RoleSuperUser {
+		return "", errors.New("only users with 'Medical Staff', 'Kitchen Staff', or 'Super User' role can create support tickets")
 	}
 
 	return role.Name, nil
@@ -218,8 +218,8 @@ func (uc *SupportUseCaseImpl) ensureMedicalStaffAdmin(userID string) error {
 		return errors.New("failed to get user role: " + err.Error())
 	}
 
-	if role.Name != user_constants.RoleMedicalStaff && role.Name != user_constants.RoleSuperAdmin {
-		return errors.New("only users with 'Medical Staff' or 'Super Admin' role can manage support tickets")
+	if role.Name != user_constants.RoleMedicalStaff && role.Name != user_constants.RoleSuperUser {
+		return errors.New("only users with 'Medical Staff' or 'Super User' role can manage support tickets")
 	}
 
 	return nil
