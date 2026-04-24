@@ -27,7 +27,11 @@ func SeedRoles(db *gorm.DB) {
 		},
 		{
 			ID:   "4",
-			Name: user_constants.RoleSuperAdmin,
+			Name: user_constants.RoleSuperUser,
+		},
+		{
+			ID:   "5",
+			Name: user_constants.RoleAdmin,
 		},
 	}
 
