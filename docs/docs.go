@@ -7689,106 +7689,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/emr/laboratory-values/abnormal": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieve a list of residents with abnormal laboratory values today, with optional floor filter and option to get only the latest entry per resident. is_latest must be 'true' or 'false'",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "LaboratoryValue"
-                ],
-                "summary": "Get Abnormal Laboratory Values",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Filter by floor",
-                        "name": "floor",
-                        "in": "query"
-                    },
-                    {
-                        "enum": [
-                            "true",
-                            "false"
-                        ],
-                        "type": "string",
-                        "description": "Retrieve only the latest abnormal laboratory value entry per resident ('true' or 'false')",
-                        "name": "is_latest",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                },
-                                "result": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
-                                },
-                                "status": {
-                                    "type": "string"
-                                },
-                                "status_code": {
-                                    "type": "integer"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                },
-                                "result": {},
-                                "status": {
-                                    "type": "string"
-                                },
-                                "status_code": {
-                                    "type": "integer"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                },
-                                "result": {},
-                                "status": {
-                                    "type": "string"
-                                },
-                                "status_code": {
-                                    "type": "integer"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/api/emr/laboratory-values/history/{resident_id}": {
             "get": {
                 "security": [
@@ -7886,7 +7786,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get today's laboratory values with optional filters. laboratory_value_status: 'all' (default), 'normal', or 'abnormal'. urine_type must be 'ml' or 'times' and must be provided together with urine_output.",
+                "description": "Get laboratory values for a specific date with optional filters. laboratory_value_status: 'all' (default), 'normal', or 'abnormal'. urine_type must be 'ml' or 'times' and must be provided together with urine_output.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7898,6 +7798,19 @@ const docTemplate = `{
                 ],
                 "summary": "Get Laboratory Values Overview",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by date (format: YYYY-MM-DD)",
+                        "name": "date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by time of day (เช้า/สาย/บ่าย/เย็น/กลางคืน)",
+                        "name": "time_of_day",
+                        "in": "query"
+                    },
                     {
                         "type": "integer",
                         "description": "Filter by floor",
@@ -8015,7 +7928,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve laboratory values today for a specific resident, with an option to get only the latest entry. is_latest must be 'true' or 'false'",
+                "description": "Retrieve laboratory values for a specific resident on a specific date, with an option to get only the latest entry. is_latest must be 'true' or 'false'",
                 "consumes": [
                     "application/json"
                 ],
@@ -8031,6 +7944,13 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Resident ID",
                         "name": "resident_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by date (format: YYYY-MM-DD)",
+                        "name": "date",
                         "in": "query",
                         "required": true
                     },
@@ -10151,7 +10071,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a new vital sign entry for a resident",
+                "description": "Create a new vital sign entry for a resident on a selected date and time slot",
                 "consumes": [
                     "application/json"
                 ],
@@ -10221,88 +10141,6 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "result": {},
-                                "status": {
-                                    "type": "string"
-                                },
-                                "status_code": {
-                                    "type": "integer"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                },
-                                "result": {},
-                                "status": {
-                                    "type": "string"
-                                },
-                                "status_code": {
-                                    "type": "integer"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/emr/vital-signs/abnormal": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieve a list of residents with abnormal vital signs today, with optional floor filter and option to get only the latest entry per resident. is_latest must be 'true' or 'false'",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "VitalSign"
-                ],
-                "summary": "Get Abnormal Vital Signs",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Filter by floor",
-                        "name": "floor",
-                        "in": "query"
-                    },
-                    {
-                        "enum": [
-                            "true",
-                            "false"
-                        ],
-                        "type": "string",
-                        "description": "Retrieve only the latest abnormal vital sign entry per resident ('true' or 'false')",
-                        "name": "is_latest",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                },
-                                "result": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
-                                },
                                 "status": {
                                     "type": "string"
                                 },
@@ -10430,7 +10268,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get today's vital signs with optional filters. vitalsign_status: 'all' (default), 'normal', or 'abnormal'",
+                "description": "Get vital signs by selected date with optional filters. vitalsign_status: 'all' (default), 'normal', or 'abnormal'",
                 "consumes": [
                     "application/json"
                 ],
@@ -10442,6 +10280,31 @@ const docTemplate = `{
                 ],
                 "summary": "Get Vital Signs Overview",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Selected date (YYYY-MM-DD)",
+                        "name": "date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "เช้า",
+                            "สาย",
+                            "บ่าย",
+                            "เย็น",
+                            "กลางคืน",
+                            "morning",
+                            "late_morning",
+                            "afternoon",
+                            "evening",
+                            "night"
+                        ],
+                        "type": "string",
+                        "description": "Time of day filter",
+                        "name": "time_of_day",
+                        "in": "query"
+                    },
                     {
                         "type": "integer",
                         "description": "Filter by floor",
@@ -10549,7 +10412,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve vital signs today for a specific resident, with an option to get only the latest entry. is_latest must be 'true' or 'false'",
+                "description": "Retrieve vital signs on a selected date for a specific resident, with an option to get only the latest entry. is_latest must be 'true' or 'false'",
                 "consumes": [
                     "application/json"
                 ],
@@ -10569,6 +10432,13 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+                        "type": "string",
+                        "description": "Selected date (YYYY-MM-DD)",
+                        "name": "date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
                         "enum": [
                             "true",
                             "false"
@@ -10576,8 +10446,7 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Retrieve only the latest vital sign entry ('true' or 'false')",
                         "name": "is_latest",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -13971,11 +13840,17 @@ const docTemplate = `{
                 "laboratory_value_id": {
                     "type": "string"
                 },
+                "measurement_date": {
+                    "type": "string"
+                },
                 "resident_id": {
                     "type": "string"
                 },
                 "stool": {
                     "type": "integer"
+                },
+                "time_of_day": {
+                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
@@ -14376,6 +14251,9 @@ const docTemplate = `{
                 "heart_rate": {
                     "type": "integer"
                 },
+                "measurement_date": {
+                    "type": "string"
+                },
                 "oxygen_saturation": {
                     "type": "integer"
                 },
@@ -14384,6 +14262,9 @@ const docTemplate = `{
                 },
                 "temperature": {
                     "type": "number"
+                },
+                "time_of_day": {
+                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
@@ -14687,11 +14568,16 @@ const docTemplate = `{
         "models.CreateLaboratoryValueRequest": {
             "type": "object",
             "required": [
-                "resident_id"
+                "date",
+                "resident_id",
+                "time_of_day"
             ],
             "properties": {
                 "blood_glucose": {
                     "type": "number"
+                },
+                "date": {
+                    "type": "string"
                 },
                 "diaper_change": {
                     "type": "integer"
@@ -14707,6 +14593,9 @@ const docTemplate = `{
                 },
                 "stool": {
                     "type": "integer"
+                },
+                "time_of_day": {
+                    "type": "string"
                 },
                 "urine_output": {
                     "type": "number"
@@ -14834,7 +14723,9 @@ const docTemplate = `{
         "models.CreateVitalSignRequest": {
             "type": "object",
             "required": [
-                "resident_id"
+                "date",
+                "resident_id",
+                "time_of_day"
             ],
             "properties": {
                 "blood_pressure_diastolic": {
@@ -14845,6 +14736,9 @@ const docTemplate = `{
                 },
                 "breathing_rate": {
                     "type": "integer"
+                },
+                "date": {
+                    "type": "string"
                 },
                 "heart_rate": {
                     "type": "integer"
@@ -14857,6 +14751,9 @@ const docTemplate = `{
                 },
                 "temperature": {
                     "type": "number"
+                },
+                "time_of_day": {
+                    "type": "string"
                 }
             }
         },
@@ -15025,13 +14922,92 @@ const docTemplate = `{
                 }
             }
         },
+        "models.LaboratoryValueFieldStatus": {
+            "type": "object",
+            "properties": {
+                "is_abnormal": {
+                    "type": "boolean"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.LaboratoryValuesOverviewItemResponse": {
+            "type": "object",
+            "properties": {
+                "abnormal_list": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "blood_glucose": {
+                    "type": "number"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by_staff_id": {
+                    "type": "string"
+                },
+                "diaper_change": {
+                    "type": "integer"
+                },
+                "field_statuses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LaboratoryValueFieldStatus"
+                    }
+                },
+                "fluid_in": {
+                    "type": "number"
+                },
+                "fluid_out": {
+                    "type": "number"
+                },
+                "laboratory_value_id": {
+                    "type": "string"
+                },
+                "measurement_date": {
+                    "type": "string"
+                },
+                "normal_list": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "resident_id": {
+                    "type": "string"
+                },
+                "stool": {
+                    "type": "integer"
+                },
+                "time_of_day": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "urine_output": {
+                    "type": "number"
+                },
+                "urine_type": {
+                    "type": "string"
+                }
+            }
+        },
         "models.LaboratoryValuesOverviewResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/entities.LaboratoryValue"
+                        "$ref": "#/definitions/models.LaboratoryValuesOverviewItemResponse"
                     }
                 },
                 "pagination": {
@@ -15572,13 +15548,89 @@ const docTemplate = `{
                 }
             }
         },
+        "models.VitalSignFieldStatus": {
+            "type": "object",
+            "properties": {
+                "is_abnormal": {
+                    "type": "boolean"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.VitalSignsOverviewItemResponse": {
+            "type": "object",
+            "properties": {
+                "abnormal_list": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "blood_pressure_diastolic": {
+                    "type": "integer"
+                },
+                "blood_pressure_systolic": {
+                    "type": "integer"
+                },
+                "breathing_rate": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by_staff_id": {
+                    "type": "string"
+                },
+                "field_statuses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.VitalSignFieldStatus"
+                    }
+                },
+                "heart_rate": {
+                    "type": "integer"
+                },
+                "measurement_date": {
+                    "type": "string"
+                },
+                "normal_list": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "oxygen_saturation": {
+                    "type": "integer"
+                },
+                "resident_id": {
+                    "type": "string"
+                },
+                "temperature": {
+                    "type": "number"
+                },
+                "time_of_day": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "vital_sign_id": {
+                    "type": "string"
+                }
+            }
+        },
         "models.VitalSignsOverviewResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/entities.VitalSign"
+                        "$ref": "#/definitions/models.VitalSignsOverviewItemResponse"
                     }
                 },
                 "pagination": {

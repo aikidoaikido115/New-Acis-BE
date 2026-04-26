@@ -78,23 +78,21 @@ type EmrUsecase interface {
 	GetAllResidentDrugAllergies(userID string) ([]*models.ResidentDrugAllergyListResponse, error)
 
 	// VitalSign operations
-	CreateVitalSign(vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error)
+	CreateVitalSign(vitalSign *entities.VitalSign, dateInput string, userID string) (*entities.VitalSign, error)
 
 	GetVitalSignsOverview(req models.VitalSignQueryParams, userID string) (*models.VitalSignsOverviewResponse, error)
-	GetVitalSignsByResident(residentID string, isLatest string, userID string) ([]*entities.VitalSign, error)
+	GetVitalSignsByResident(residentID string, dateInput string, isLatest string, userID string) ([]*entities.VitalSign, error)
 	GetRoomVitalSigns(roomID string, isLatest string, userID string) ([]*entities.VitalSign, error)
 	GetVitalSignsHistory(residentID string, userID string) ([]*entities.VitalSign, error)
-	GetAbnormalVitalSigns(floor string, isLatest string, userID string) ([]*entities.VitalSign, error)
 
 	UpdateVitalSignByID(vitalSignID string, vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error)
 
 	// LaboratoryValue operations
-	CreateLaboratoryValue(laboratoryValue *entities.LaboratoryValue, userID string) (*entities.LaboratoryValue, error)
+	CreateLaboratoryValue(laboratoryValue *entities.LaboratoryValue, dateInput string, timeOfDayInput string, userID string) (*entities.LaboratoryValue, error)
 	GetLaboratoryValuesOverview(req models.LaboratoryValueQueryParams, userID string) (*models.LaboratoryValuesOverviewResponse, error)
-	GetLaboratoryValuesByResident(residentID string, isLatest string, userID string) ([]*entities.LaboratoryValue, error)
+	GetLaboratoryValuesByResident(residentID string, dateInput string, isLatest string, userID string) ([]*entities.LaboratoryValue, error)
 	GetRoomLaboratoryValues(roomID string, isLatest string, userID string) ([]*entities.LaboratoryValue, error)
 	GetLaboratoryValuesHistory(residentID string, userID string) ([]*entities.LaboratoryValue, error)
-	GetAbnormalLaboratoryValues(floor string, isLatest string, userID string) ([]*entities.LaboratoryValue, error)
 	GetUrineOutputSumByResidentID(residentID string, req models.LaboratoryValueQueryParams, userID string) (*models.UrineOutputSummaryByResidentResponse, error)
 
 	UpdateLaboratoryValueByID(laboratoryValueID string, laboratoryValue *entities.LaboratoryValue, userID string) (*entities.LaboratoryValue, error)
@@ -1434,7 +1432,52 @@ func (uc *EmrUseCaseImpl) GetAllResidentDrugAllergies(userID string) ([]*models.
 	return residentDrugAllergies, nil
 }
 
-func (uc *EmrUseCaseImpl) CreateVitalSign(vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error) {
+func parseVitalSignDateInput(value string) (time.Time, error) {
+	v := strings.TrimSpace(value)
+	if v == "" {
+		return time.Time{}, errors.New("date is required")
+	}
+
+	layouts := []string{"2006-01-02", "02-01-2006", "02/01/2006"}
+	for _, layout := range layouts {
+		parsed, err := time.Parse(layout, v)
+		if err == nil {
+			return parsed, nil
+		}
+	}
+
+	return time.Time{}, errors.New("date must be in YYYY-MM-DD, DD-MM-YYYY, or DD/MM/YYYY format")
+}
+
+func normalizeVitalSignTimeOfDay(value string) (string, error) {
+	v := strings.ToLower(strings.TrimSpace(value))
+	if v == "" {
+		return "", errors.New("time_of_day is required")
+	}
+
+	allowed := map[string]string{
+		"เช้า":         "เช้า",
+		"morning":      "เช้า",
+		"สาย":          "สาย",
+		"late_morning": "สาย",
+		"midmorning":   "สาย",
+		"noon":         "สาย",
+		"บ่าย":         "บ่าย",
+		"afternoon":    "บ่าย",
+		"เย็น":         "เย็น",
+		"evening":      "เย็น",
+		"กลางคืน":      "กลางคืน",
+		"night":        "กลางคืน",
+	}
+
+	if normalized, ok := allowed[v]; ok {
+		return normalized, nil
+	}
+
+	return "", errors.New("time_of_day must be one of: เช้า, สาย, บ่าย, เย็น, กลางคืน")
+}
+
+func (uc *EmrUseCaseImpl) CreateVitalSign(vitalSign *entities.VitalSign, dateInput string, userID string) (*entities.VitalSign, error) {
 
 	user, err := uc.userrepo.GetUserByID(userID)
 	if err != nil {
@@ -1461,6 +1504,25 @@ func (uc *EmrUseCaseImpl) CreateVitalSign(vitalSign *entities.VitalSign, userID 
 	}
 	if !residentExists {
 		return nil, errors.New("resident does not exist or missing resident ID")
+	}
+
+	measurementDate, err := parseVitalSignDateInput(dateInput)
+	if err != nil {
+		return nil, err
+	}
+	normalizedTimeOfDay, err := normalizeVitalSignTimeOfDay(vitalSign.TimeOfDay)
+	if err != nil {
+		return nil, err
+	}
+	vitalSign.MeasurementDate = measurementDate
+	vitalSign.TimeOfDay = normalizedTimeOfDay
+
+	slotExists, err := uc.emrrepo.VitalSignSlotExists(vitalSign.ResidentID, measurementDate, normalizedTimeOfDay)
+	if err != nil {
+		return nil, errors.New("failed to validate existing vital sign slot: " + err.Error())
+	}
+	if slotExists {
+		return nil, errors.New("vital sign already exists for this resident, date, and time_of_day")
 	}
 
 	if vitalSign.Temperature == nil &&
@@ -1512,6 +1574,8 @@ func (uc *EmrUseCaseImpl) CreateVitalSign(vitalSign *entities.VitalSign, userID 
 
 	newVitalSignData, _ := json.Marshal(map[string]interface{}{
 		"resident_id":              createdVitalSign.ResidentID,
+		"measurement_date":         createdVitalSign.MeasurementDate,
+		"time_of_day":              createdVitalSign.TimeOfDay,
 		"temperature":              createdVitalSign.Temperature,
 		"heart_rate":               createdVitalSign.HeartRate,
 		"breathing_rate":           createdVitalSign.BreathingRate,
@@ -1539,42 +1603,40 @@ func (uc *EmrUseCaseImpl) CreateVitalSign(vitalSign *entities.VitalSign, userID 
 
 // filterVitalSignsByStatus filters vital signs by status: "all", "normal", or "abnormal".
 // Default (empty string or "all") returns all.
-func filterVitalSignsByStatus(vitalSigns []*entities.VitalSign, status string) []*entities.VitalSign {
-	if status == "" || status == "all" {
-		return vitalSigns
+func buildVitalSignFieldStatuses(vs *entities.VitalSign) ([]string, []string, []models.VitalSignFieldStatus) {
+	fieldStatuses := make([]models.VitalSignFieldStatus, 0, 6)
+	normalList := make([]string, 0, 6)
+	abnormalList := make([]string, 0, 6)
+
+	appendStatus := func(key, label string, isAbnormal bool) {
+		fieldStatuses = append(fieldStatuses, models.VitalSignFieldStatus{Key: key, Label: label, IsAbnormal: isAbnormal})
+		if isAbnormal {
+			abnormalList = append(abnormalList, label)
+			return
+		}
+		normalList = append(normalList, label)
 	}
 
-	wantAbnormal := status == "abnormal"
-	// log.Printf("Filtering vital signs for status '%s' (wantAbnormal=%t)", status, wantAbnormal)
-
-	result := make([]*entities.VitalSign, 0)
-	for _, vs := range vitalSigns {
-		isAbnormal := false
-
-		if vs.Temperature != nil && (*vs.Temperature < emr_constants.NormalTempLow || *vs.Temperature > emr_constants.NormalTempHigh) {
-			isAbnormal = true
-		}
-		if vs.HeartRate != nil && (*vs.HeartRate < emr_constants.NormalHeartRateLow || *vs.HeartRate > emr_constants.NormalHeartRateHigh) {
-			isAbnormal = true
-		}
-		if vs.BreathingRate != nil && (*vs.BreathingRate < emr_constants.NormalBreathingRateLow || *vs.BreathingRate > emr_constants.NormalBreathingRateHigh) {
-			isAbnormal = true
-		}
-		if vs.BloodPressureSystolic != nil && (*vs.BloodPressureSystolic < emr_constants.NormalSystolicLow || *vs.BloodPressureSystolic > emr_constants.NormalSystolicHigh) {
-			isAbnormal = true
-		}
-		if vs.BloodPressureDiastolic != nil && (*vs.BloodPressureDiastolic < emr_constants.NormalDiastolicLow || *vs.BloodPressureDiastolic > emr_constants.NormalDiastolicHigh) {
-			isAbnormal = true
-		}
-		if vs.OxygenSaturation != nil && *vs.OxygenSaturation < emr_constants.NormalOxygenSaturationLow {
-			isAbnormal = true
-		}
-
-		if isAbnormal == wantAbnormal {
-			result = append(result, vs)
-		}
+	if vs.Temperature != nil {
+		appendStatus("temperature", "อุณหภูมิ", *vs.Temperature < emr_constants.NormalTempLow || *vs.Temperature > emr_constants.NormalTempHigh)
 	}
-	return result
+	if vs.HeartRate != nil {
+		appendStatus("heart_rate", "ชีพจร", *vs.HeartRate < emr_constants.NormalHeartRateLow || *vs.HeartRate > emr_constants.NormalHeartRateHigh)
+	}
+	if vs.BreathingRate != nil {
+		appendStatus("breathing_rate", "อัตราการหายใจ", *vs.BreathingRate < emr_constants.NormalBreathingRateLow || *vs.BreathingRate > emr_constants.NormalBreathingRateHigh)
+	}
+	if vs.BloodPressureSystolic != nil {
+		appendStatus("blood_pressure_systolic", "ความดันตัวบน", *vs.BloodPressureSystolic < emr_constants.NormalSystolicLow || *vs.BloodPressureSystolic > emr_constants.NormalSystolicHigh)
+	}
+	if vs.BloodPressureDiastolic != nil {
+		appendStatus("blood_pressure_diastolic", "ความดันตัวล่าง", *vs.BloodPressureDiastolic < emr_constants.NormalDiastolicLow || *vs.BloodPressureDiastolic > emr_constants.NormalDiastolicHigh)
+	}
+	if vs.OxygenSaturation != nil {
+		appendStatus("oxygen_saturation", "ออกซิเจนในเลือด", *vs.OxygenSaturation < emr_constants.NormalOxygenSaturationLow)
+	}
+
+	return normalList, abnormalList, fieldStatuses
 }
 
 func (uc *EmrUseCaseImpl) GetVitalSignsOverview(req models.VitalSignQueryParams, userID string) (*models.VitalSignsOverviewResponse, error) {
@@ -1595,6 +1657,24 @@ func (uc *EmrUseCaseImpl) GetVitalSignsOverview(req models.VitalSignQueryParams,
 
 	if req.VitalSignStatus != "" && req.VitalSignStatus != "all" && req.VitalSignStatus != "normal" && req.VitalSignStatus != "abnormal" {
 		return nil, errors.New("vitalsign_status must be 'all', 'normal', or 'abnormal'")
+	}
+
+	if req.Date == nil || strings.TrimSpace(*req.Date) == "" {
+		return nil, errors.New("date is required")
+	}
+
+	selectedDate, err := parseVitalSignDateInput(*req.Date)
+	if err != nil {
+		return nil, err
+	}
+
+	var normalizedTimeOfDay *string
+	if req.TimeOfDay != nil && strings.TrimSpace(*req.TimeOfDay) != "" {
+		normalized, normalizeErr := normalizeVitalSignTimeOfDay(*req.TimeOfDay)
+		if normalizeErr != nil {
+			return nil, normalizeErr
+		}
+		normalizedTimeOfDay = &normalized
 	}
 
 	page := 1
@@ -1630,24 +1710,54 @@ func (uc *EmrUseCaseImpl) GetVitalSignsOverview(req models.VitalSignQueryParams,
 	var vitalSigns []*entities.VitalSign
 	var total int64
 
-	if req.Floor == nil && len(req.LabelIDs) == 0 && !hasPagination {
-		vitalSigns, err = uc.emrrepo.GetVitalSignsToday(false)
+	if req.Floor == nil && len(req.LabelIDs) == 0 && !hasPagination && normalizedTimeOfDay == nil {
+		vitalSigns, err = uc.emrrepo.GetVitalSignsOnDate(selectedDate, false)
 		total = int64(len(vitalSigns))
 	} else {
 		// กรณีมี filter: ใช้ Custom
+		selectedDateStr := selectedDate.Format("2006-01-02")
 		params := models.VitalSignQueryParams{
-			Floor:    req.Floor,
-			LabelIDs: req.LabelIDs,
-			IsLatest: false,
-			Limit:    limit,
-			Offset:   offset,
+			Date:      &selectedDateStr,
+			TimeOfDay: normalizedTimeOfDay,
+			Floor:     req.Floor,
+			LabelIDs:  req.LabelIDs,
+			IsLatest:  false,
+			Limit:     limit,
+			Offset:    offset,
 		}
 		vitalSigns, total, err = uc.emrrepo.GetVitalSignsCustom(params)
 	}
 	if err != nil {
 		return nil, err
 	}
-	filtered := filterVitalSignsByStatus(vitalSigns, req.VitalSignStatus)
+	overviewItems := make([]*models.VitalSignsOverviewItemResponse, 0, len(vitalSigns))
+	for _, vitalSign := range vitalSigns {
+		normalList, abnormalList, fieldStatuses := buildVitalSignFieldStatuses(vitalSign)
+		overviewItems = append(overviewItems, &models.VitalSignsOverviewItemResponse{
+			VitalSign:     vitalSign,
+			NormalList:    normalList,
+			AbnormalList:  abnormalList,
+			FieldStatuses: fieldStatuses,
+		})
+	}
+
+	if req.VitalSignStatus == "normal" {
+		filteredItems := make([]*models.VitalSignsOverviewItemResponse, 0, len(overviewItems))
+		for _, item := range overviewItems {
+			if len(item.AbnormalList) == 0 {
+				filteredItems = append(filteredItems, item)
+			}
+		}
+		overviewItems = filteredItems
+	} else if req.VitalSignStatus == "abnormal" {
+		filteredItems := make([]*models.VitalSignsOverviewItemResponse, 0, len(overviewItems))
+		for _, item := range overviewItems {
+			if len(item.AbnormalList) > 0 {
+				filteredItems = append(filteredItems, item)
+			}
+		}
+		overviewItems = filteredItems
+	}
 
 	totalPages := 0
 	if total > 0 {
@@ -1655,7 +1765,7 @@ func (uc *EmrUseCaseImpl) GetVitalSignsOverview(req models.VitalSignQueryParams,
 	}
 
 	return &models.VitalSignsOverviewResponse{
-		Items: filtered,
+		Items: overviewItems,
 		Pagination: models.OverviewPagination{
 			Page:       page,
 			PageSize:   pageSize,
@@ -1665,7 +1775,7 @@ func (uc *EmrUseCaseImpl) GetVitalSignsOverview(req models.VitalSignQueryParams,
 	}, nil
 }
 
-func (uc *EmrUseCaseImpl) GetVitalSignsByResident(residentID string, isLatest string, userID string) ([]*entities.VitalSign, error) {
+func (uc *EmrUseCaseImpl) GetVitalSignsByResident(residentID string, dateInput string, isLatest string, userID string) ([]*entities.VitalSign, error) {
 
 	user, err := uc.userrepo.GetUserByID(userID)
 	if err != nil {
@@ -1689,12 +1799,17 @@ func (uc *EmrUseCaseImpl) GetVitalSignsByResident(residentID string, isLatest st
 		return nil, errors.New("resident not found")
 	}
 
+	selectedDate, err := parseVitalSignDateInput(dateInput)
+	if err != nil {
+		return nil, err
+	}
+
 	isLatestBool, err := strconv.ParseBool(isLatest)
 	if err != nil {
 		return nil, errors.New("invalid isLatest parameter you must provide a boolean value: " + err.Error())
 	}
 
-	vitalSigns, err := uc.emrrepo.GetVitalSignsByResidentIDToday(residentID, isLatestBool)
+	vitalSigns, err := uc.emrrepo.GetVitalSignsByResidentIDOnDate(residentID, selectedDate, isLatestBool)
 	if err != nil {
 		return nil, errors.New("failed to get vital signs: " + err.Error())
 	}
@@ -1766,55 +1881,6 @@ func (uc *EmrUseCaseImpl) GetVitalSignsHistory(residentID string, userID string)
 		return nil, errors.New("failed to get vital signs history: " + err.Error())
 	}
 	return vitalSigns, nil
-}
-
-func (uc *EmrUseCaseImpl) GetAbnormalVitalSigns(floor string, isLatest string, userID string) ([]*entities.VitalSign, error) {
-
-	user, err := uc.userrepo.GetUserByID(userID)
-	if err != nil {
-		return nil, errors.New("failed to get user: " + err.Error())
-	}
-
-	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
-	if err != nil {
-		return nil, errors.New("failed to get user role: " + err.Error())
-	}
-
-	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
-		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view abnormal vital signs")
-	}
-
-	var vitalSigns []*entities.VitalSign
-	var isLatestBool bool
-	// var err error
-
-	var floor_pointer_int16 *int16
-	if floor != "" {
-		floor64, err := strconv.ParseInt(floor, 10, 16)
-		if err != nil {
-			return nil, errors.New("invalid floor parameter")
-		}
-		f := int16(floor64)
-		floor_pointer_int16 = &f
-	}
-
-	isLatestBool, err = strconv.ParseBool(isLatest)
-	if err != nil {
-		return nil, errors.New("invalid isLatest parameter you must provide a boolean value: " + err.Error())
-	}
-
-	// ถ้าไม่ระบุ floor → ดึงทั้งหมด, ถ้าระบุ → ดึงเฉพาะชั้นนั้น
-	if floor_pointer_int16 == nil {
-		vitalSigns, err = uc.emrrepo.GetVitalSignsToday(isLatestBool)
-	} else {
-		vitalSigns, err = uc.emrrepo.GetVitalSignsByFloorToday(*floor_pointer_int16, isLatestBool)
-	}
-	if err != nil {
-		return nil, errors.New("failed to get vital signs: " + err.Error())
-	}
-
-	abnormalVitalSigns := filterVitalSignsByStatus(vitalSigns, "abnormal")
-	return abnormalVitalSigns, nil
 }
 
 func (uc *EmrUseCaseImpl) UpdateVitalSignByID(vitalSignID string, vitalSign *entities.VitalSign, userID string) (*entities.VitalSign, error) {
@@ -1937,7 +2003,7 @@ func (uc *EmrUseCaseImpl) UpdateVitalSignByID(vitalSignID string, vitalSign *ent
 	return updatedVitalSign, nil
 }
 
-func (uc *EmrUseCaseImpl) CreateLaboratoryValue(laboratoryValue *entities.LaboratoryValue, userID string) (*entities.LaboratoryValue, error) {
+func (uc *EmrUseCaseImpl) CreateLaboratoryValue(laboratoryValue *entities.LaboratoryValue, dateInput string, timeOfDayInput string, userID string) (*entities.LaboratoryValue, error) {
 
 	user, err := uc.userrepo.GetUserByID(userID)
 	if err != nil {
@@ -1964,6 +2030,29 @@ func (uc *EmrUseCaseImpl) CreateLaboratoryValue(laboratoryValue *entities.Labora
 	}
 	if !residentExists {
 		return nil, errors.New("resident does not exist or missing resident ID")
+	}
+
+	// Parse measurement date
+	measurementDate, err := parseLaboratoryValueDateInput(dateInput)
+	if err != nil {
+		return nil, errors.New("invalid date format: " + err.Error())
+	}
+	laboratoryValue.MeasurementDate = measurementDate
+
+	// Normalize time of day
+	normalizedTimeOfDay, err := normalizeLaboratoryValueTimeOfDay(timeOfDayInput)
+	if err != nil {
+		return nil, errors.New("invalid time of day: " + err.Error())
+	}
+	laboratoryValue.TimeOfDay = normalizedTimeOfDay
+
+	// Check if slot already exists
+	slotExists, err := uc.emrrepo.LaboratoryValueSlotExists(laboratoryValue.ResidentID, measurementDate, normalizedTimeOfDay)
+	if err != nil {
+		return nil, errors.New("failed to check slot existence: " + err.Error())
+	}
+	if slotExists {
+		return nil, errors.New("laboratory value for this resident on this date and time slot already exists")
 	}
 
 	if laboratoryValue.BloodGlucose == nil &&
@@ -2056,50 +2145,137 @@ func (uc *EmrUseCaseImpl) CreateLaboratoryValue(laboratoryValue *entities.Labora
 	return createdLaboratoryValue, nil
 }
 
-// filterLaboratoryValuesByStatus filters laboratory values by status: "all", "normal", or "abnormal".
-func filterLaboratoryValuesByStatus(labs []*entities.LaboratoryValue, status string) []*entities.LaboratoryValue {
-	if status == "" || status == "all" {
-		return labs
+func parseLaboratoryValueDateInput(value string) (time.Time, error) {
+	v := strings.TrimSpace(value)
+	if v == "" {
+		return time.Time{}, errors.New("date is required")
 	}
 
-	wantAbnormal := status == "abnormal"
-	result := make([]*entities.LaboratoryValue, 0)
-	for _, lab := range labs {
-		isAbnormal := false
-
-		if lab.BloodGlucose != nil && (*lab.BloodGlucose < emr_constants.NormalBloodGlucoseLow || *lab.BloodGlucose > emr_constants.NormalBloodGlucoseHigh) {
-			isAbnormal = true
-		}
-		if lab.FluidIn != nil && (*lab.FluidIn < emr_constants.NormalFluidInLow || *lab.FluidIn > emr_constants.NormalFluidInHigh) {
-			isAbnormal = true
-		}
-		if lab.FluidOut != nil && (*lab.FluidOut < emr_constants.NormalFluidOutLow || *lab.FluidOut > emr_constants.NormalFluidOutHigh) {
-			isAbnormal = true
-		}
-		if lab.UrineOutput != nil && lab.UrineType != nil {
-			if *lab.UrineType == emr_constants.UrineTypeML {
-				if *lab.UrineOutput < emr_constants.NormalUrineOutputMLLow || *lab.UrineOutput > emr_constants.NormalUrineOutputMLHigh {
-					isAbnormal = true
-				}
-			} else {
-				if *lab.UrineOutput < emr_constants.NormalUrineOutputTimesLow || *lab.UrineOutput > emr_constants.NormalUrineOutputTimesHigh {
-					isAbnormal = true
-				}
-			}
-		}
-		if lab.Stool != nil && *lab.Stool > emr_constants.NormalStoolHigh {
-			isAbnormal = true
-		}
-		if lab.DiaperChange != nil && *lab.DiaperChange > emr_constants.NormalDiaperChangeHigh {
-			isAbnormal = true
-		}
-
-		if isAbnormal == wantAbnormal {
-			result = append(result, lab)
+	layouts := []string{"2006-01-02", "02-01-2006", "02/01/2006"}
+	for _, layout := range layouts {
+		parsed, err := time.Parse(layout, v)
+		if err == nil {
+			return parsed, nil
 		}
 	}
-	return result
+
+	return time.Time{}, errors.New("date must be in YYYY-MM-DD, DD-MM-YYYY, or DD/MM/YYYY format")
 }
+
+func normalizeLaboratoryValueTimeOfDay(value string) (string, error) {
+	v := strings.ToLower(strings.TrimSpace(value))
+	if v == "" {
+		return "", errors.New("time_of_day is required")
+	}
+
+	allowed := map[string]string{
+		"เช้า":         "เช้า",
+		"morning":      "เช้า",
+		"สาย":          "สาย",
+		"late_morning": "สาย",
+		"midmorning":   "สาย",
+		"noon":         "สาย",
+		"บ่าย":         "บ่าย",
+		"afternoon":    "บ่าย",
+		"เย็น":         "เย็น",
+		"evening":      "เย็น",
+		"กลางคืน":      "กลางคืน",
+		"night":        "กลางคืน",
+	}
+
+	if normalized, ok := allowed[v]; ok {
+		return normalized, nil
+	}
+
+	return "", errors.New("time_of_day must be one of: เช้า, สาย, บ่าย, เย็น, กลางคืน")
+}
+
+func buildLaboratoryValueFieldStatuses(lab *entities.LaboratoryValue) ([]string, []string, []models.LaboratoryValueFieldStatus) {
+	fieldStatuses := make([]models.LaboratoryValueFieldStatus, 0, 7)
+	normalList := make([]string, 0, 7)
+	abnormalList := make([]string, 0, 7)
+
+	appendStatus := func(key, label string, isAbnormal bool) {
+		fieldStatuses = append(fieldStatuses, models.LaboratoryValueFieldStatus{Key: key, Label: label, IsAbnormal: isAbnormal})
+		if isAbnormal {
+			abnormalList = append(abnormalList, label)
+			return
+		}
+		normalList = append(normalList, label)
+	}
+
+	if lab.BloodGlucose != nil {
+		appendStatus("blood_glucose", "ระดับน้ำตาลในเลือด", *lab.BloodGlucose < emr_constants.NormalBloodGlucoseLow || *lab.BloodGlucose > emr_constants.NormalBloodGlucoseHigh)
+	}
+	if lab.FluidIn != nil {
+		appendStatus("fluid_in", "ปริมาณน้ำเข้า", *lab.FluidIn < emr_constants.NormalFluidInLow || *lab.FluidIn > emr_constants.NormalFluidInHigh)
+	}
+	if lab.FluidOut != nil {
+		appendStatus("fluid_out", "ปริมาณน้ำออก", *lab.FluidOut < emr_constants.NormalFluidOutLow || *lab.FluidOut > emr_constants.NormalFluidOutHigh)
+	}
+	if lab.UrineOutput != nil && lab.UrineType != nil {
+		isAbnormal := false
+		if *lab.UrineType == emr_constants.UrineTypeML {
+			isAbnormal = *lab.UrineOutput < emr_constants.NormalUrineOutputMLLow || *lab.UrineOutput > emr_constants.NormalUrineOutputMLHigh
+		} else {
+			isAbnormal = *lab.UrineOutput < emr_constants.NormalUrineOutputTimesLow || *lab.UrineOutput > emr_constants.NormalUrineOutputTimesHigh
+		}
+		appendStatus("urine_output", "ปริมาณปัสสาวะ", isAbnormal)
+	}
+	if lab.Stool != nil {
+		appendStatus("stool", "อุจจาระ", *lab.Stool > emr_constants.NormalStoolHigh)
+	}
+	if lab.DiaperChange != nil {
+		appendStatus("diaper_change", "การเปลี่ยนผ้าอ้อม", *lab.DiaperChange > emr_constants.NormalDiaperChangeHigh)
+	}
+
+	return normalList, abnormalList, fieldStatuses
+}
+
+// filterLaboratoryValuesByStatus filters laboratory values by status: "all", "normal", or "abnormal".
+// func filterLaboratoryValuesByStatus(labs []*entities.LaboratoryValue, status string) []*entities.LaboratoryValue {
+// 	if status == "" || status == "all" {
+// 		return labs
+// 	}
+
+// 	wantAbnormal := status == "abnormal"
+// 	result := make([]*entities.LaboratoryValue, 0)
+// 	for _, lab := range labs {
+// 		isAbnormal := false
+
+// 		if lab.BloodGlucose != nil && (*lab.BloodGlucose < emr_constants.NormalBloodGlucoseLow || *lab.BloodGlucose > emr_constants.NormalBloodGlucoseHigh) {
+// 			isAbnormal = true
+// 		}
+// 		if lab.FluidIn != nil && (*lab.FluidIn < emr_constants.NormalFluidInLow || *lab.FluidIn > emr_constants.NormalFluidInHigh) {
+// 			isAbnormal = true
+// 		}
+// 		if lab.FluidOut != nil && (*lab.FluidOut < emr_constants.NormalFluidOutLow || *lab.FluidOut > emr_constants.NormalFluidOutHigh) {
+// 			isAbnormal = true
+// 		}
+// 		if lab.UrineOutput != nil && lab.UrineType != nil {
+// 			if *lab.UrineType == emr_constants.UrineTypeML {
+// 				if *lab.UrineOutput < emr_constants.NormalUrineOutputMLLow || *lab.UrineOutput > emr_constants.NormalUrineOutputMLHigh {
+// 					isAbnormal = true
+// 				}
+// 			} else {
+// 				if *lab.UrineOutput < emr_constants.NormalUrineOutputTimesLow || *lab.UrineOutput > emr_constants.NormalUrineOutputTimesHigh {
+// 					isAbnormal = true
+// 				}
+// 			}
+// 		}
+// 		if lab.Stool != nil && *lab.Stool > emr_constants.NormalStoolHigh {
+// 			isAbnormal = true
+// 		}
+// 		if lab.DiaperChange != nil && *lab.DiaperChange > emr_constants.NormalDiaperChangeHigh {
+// 			isAbnormal = true
+// 		}
+
+// 		if isAbnormal == wantAbnormal {
+// 			result = append(result, lab)
+// 		}
+// 	}
+// 	return result
+// }
 
 func (uc *EmrUseCaseImpl) GetLaboratoryValuesOverview(req models.LaboratoryValueQueryParams, userID string) (*models.LaboratoryValuesOverviewResponse, error) {
 	user, err := uc.userrepo.GetUserByID(userID)
@@ -2116,6 +2292,25 @@ func (uc *EmrUseCaseImpl) GetLaboratoryValuesOverview(req models.LaboratoryValue
 
 	if req.LaboratoryValueStatus != "" && req.LaboratoryValueStatus != "all" && req.LaboratoryValueStatus != "normal" && req.LaboratoryValueStatus != "abnormal" {
 		return nil, errors.New("laboratory_value_status must be 'all', 'normal', or 'abnormal'")
+	}
+
+	// Date is required
+	if req.Date == nil || strings.TrimSpace(*req.Date) == "" {
+		return nil, errors.New("date is required")
+	}
+
+	selectedDate, err := parseLaboratoryValueDateInput(*req.Date)
+	if err != nil {
+		return nil, err
+	}
+
+	var normalizedTimeOfDay *string
+	if req.TimeOfDay != nil && strings.TrimSpace(*req.TimeOfDay) != "" {
+		normalized, normalizeErr := normalizeLaboratoryValueTimeOfDay(*req.TimeOfDay)
+		if normalizeErr != nil {
+			return nil, normalizeErr
+		}
+		normalizedTimeOfDay = &normalized
 	}
 
 	page := 1
@@ -2139,51 +2334,93 @@ func (uc *EmrUseCaseImpl) GetLaboratoryValuesOverview(req models.LaboratoryValue
 		pageSize = 100
 	}
 
-	hasPagination := req.Page != nil || req.PageSize != nil || req.Limit > 0 || req.Offset > 0
-	if req.Page == nil && req.Offset > 0 {
-		page = (req.Offset / pageSize) + 1
-	}
-
-	limit := pageSize
-	offset := (page - 1) * pageSize
-
-	var labs []*entities.LaboratoryValue
-	var total int64
-	if req.Floor == nil && len(req.LabelIDs) == 0 && !hasPagination {
-		labs, err = uc.emrrepo.GetLaboratoryValuesToday(false)
-		total = int64(len(labs))
-	} else {
-		params := models.LaboratoryValueQueryParams{
-			Floor:    req.Floor,
-			LabelIDs: req.LabelIDs,
-			IsLatest: false,
-			Limit:    limit,
-			Offset:   offset,
-		}
-		labs, total, err = uc.emrrepo.GetLaboratoryValuesCustom(params)
-	}
+	// Get laboratory values for the specified date
+	labs, err := uc.emrrepo.GetLaboratoryValuesOnDate(selectedDate, false)
 	if err != nil {
 		return nil, err
 	}
-	filtered := filterLaboratoryValuesByStatus(labs, req.LaboratoryValueStatus)
 
+	// Filter by time_of_day if provided
+	if normalizedTimeOfDay != nil {
+		filtered := make([]*entities.LaboratoryValue, 0)
+		for _, lab := range labs {
+			if strings.EqualFold(lab.TimeOfDay, *normalizedTimeOfDay) {
+				filtered = append(filtered, lab)
+			}
+		}
+		labs = filtered
+	}
+
+	// Apply floor and label filters
+	if req.Floor != nil || len(req.LabelIDs) > 0 {
+		// If filters are present, re-query with custom query
+		params := models.LaboratoryValueQueryParams{
+			Date:      req.Date,
+			TimeOfDay: req.TimeOfDay,
+			Floor:     req.Floor,
+			LabelIDs:  req.LabelIDs,
+		}
+		labs, _, err = uc.emrrepo.GetLaboratoryValuesCustom(params)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Build response items with field_statuses
+	items := make([]*models.LaboratoryValuesOverviewItemResponse, 0, len(labs))
+	for _, lab := range labs {
+		normalList, abnormalList, fieldStatuses := buildLaboratoryValueFieldStatuses(lab)
+
+		// Apply status filter
+		if req.LaboratoryValueStatus == "normal" && len(abnormalList) > 0 {
+			continue
+		}
+		if req.LaboratoryValueStatus == "abnormal" && len(abnormalList) == 0 {
+			continue
+		}
+
+		items = append(items, &models.LaboratoryValuesOverviewItemResponse{
+			LaboratoryValue: lab,
+			NormalList:      normalList,
+			AbnormalList:    abnormalList,
+			FieldStatuses:   fieldStatuses,
+		})
+	}
+
+	// Handle pagination
+	totalItems := len(items)
 	totalPages := 0
-	if total > 0 {
-		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	if totalItems > 0 {
+		totalPages = (totalItems + pageSize - 1) / pageSize
+	}
+
+	startIdx := (page - 1) * pageSize
+	endIdx := startIdx + pageSize
+	if startIdx > totalItems {
+		startIdx = totalItems
+		endIdx = totalItems
+	}
+	if endIdx > totalItems {
+		endIdx = totalItems
+	}
+
+	paginatedItems := make([]*models.LaboratoryValuesOverviewItemResponse, 0)
+	if startIdx < totalItems {
+		paginatedItems = items[startIdx:endIdx]
 	}
 
 	return &models.LaboratoryValuesOverviewResponse{
-		Items: filtered,
+		Items: paginatedItems,
 		Pagination: models.OverviewPagination{
 			Page:       page,
 			PageSize:   pageSize,
-			TotalItems: int(total),
+			TotalItems: totalItems,
 			TotalPages: totalPages,
 		},
 	}, nil
 }
 
-func (uc *EmrUseCaseImpl) GetLaboratoryValuesByResident(residentID string, isLatest string, userID string) ([]*entities.LaboratoryValue, error) {
+func (uc *EmrUseCaseImpl) GetLaboratoryValuesByResident(residentID string, dateInput string, isLatest string, userID string) ([]*entities.LaboratoryValue, error) {
 	user, err := uc.userrepo.GetUserByID(userID)
 	if err != nil {
 		return nil, errors.New("failed to get user: " + err.Error())
@@ -2204,12 +2441,18 @@ func (uc *EmrUseCaseImpl) GetLaboratoryValuesByResident(residentID string, isLat
 		return nil, errors.New("resident not found")
 	}
 
+	// Parse measurement date
+	measurementDate, err := parseLaboratoryValueDateInput(dateInput)
+	if err != nil {
+		return nil, errors.New("invalid date format: " + err.Error())
+	}
+
 	isLatestBool, err := strconv.ParseBool(isLatest)
 	if err != nil {
 		return nil, errors.New("invalid isLatest parameter you must provide a boolean value: " + err.Error())
 	}
 
-	labs, err := uc.emrrepo.GetLaboratoryValuesByResidentIDToday(residentID, isLatestBool)
+	labs, err := uc.emrrepo.GetLaboratoryValuesByResidentIDOnDate(residentID, measurementDate, isLatestBool)
 	if err != nil {
 		return nil, errors.New("failed to get laboratory values: " + err.Error())
 	}
@@ -2275,47 +2518,6 @@ func (uc *EmrUseCaseImpl) GetLaboratoryValuesHistory(residentID string, userID s
 		return nil, errors.New("failed to get laboratory values history: " + err.Error())
 	}
 	return labs, nil
-}
-
-func (uc *EmrUseCaseImpl) GetAbnormalLaboratoryValues(floor string, isLatest string, userID string) ([]*entities.LaboratoryValue, error) {
-	user, err := uc.userrepo.GetUserByID(userID)
-	if err != nil {
-		return nil, errors.New("failed to get user: " + err.Error())
-	}
-	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
-	if err != nil {
-		return nil, errors.New("failed to get user role: " + err.Error())
-	}
-	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
-		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view abnormal laboratory values")
-	}
-
-	var floorPtr *int16
-	if floor != "" {
-		floor64, err := strconv.ParseInt(floor, 10, 16)
-		if err != nil {
-			return nil, errors.New("invalid floor parameter")
-		}
-		f := int16(floor64)
-		floorPtr = &f
-	}
-
-	isLatestBool, err := strconv.ParseBool(isLatest)
-	if err != nil {
-		return nil, errors.New("invalid isLatest parameter you must provide a boolean value: " + err.Error())
-	}
-
-	var labs []*entities.LaboratoryValue
-	if floorPtr == nil {
-		labs, err = uc.emrrepo.GetLaboratoryValuesToday(isLatestBool)
-	} else {
-		labs, err = uc.emrrepo.GetLaboratoryValuesByFloorToday(*floorPtr, isLatestBool)
-	}
-	if err != nil {
-		return nil, errors.New("failed to get laboratory values: " + err.Error())
-	}
-
-	return filterLaboratoryValuesByStatus(labs, "abnormal"), nil
 }
 
 func (uc *EmrUseCaseImpl) GetUrineOutputSumByResidentID(residentID string, req models.LaboratoryValueQueryParams, userID string) (*models.UrineOutputSummaryByResidentResponse, error) {

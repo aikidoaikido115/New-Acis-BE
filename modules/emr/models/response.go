@@ -49,14 +49,40 @@ type ResidentOverviewListResponse struct {
 	Pagination OverviewPagination          `json:"pagination"`
 }
 
+type VitalSignFieldStatus struct {
+	Key        string `json:"key"`
+	Label      string `json:"label"`
+	IsAbnormal bool   `json:"is_abnormal"`
+}
+
+type VitalSignsOverviewItemResponse struct {
+	*entities.VitalSign
+	NormalList    []string               `json:"normal_list"`
+	AbnormalList  []string               `json:"abnormal_list"`
+	FieldStatuses []VitalSignFieldStatus `json:"field_statuses"`
+}
+
 type VitalSignsOverviewResponse struct {
-	Items      []*entities.VitalSign `json:"items"`
-	Pagination OverviewPagination    `json:"pagination"`
+	Items      []*VitalSignsOverviewItemResponse `json:"items"`
+	Pagination OverviewPagination                `json:"pagination"`
+}
+
+type LaboratoryValueFieldStatus struct {
+	Key        string `json:"key"`
+	Label      string `json:"label"`
+	IsAbnormal bool   `json:"is_abnormal"`
+}
+
+type LaboratoryValuesOverviewItemResponse struct {
+	*entities.LaboratoryValue
+	NormalList    []string                     `json:"normal_list"`
+	AbnormalList  []string                     `json:"abnormal_list"`
+	FieldStatuses []LaboratoryValueFieldStatus `json:"field_statuses"`
 }
 
 type LaboratoryValuesOverviewResponse struct {
-	Items      []*entities.LaboratoryValue `json:"items"`
-	Pagination OverviewPagination          `json:"pagination"`
+	Items      []*LaboratoryValuesOverviewItemResponse `json:"items"`
+	Pagination OverviewPagination                      `json:"pagination"`
 }
 
 type AllergyStatisticDashboardResponse struct {
