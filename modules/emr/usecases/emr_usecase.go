@@ -184,8 +184,8 @@ func (uc *EmrUseCaseImpl) ensureMedicalStaff(userID string) error {
 		return errors.New("failed to get user role: " + err.Error())
 	}
 
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return errors.New("only users with 'Medical Staff' role can access EMR")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can access EMR")
 	}
 
 	return nil
@@ -1446,8 +1446,8 @@ func (uc *EmrUseCaseImpl) CreateVitalSign(vitalSign *entities.VitalSign, userID 
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
 
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can create vital signs")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can create vital signs")
 	}
 
 	staff, err := uc.userrepo.GetStaffByUserID(userID)
@@ -1589,8 +1589,8 @@ func (uc *EmrUseCaseImpl) GetVitalSignsOverview(req models.VitalSignQueryParams,
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
 
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can view vital signs overview")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view vital signs overview")
 	}
 
 	if req.VitalSignStatus != "" && req.VitalSignStatus != "all" && req.VitalSignStatus != "normal" && req.VitalSignStatus != "abnormal" {
@@ -1677,8 +1677,8 @@ func (uc *EmrUseCaseImpl) GetVitalSignsByResident(residentID string, isLatest st
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
 
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can view vital signs by resident")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view vital signs by resident")
 	}
 
 	residentExists, err := uc.emrrepo.ResidentExists(residentID)
@@ -1713,8 +1713,8 @@ func (uc *EmrUseCaseImpl) GetRoomVitalSigns(roomID string, isLatest string, user
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
 
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can view vital signs by room")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view vital signs by room")
 	}
 
 	roomExists, err := uc.emrrepo.RoomExists(roomID)
@@ -1749,8 +1749,8 @@ func (uc *EmrUseCaseImpl) GetVitalSignsHistory(residentID string, userID string)
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
 
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can view vital signs history")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view vital signs history")
 	}
 
 	residentExists, err := uc.emrrepo.ResidentExists(residentID)
@@ -1780,8 +1780,8 @@ func (uc *EmrUseCaseImpl) GetAbnormalVitalSigns(floor string, isLatest string, u
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
 
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can view abnormal vital signs")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view abnormal vital signs")
 	}
 
 	var vitalSigns []*entities.VitalSign
@@ -1829,8 +1829,8 @@ func (uc *EmrUseCaseImpl) UpdateVitalSignByID(vitalSignID string, vitalSign *ent
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
 
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can update vital signs")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can update vital signs")
 	}
 
 	existingVitalSign, err := uc.emrrepo.GetVitalSignByID(vitalSignID)
@@ -1949,8 +1949,8 @@ func (uc *EmrUseCaseImpl) CreateLaboratoryValue(laboratoryValue *entities.Labora
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
 
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can create laboratory values")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can create laboratory values")
 	}
 
 	staff, err := uc.userrepo.GetStaffByUserID(userID)
@@ -2110,8 +2110,8 @@ func (uc *EmrUseCaseImpl) GetLaboratoryValuesOverview(req models.LaboratoryValue
 	if err != nil {
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can view laboratory values overview")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view laboratory values overview")
 	}
 
 	if req.LaboratoryValueStatus != "" && req.LaboratoryValueStatus != "all" && req.LaboratoryValueStatus != "normal" && req.LaboratoryValueStatus != "abnormal" {
@@ -2192,8 +2192,8 @@ func (uc *EmrUseCaseImpl) GetLaboratoryValuesByResident(residentID string, isLat
 	if err != nil {
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can view laboratory values by resident")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view laboratory values by resident")
 	}
 
 	residentExists, err := uc.emrrepo.ResidentExists(residentID)
@@ -2225,8 +2225,8 @@ func (uc *EmrUseCaseImpl) GetRoomLaboratoryValues(roomID string, isLatest string
 	if err != nil {
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can view laboratory values by room")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view laboratory values by room")
 	}
 
 	roomExists, err := uc.emrrepo.RoomExists(roomID)
@@ -2258,8 +2258,8 @@ func (uc *EmrUseCaseImpl) GetLaboratoryValuesHistory(residentID string, userID s
 	if err != nil {
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can view laboratory values history")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view laboratory values history")
 	}
 
 	residentExists, err := uc.emrrepo.ResidentExists(residentID)
@@ -2286,8 +2286,8 @@ func (uc *EmrUseCaseImpl) GetAbnormalLaboratoryValues(floor string, isLatest str
 	if err != nil {
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can view abnormal laboratory values")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view abnormal laboratory values")
 	}
 
 	var floorPtr *int16
@@ -2327,8 +2327,8 @@ func (uc *EmrUseCaseImpl) GetUrineOutputSumByResidentID(residentID string, req m
 	if err != nil {
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can view urine output summary")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view urine output summary")
 	}
 
 	residentExists, err := uc.emrrepo.ResidentExists(residentID)
@@ -2367,8 +2367,8 @@ func (uc *EmrUseCaseImpl) UpdateLaboratoryValueByID(laboratoryValueID string, la
 	if err != nil {
 		return nil, errors.New("failed to get user role: " + err.Error())
 	}
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return nil, errors.New("only users with 'Medical Staff' role can update laboratory values")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can update laboratory values")
 	}
 
 	existing, err := uc.emrrepo.GetLaboratoryValueByID(laboratoryValueID)

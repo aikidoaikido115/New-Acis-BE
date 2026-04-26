@@ -13,6 +13,7 @@ type Configs struct {
 	JWT        JWT
 	Supabase   Supabase
 	Mail       Mail
+	SeedAdmin  SeedAdmin
 }
 
 type Server struct {
@@ -53,6 +54,16 @@ type Mail struct {
 	Port   string
 	Sender string
 	Key    string
+}
+
+type SeedAdmin struct {
+	Username  string
+	Email     string
+	Password  string
+	RoleName  string
+	FirstName string
+	LastName  string
+	Nickname  string
 }
 
 func LoadConfigs() *Configs {
@@ -113,6 +124,15 @@ func LoadConfigs() *Configs {
 			Port:   os.Getenv("EMAIL_PORT"),
 			Sender: os.Getenv("SENDER_EMAIL"),
 			Key:    os.Getenv("APP_PASSWORD"),
+		},
+		SeedAdmin: SeedAdmin{
+			Username:  getEnv("ADMIN_USERNAME", "admin"),
+			Email:     getEnv("ADMIN_EMAIL", "admin@example.com"),
+			Password:  getEnv("ADMIN_PASSWORD", "password"),
+			RoleName:  getEnv("ROLE_NAME", "Admin"),
+			FirstName: getEnv("FIRST_NAME", "Admin"),
+			LastName:  getEnv("LAST_NAME", "User"),
+			Nickname:  getEnv("NICKNAME", "Admin"),
 		},
 	}
 }

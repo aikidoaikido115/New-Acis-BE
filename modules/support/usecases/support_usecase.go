@@ -36,7 +36,7 @@ func NewSupportUseCase(repo supportRepo.SupportRepository, userrepo userRepo.Use
 }
 
 func (uc *SupportUseCaseImpl) CreateSupportTicket(ticket *entities.SupportTicket, userID string) (*entities.SupportTicket, error) {
-	reporterRole, err := uc.ensureAllowedReporter(userID)
+	reporterRole, err := uc.getRoleNameByUserID(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -82,37 +82,25 @@ func (uc *SupportUseCaseImpl) CreateSupportTicket(ticket *entities.SupportTicket
 }
 
 func (uc *SupportUseCaseImpl) GetSupportTickets(query models.ListSupportTicketsQuery, userID string) ([]*entities.SupportTicket, error) {
-	roleName, err := uc.getRoleNameByUserID(userID)
-	if err != nil {
-		return nil, err
-	}
-
 	query.Search = strings.TrimSpace(query.Search)
 	query.Status = strings.TrimSpace(strings.ToLower(query.Status))
 	query.ReporterRole = strings.TrimSpace(query.ReporterRole)
-	query.CreatedByUserID = ""
+	query.CreatedByUserID = strings.TrimSpace(userID)
+	if query.CreatedByUserID == "" {
+		return nil, errors.New("user id is required")
+	}
 
 	if query.Status != "" && !isValidSupportStatus(query.Status) {
 		return nil, errors.New("status must be one of open, in_progress, resolved")
 	}
 
-	if uc.isSuperUserRole(roleName) {
-		return uc.repo.GetSupportTickets(query)
-	}
-
-	if !uc.isSupportReporterRole(roleName) {
-		return nil, errors.New("only users with 'Medical Staff', 'Kitchen Staff', or 'Super User' role can manage support tickets")
-	}
-
-	query.CreatedByUserID = userID
-
 	return uc.repo.GetSupportTickets(query)
 }
 
 func (uc *SupportUseCaseImpl) GetSupportTicketByID(id string, userID string) (*entities.SupportTicket, error) {
-	roleName, err := uc.getRoleNameByUserID(userID)
-	if err != nil {
-		return nil, err
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return nil, errors.New("user id is required")
 	}
 
 	id = strings.TrimSpace(id)
@@ -129,7 +117,7 @@ func (uc *SupportUseCaseImpl) GetSupportTicketByID(id string, userID string) (*e
 		return nil, err
 	}
 
-	if !uc.isSuperUserRole(roleName) && ticket.CreatedByUserID != userID {
+	if ticket.CreatedByUserID != userID {
 		return nil, errors.New("support ticket not found")
 	}
 
@@ -137,7 +125,7 @@ func (uc *SupportUseCaseImpl) GetSupportTicketByID(id string, userID string) (*e
 }
 
 func (uc *SupportUseCaseImpl) UpdateSupportTicketStatus(id string, req models.UpdateSupportTicketStatusRequest, userID string) (*entities.SupportTicket, error) {
-	if err := uc.ensureSuperUser(userID); err != nil {
+	if err := uc.ensureSupportManager(userID); err != nil {
 		return nil, err
 	}
 
@@ -171,7 +159,7 @@ func (uc *SupportUseCaseImpl) UpdateSupportTicketStatus(id string, req models.Up
 }
 
 func (uc *SupportUseCaseImpl) DeleteSupportTicketByID(id string, userID string) error {
-	if err := uc.ensureSuperUser(userID); err != nil {
+	if err := uc.ensureSupportManager(userID); err != nil {
 		return err
 	}
 
@@ -196,29 +184,6 @@ func (uc *SupportUseCaseImpl) DeleteSupportTicketByID(id string, userID string) 
 	return uc.repo.DeleteSupportTicketByID(id)
 }
 
-func (uc *SupportUseCaseImpl) ensureAllowedReporter(userID string) (string, error) {
-	userID = strings.TrimSpace(userID)
-	if userID == "" {
-		return "", errors.New("user id is required")
-	}
-
-	user, err := uc.userrepo.GetUserByID(userID)
-	if err != nil {
-		return "", errors.New("failed to get user: " + err.Error())
-	}
-
-	role, err := uc.userrepo.GetRoleByID(user.RoleID)
-	if err != nil {
-		return "", errors.New("failed to get user role: " + err.Error())
-	}
-
-	if role.Name != user_constants.RoleMedicalStaff && role.Name != user_constants.RoleKitchenStaff && role.Name != user_constants.RoleSuperUser {
-		return "", errors.New("only users with 'Medical Staff', 'Kitchen Staff', or 'Super User' role can create support tickets")
-	}
-
-	return role.Name, nil
-}
-
 func (uc *SupportUseCaseImpl) getRoleNameByUserID(userID string) (string, error) {
 	userID = strings.TrimSpace(userID)
 	if userID == "" {
@@ -238,22 +203,18 @@ func (uc *SupportUseCaseImpl) getRoleNameByUserID(userID string) (string, error)
 	return role.Name, nil
 }
 
-func (uc *SupportUseCaseImpl) isSupportReporterRole(roleName string) bool {
-	return roleName == user_constants.RoleMedicalStaff || roleName == user_constants.RoleKitchenStaff || roleName == user_constants.RoleSuperUser
+func (uc *SupportUseCaseImpl) isSupportManagerRole(roleName string) bool {
+	return roleName == user_constants.RoleSuperUser || roleName == user_constants.RoleAdmin
 }
 
-func (uc *SupportUseCaseImpl) isSuperUserRole(roleName string) bool {
-	return roleName == user_constants.RoleSuperUser
-}
-
-func (uc *SupportUseCaseImpl) ensureSuperUser(userID string) error {
+func (uc *SupportUseCaseImpl) ensureSupportManager(userID string) error {
 	roleName, err := uc.getRoleNameByUserID(userID)
 	if err != nil {
 		return err
 	}
 
-	if roleName != user_constants.RoleSuperUser {
-		return errors.New("only users with 'Super User' role can manage support tickets")
+	if !uc.isSupportManagerRole(roleName) {
+		return errors.New("only users with 'Super User' or 'Admin' role can manage support tickets")
 	}
 
 	return nil

@@ -80,8 +80,8 @@ func (uc *DrugUseCaseImpl) ensureMedicalStaff(userID string) error {
 		return errors.New("failed to get user role: " + err.Error())
 	}
 
-	if userRole.Name != user_constants.RoleMedicalStaff {
-		return errors.New("only users with 'Medical Staff' role can access personal drug data")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can access personal drug data")
 	}
 
 	return nil

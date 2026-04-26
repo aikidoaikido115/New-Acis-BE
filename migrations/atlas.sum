@@ -1,4 +1,4 @@
-h1:JctcqpldWTsb6qDMGY9YPCAtXAP84pk1veO1DiPfOQ4=
+h1:yV++vJa4VSxfkTQk/f8l6Ntb3gkV0NoFU0nF6XM+9do=
 20251225120117_baseline.sql h1:nDGr+0dzg9CoNnMMJPnwUDoN9CMokZ2O27hxABnWQIw=
 20251225121734_add_test_col.sql h1:HulH71cfP0x27QyxLV4XK5L/2923YKgP6XNpqnl/BQs=
 20251225122058_add_test_col.sql h1:UzZ1gqFQUYlwjFADblodN5gA1O74X1tiIEC5zNa8TOU=
@@ -39,3 +39,5 @@ h1:JctcqpldWTsb6qDMGY9YPCAtXAP84pk1veO1DiPfOQ4=
 20260416120000_drop_doctor_orders_image_url.sql h1:EJ35hCpOyHD9AddSmlKDqJOPTIAwQcNXRiFPvvRm+Io=
 20260420124532_particioation.sql h1:vbliSqa6/tY7BCxrAsNiMT+p2vRfivcfap03YfyTRmk=
 20260424000000_rename_super_admin_to_super_user.sql h1:LUQeUSlJAzwiTkNmczc17hyB0kIO0yPQ7V9WExHOWgs=
+20260424010000_add_user_is_approve.sql h1:YyFdqAq67TofET9La/52tfUHDN35cQ5Gdn2VtW893UY=
+20260426000000_update_support_ticket_reporter_role_constraint.sql h1:Q+w1VaMpj2rfGYN1OLoyDS248IVsHfYuos6ELj7C/78=

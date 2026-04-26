@@ -31,7 +31,7 @@ func main() {
 		docs.SwaggerInfo.Schemes = strings.Split(schemes, ",")
 	}
 
-	database.InitDB(cfg.PostgreSQL)
+	database.InitDB(cfg.PostgreSQL, cfg.SeedAdmin)
 	app := servers.SetupServer(cfg.Server, cfg.JWT, cfg.Supabase, cfg.Mail)
 
 	serverAddress := fmt.Sprintf(":%s", cfg.Server.Port)

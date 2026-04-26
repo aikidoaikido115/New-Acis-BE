@@ -3,11 +3,13 @@ package usecases
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,15 +26,25 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
+var (
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrAccountNotApproved = errors.New("account is pending approval")
+	ErrAdminOnly          = errors.New("admin only")
+	ErrTargetUserNotFound = errors.New("target user not found")
+)
+
 type UserUsecase interface {
 	Register(user *entities.User, roleName string, file multipart.File) (*entities.User, error)
 	Login(username, email, password string, remember bool) (string, *entities.User, error)
 	ResetPassword(userID, oldPassword, newPassword string) error
 
 	GetUserByID(id string) (*entities.User, error)
-	GetAllUsers() ([]*entities.User, error)
+	GetAllUsers(userID string) ([]*entities.User, error)
 	GetUsersByFirstAndLastName(firstName string, lastName string) ([]*entities.User, error)
 	UpdateUserByID(id string, user *entities.User, file multipart.File) (*entities.User, error)
+	UpdateUserApprovalByID(targetUserID string, isApprove bool, adminUserID string) (*entities.User, error)
+	UpdateStaffRoleByID(staffID string, roleName string, userID string) (*entities.User, error)
+	DeleteStaffByID(staffID string, userID string) error
 
 	ForgotPassword(email string) error
 	VerifyOTP(email, otpCode string) error
@@ -97,6 +109,7 @@ func (u *UserUseCaseImpl) Register(user *entities.User, roleName string, file mu
 
 	user.ID = uuid.New().String()
 	user.RoleID = role.ID
+	user.IsApprove = false
 
 	// Upload profile image if provided
 	if file != nil {
@@ -185,11 +198,15 @@ func (u *UserUseCaseImpl) Login(username, email, password string, remember bool)
 	}
 
 	if err != nil {
-		return "", nil, errors.New("invalid username or email: " + err.Error())
+		return "", nil, ErrInvalidCredentials
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		return "", nil, errors.New("invalid password")
+		return "", nil, ErrInvalidCredentials
+	}
+
+	if !user.IsApprove {
+		return "", nil, ErrAccountNotApproved
 	}
 
 	expiryDuration := time.Minute * 30
@@ -210,6 +227,63 @@ func (u *UserUseCaseImpl) Login(username, email, password string, remember bool)
 	}
 
 	return tokenString, user, nil
+}
+
+func (u *UserUseCaseImpl) UpdateUserApprovalByID(targetUserID string, isApprove bool, adminUserID string) (*entities.User, error) {
+	if err := u.ensureAdmin(adminUserID); err != nil {
+		return nil, err
+	}
+
+	targetUserID = strings.TrimSpace(targetUserID)
+	if targetUserID == "" {
+		return nil, errors.New("user id is required")
+	}
+
+	user, err := u.userrepo.GetUserByID(targetUserID)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrTargetUserNotFound, err)
+	}
+
+	oldUserData, _ := json.Marshal(map[string]interface{}{
+		"user_id":    user.ID,
+		"username":   user.Username,
+		"role_id":    user.RoleID,
+		"role_name":  user.Role.Name,
+		"is_approve": user.IsApprove,
+	})
+
+	if err := u.userrepo.UpdateUserApprovalByID(user.ID, isApprove); err != nil {
+		return nil, errors.New("failed to update user approval: " + err.Error())
+	}
+
+	updatedUser, err := u.userrepo.GetUserByID(user.ID)
+	if err != nil {
+		return nil, errors.New("failed to get updated user: " + err.Error())
+	}
+
+	newUserData, _ := json.Marshal(map[string]interface{}{
+		"user_id":    updatedUser.ID,
+		"username":   updatedUser.Username,
+		"role_id":    updatedUser.RoleID,
+		"role_name":  updatedUser.Role.Name,
+		"is_approve": updatedUser.IsApprove,
+	})
+
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "users",
+		RecordID:  updatedUser.ID,
+		UserID:    adminUserID,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  string(oldUserData),
+		NewValue:  string(newUserData),
+	}
+
+	if _, err := u.auditlogrepo.CreateAuditLog(auditLog); err != nil {
+		log.Printf("[ERROR] Failed to create audit log for approval update %s: %v", updatedUser.ID, err)
+	}
+
+	return updatedUser, nil
 }
 
 func (u *UserUseCaseImpl) ResetPassword(userID, oldPassword, newPassword string) error {
@@ -263,13 +337,18 @@ func (u *UserUseCaseImpl) GetUserByID(id string) (*entities.User, error) {
 	return user, nil
 }
 
-func (u *UserUseCaseImpl) GetAllUsers() ([]*entities.User, error) {
+func (u *UserUseCaseImpl) GetAllUsers(userID string) ([]*entities.User, error) {
+	if err := u.ensureAdmin(userID); err != nil {
+		return nil, err
+	}
+
 	users, err := u.userrepo.GetAllUsers()
 	if err != nil {
 		return nil, errors.New("failed to retrieve all users: " + err.Error())
 	}
 	return users, nil
 }
+
 func (u *UserUseCaseImpl) GetUsersByFirstAndLastName(firstName string, lastName string) ([]*entities.User, error) {
 	users, err := u.userrepo.GetUsersByFirstAndLastName(firstName, lastName)
 	if err != nil {
@@ -277,6 +356,144 @@ func (u *UserUseCaseImpl) GetUsersByFirstAndLastName(firstName string, lastName 
 	}
 	return users, nil
 }
+
+func (u *UserUseCaseImpl) UpdateStaffRoleByID(staffID string, roleName string, userID string) (*entities.User, error) {
+	if err := u.ensureAdmin(userID); err != nil {
+		return nil, err
+	}
+
+	staffID = strings.TrimSpace(staffID)
+	if staffID == "" {
+		return nil, errors.New("staff id is required")
+	}
+
+	roleName = strings.TrimSpace(roleName)
+	if roleName != user_constants.RoleMedicalStaff && roleName != user_constants.RoleKitchenStaff && roleName != user_constants.RoleSuperUser {
+		return nil, errors.New("role_name must be Medical Staff, Kitchen Staff, or Super User")
+	}
+
+	staff, err := u.userrepo.GetStaffByID(staffID)
+	if err != nil {
+		return nil, errors.New("staff not found: " + err.Error())
+	}
+
+	currentRoleName := staff.User.Role.Name
+	if currentRoleName == "" {
+		currentRole, err := u.userrepo.GetRoleByID(staff.User.RoleID)
+		if err != nil {
+			return nil, errors.New("failed to get current role: " + err.Error())
+		}
+		currentRoleName = currentRole.Name
+	}
+
+	targetRole, err := u.userrepo.GetRoleByName(roleName)
+	if err != nil {
+		return nil, errors.New("role not found: " + err.Error())
+	}
+
+	oldUserData, _ := json.Marshal(map[string]interface{}{
+		"user_id":    staff.User.ID,
+		"staff_id":   staff.ID,
+		"username":   staff.User.Username,
+		"role_id":    staff.User.RoleID,
+		"role_name":  currentRoleName,
+		"first_name": staff.User.FirstName,
+		"last_name":  staff.User.LastName,
+	})
+
+	staff.User.RoleID = targetRole.ID
+	if err := u.userrepo.UpdateUserByID(&staff.User); err != nil {
+		return nil, errors.New("failed to update staff role: " + err.Error())
+	}
+
+	updatedUser, err := u.userrepo.GetUserByID(staff.User.ID)
+	if err != nil {
+		return nil, errors.New("failed to get updated user: " + err.Error())
+	}
+
+	newUserData, _ := json.Marshal(map[string]interface{}{
+		"user_id":    updatedUser.ID,
+		"staff_id":   staff.ID,
+		"username":   updatedUser.Username,
+		"role_id":    updatedUser.RoleID,
+		"role_name":  updatedUser.Role.Name,
+		"first_name": updatedUser.FirstName,
+		"last_name":  updatedUser.LastName,
+	})
+
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "users",
+		RecordID:  updatedUser.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionUpdate,
+		OldValue:  string(oldUserData),
+		NewValue:  string(newUserData),
+	}
+
+	if _, err := u.auditlogrepo.CreateAuditLog(auditLog); err != nil {
+		log.Printf("[ERROR] Failed to create audit log for staff role update %s: %v", updatedUser.ID, err)
+	}
+
+	return updatedUser, nil
+}
+
+func (u *UserUseCaseImpl) DeleteStaffByID(staffID string, userID string) error {
+	if err := u.ensureAdmin(userID); err != nil {
+		return err
+	}
+
+	staffID = strings.TrimSpace(staffID)
+	if staffID == "" {
+		return errors.New("staff id is required")
+	}
+
+	staff, err := u.userrepo.GetStaffByID(staffID)
+	if err != nil {
+		return errors.New("staff not found: " + err.Error())
+	}
+
+	oldStaffData, _ := json.Marshal(staff)
+
+	if err := u.userrepo.DeleteStaffAndUserByStaffID(staffID); err != nil {
+		return errors.New("failed to delete staff and user: " + err.Error())
+	}
+
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "users",
+		RecordID:  staff.User.ID,
+		UserID:    userID,
+		Action:    audit_constants.AuditActionDelete,
+		OldValue:  string(oldStaffData),
+		NewValue:  "",
+	}
+
+	if _, err := u.auditlogrepo.CreateAuditLog(auditLog); err != nil {
+		log.Printf("[ERROR] Failed to create audit log for staff deletion %s: %v", staffID, err)
+	}
+
+	return nil
+}
+
+func (u *UserUseCaseImpl) ensureAdmin(userID string) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return errors.New("user id is required")
+	}
+
+	user, err := u.userrepo.GetUserByID(userID)
+	if err != nil {
+		return errors.New("failed to get user: " + err.Error())
+	}
+
+	if user.Role.Name != user_constants.RoleAdmin {
+		return ErrAdminOnly
+	}
+
+	return nil
+}
+
 func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file multipart.File) (*entities.User, error) {
 	existingUser, err := u.userrepo.GetUserByID(id)
 	if err != nil {
@@ -553,7 +770,7 @@ func (u *UserUseCaseImpl) CreateStaffFile(userID string, files []*multipart.File
 	if err != nil {
 		return nil, errors.New("user not found: " + err.Error())
 	}
-	if existingUser.Role.Name != user_constants.RoleMedicalStaff && existingUser.Role.Name != user_constants.RoleKitchenStaff {
+	if existingUser.Role.Name != user_constants.RoleMedicalStaff && existingUser.Role.Name != user_constants.RoleKitchenStaff && existingUser.Role.Name != user_constants.RoleSuperUser && existingUser.Role.Name != user_constants.RoleAdmin {
 		return nil, errors.New("user is not staff")
 	}
 
