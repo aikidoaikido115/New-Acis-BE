@@ -2233,49 +2233,49 @@ func buildLaboratoryValueFieldStatuses(lab *entities.LaboratoryValue) ([]string,
 }
 
 // filterLaboratoryValuesByStatus filters laboratory values by status: "all", "normal", or "abnormal".
-func filterLaboratoryValuesByStatus(labs []*entities.LaboratoryValue, status string) []*entities.LaboratoryValue {
-	if status == "" || status == "all" {
-		return labs
-	}
+// func filterLaboratoryValuesByStatus(labs []*entities.LaboratoryValue, status string) []*entities.LaboratoryValue {
+// 	if status == "" || status == "all" {
+// 		return labs
+// 	}
 
-	wantAbnormal := status == "abnormal"
-	result := make([]*entities.LaboratoryValue, 0)
-	for _, lab := range labs {
-		isAbnormal := false
+// 	wantAbnormal := status == "abnormal"
+// 	result := make([]*entities.LaboratoryValue, 0)
+// 	for _, lab := range labs {
+// 		isAbnormal := false
 
-		if lab.BloodGlucose != nil && (*lab.BloodGlucose < emr_constants.NormalBloodGlucoseLow || *lab.BloodGlucose > emr_constants.NormalBloodGlucoseHigh) {
-			isAbnormal = true
-		}
-		if lab.FluidIn != nil && (*lab.FluidIn < emr_constants.NormalFluidInLow || *lab.FluidIn > emr_constants.NormalFluidInHigh) {
-			isAbnormal = true
-		}
-		if lab.FluidOut != nil && (*lab.FluidOut < emr_constants.NormalFluidOutLow || *lab.FluidOut > emr_constants.NormalFluidOutHigh) {
-			isAbnormal = true
-		}
-		if lab.UrineOutput != nil && lab.UrineType != nil {
-			if *lab.UrineType == emr_constants.UrineTypeML {
-				if *lab.UrineOutput < emr_constants.NormalUrineOutputMLLow || *lab.UrineOutput > emr_constants.NormalUrineOutputMLHigh {
-					isAbnormal = true
-				}
-			} else {
-				if *lab.UrineOutput < emr_constants.NormalUrineOutputTimesLow || *lab.UrineOutput > emr_constants.NormalUrineOutputTimesHigh {
-					isAbnormal = true
-				}
-			}
-		}
-		if lab.Stool != nil && *lab.Stool > emr_constants.NormalStoolHigh {
-			isAbnormal = true
-		}
-		if lab.DiaperChange != nil && *lab.DiaperChange > emr_constants.NormalDiaperChangeHigh {
-			isAbnormal = true
-		}
+// 		if lab.BloodGlucose != nil && (*lab.BloodGlucose < emr_constants.NormalBloodGlucoseLow || *lab.BloodGlucose > emr_constants.NormalBloodGlucoseHigh) {
+// 			isAbnormal = true
+// 		}
+// 		if lab.FluidIn != nil && (*lab.FluidIn < emr_constants.NormalFluidInLow || *lab.FluidIn > emr_constants.NormalFluidInHigh) {
+// 			isAbnormal = true
+// 		}
+// 		if lab.FluidOut != nil && (*lab.FluidOut < emr_constants.NormalFluidOutLow || *lab.FluidOut > emr_constants.NormalFluidOutHigh) {
+// 			isAbnormal = true
+// 		}
+// 		if lab.UrineOutput != nil && lab.UrineType != nil {
+// 			if *lab.UrineType == emr_constants.UrineTypeML {
+// 				if *lab.UrineOutput < emr_constants.NormalUrineOutputMLLow || *lab.UrineOutput > emr_constants.NormalUrineOutputMLHigh {
+// 					isAbnormal = true
+// 				}
+// 			} else {
+// 				if *lab.UrineOutput < emr_constants.NormalUrineOutputTimesLow || *lab.UrineOutput > emr_constants.NormalUrineOutputTimesHigh {
+// 					isAbnormal = true
+// 				}
+// 			}
+// 		}
+// 		if lab.Stool != nil && *lab.Stool > emr_constants.NormalStoolHigh {
+// 			isAbnormal = true
+// 		}
+// 		if lab.DiaperChange != nil && *lab.DiaperChange > emr_constants.NormalDiaperChangeHigh {
+// 			isAbnormal = true
+// 		}
 
-		if isAbnormal == wantAbnormal {
-			result = append(result, lab)
-		}
-	}
-	return result
-}
+// 		if isAbnormal == wantAbnormal {
+// 			result = append(result, lab)
+// 		}
+// 	}
+// 	return result
+// }
 
 func (uc *EmrUseCaseImpl) GetLaboratoryValuesOverview(req models.LaboratoryValueQueryParams, userID string) (*models.LaboratoryValuesOverviewResponse, error) {
 	user, err := uc.userrepo.GetUserByID(userID)
