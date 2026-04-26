@@ -30,3 +30,11 @@ type GetUsersByFirstAndLastNameRequest struct {
 	FirstName string `query:"first_name" binding:"required"`
 	LastName  string `query:"last_name" binding:"required"`
 }
+
+type UpdateStaffRoleRequest struct {
+	RoleName string `json:"role_name" binding:"required"`
+}
+
+type UpdateUserApprovalRequest struct {
+	IsApprove *bool `json:"is_approve"`
+}

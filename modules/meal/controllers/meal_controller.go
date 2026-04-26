@@ -17,7 +17,7 @@ func NewMealController(mealUsecase usecases.MealUsecase) *MealController {
 
 // CreateMenuHandler godoc
 // @Summary Create Menu
-// @Description Create a new menu. Only users with Kitchen Staff role can manage meals.
+// @Description Create a new menu. Only users with Kitchen Staff, Super User, or Admin role can manage meals.
 // @Tags Meal
 // @Accept json
 // @Produce json
@@ -74,7 +74,7 @@ func (c *MealController) CreateMenuHandler(ctx *fiber.Ctx) error {
 
 // GetMenuByIDHandler godoc
 // @Summary Get Menu by ID
-// @Description Get a menu by ID. Only users with Kitchen Staff role can manage meals.
+// @Description Get a menu by ID. Only users with Kitchen Staff, Super User, or Admin role can manage meals.
 // @Tags Meal
 // @Accept json
 // @Produce json
@@ -116,7 +116,7 @@ func (c *MealController) GetMenuByIDHandler(ctx *fiber.Ctx) error {
 
 // GetAllMenusHandler godoc
 // @Summary Get All Menus
-// @Description Get all menus. Only users with Kitchen Staff role can manage meals.
+// @Description Get all menus. Only users with Kitchen Staff, Super User, or Admin role can manage meals.
 // @Tags Meal
 // @Accept json
 // @Produce json
@@ -156,7 +156,7 @@ func (c *MealController) GetAllMenusHandler(ctx *fiber.Ctx) error {
 
 // UpdateMenuHandler godoc
 // @Summary Update Menu
-// @Description Update menu by ID. Only users with Kitchen Staff role can manage meals.
+// @Description Update menu by ID. Only users with Kitchen Staff, Super User, or Admin role can manage meals.
 // @Tags Meal
 // @Accept json
 // @Produce json
@@ -210,7 +210,7 @@ func (c *MealController) UpdateMenuHandler(ctx *fiber.Ctx) error {
 
 // CreateMealPlanHandler godoc
 // @Summary Create Meal Plan
-// @Description Create a new meal plan. Only users with Kitchen Staff role can manage meals.
+// @Description Create a new meal plan. Only users with Kitchen Staff, Super User, or Admin role can manage meals.
 // @Tags Meal
 // @Accept json
 // @Produce json
@@ -296,7 +296,7 @@ func (c *MealController) CreateMealPlanHandler(ctx *fiber.Ctx) error {
 
 // CreateMealPlanManualHandler godoc
 // @Summary Create Meal Plan Manual
-// @Description Create a new meal plan in manual mode (AI allergy check is skipped). Only users with Kitchen Staff role can manage meals.
+// @Description Create a new meal plan in manual mode (AI allergy check is skipped). Only users with Kitchen Staff, Super User, or Admin role can manage meals.
 // @Tags Meal
 // @Accept json
 // @Produce json
@@ -361,7 +361,7 @@ func (c *MealController) CreateMealPlanManualHandler(ctx *fiber.Ctx) error {
 
 // GetMealPlanByIDHandler godoc
 // @Summary Get Meal Plan by ID
-// @Description Get a meal plan by ID. Only users with Kitchen Staff role can manage meals.
+// @Description Get a meal plan by ID. Only users with Kitchen Staff, Super User, or Admin role can manage meals.
 // @Tags Meal
 // @Accept json
 // @Produce json
@@ -403,7 +403,7 @@ func (c *MealController) GetMealPlanByIDHandler(ctx *fiber.Ctx) error {
 
 // GetAllMealPlansHandler godoc
 // @Summary Get All Meal Plans
-// @Description Get all meal plans. Only users with Kitchen Staff role can manage meals.
+// @Description Get all meal plans. Only users with Kitchen Staff, Super User, or Admin role can manage meals.
 // @Tags Meal
 // @Accept json
 // @Produce json
@@ -443,7 +443,7 @@ func (c *MealController) GetAllMealPlansHandler(ctx *fiber.Ctx) error {
 
 // GetMealPlansTodayHandler godoc
 // @Summary Get Today's Meal Plans
-// @Description Get all meal plans created today. Only users with Kitchen Staff role can manage meals.
+// @Description Get all meal plans created today. Only users with Kitchen Staff, Super User, or Admin role can manage meals.
 // @Tags Meal
 // @Accept json
 // @Produce json
@@ -484,7 +484,7 @@ func (c *MealController) GetMealPlansTodayHandler(ctx *fiber.Ctx) error {
 // UpdateMealPlanHandler godoc
 // DEPRECATED: This endpoint is temporarily disabled
 // // @Summary Update Meal Plan
-// // @Description Update meal plan by ID. Only users with Kitchen Staff role can manage meals.
+// // @Description Update meal plan by ID. Only users with Kitchen Staff, Super User, or Admin role can manage meals.
 // // @Tags Meal
 // // @Accept json
 // // @Produce json

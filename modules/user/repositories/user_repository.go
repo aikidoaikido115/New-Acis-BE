@@ -35,6 +35,8 @@ type UserRepository interface {
 	EmailExists(email string) (bool, error)
 	GetAllUsers() ([]*entities.User, error)
 	UpdateUserByID(user *entities.User) error
+	UpdateUserApprovalByID(userID string, isApprove bool) error
+	DeleteStaffAndUserByStaffID(staffID string) error
 	CreateOTP(otp *entities.OTP) error
 	GetOTPByUserID(userID string) (*entities.OTP, error)
 	DeleteOTP(userID string) error
@@ -185,7 +187,7 @@ func (r *GormUserRepository) EmailExists(email string) (bool, error) {
 
 func (r *GormUserRepository) GetAllUsers() ([]*entities.User, error) {
 	var users []*entities.User
-	if err := r.db.Find(&users).Error; err != nil {
+	if err := r.db.Preload("Role").Find(&users).Error; err != nil {
 		return nil, err
 	}
 	return users, nil
@@ -193,6 +195,71 @@ func (r *GormUserRepository) GetAllUsers() ([]*entities.User, error) {
 
 func (r *GormUserRepository) UpdateUserByID(user *entities.User) error {
 	return r.db.Save(user).Error
+}
+
+func (r *GormUserRepository) UpdateUserApprovalByID(userID string, isApprove bool) error {
+	return r.db.Model(&entities.User{}).Where("id = ?", userID).Update("is_approve", isApprove).Error
+}
+
+func (r *GormUserRepository) DeleteStaffAndUserByStaffID(staffID string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var staff entities.Staff
+		if err := tx.First(&staff, "id = ?", staffID).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Exec("DELETE FROM support_tickets WHERE created_by_user_id = ?", staff.UserID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM warehouse_transactions WHERE operator_user_id = ?", staff.UserID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM otps WHERE user_id = ?", staff.UserID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM temp_tokens WHERE user_id = ?", staff.UserID).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Exec("DELETE FROM staffs_files WHERE staff_id = ?", staffID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM activities WHERE staff_id = ?", staffID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("UPDATE rooms SET staff_id = NULL WHERE staff_id = ?", staffID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("UPDATE vital_signs SET created_by_staff_id = NULL WHERE created_by_staff_id = ?", staffID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("UPDATE laboratory_values SET created_by_staff_id = NULL WHERE created_by_staff_id = ?", staffID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM nurse_notes WHERE created_by_staff_id = ?", staffID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM wound_care_notes WHERE created_by_staff_id = ?", staffID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM relative_notes WHERE created_by_staff_id = ?", staffID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM doctor_orders WHERE created_by_staff_id = ?", staffID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM drug_plans WHERE given_by_staff_id = ?", staffID).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&entities.Staff{}, "id = ?", staffID).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&entities.User{}, "id = ?", staff.UserID).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 // OTP methods implementation

@@ -10,6 +10,8 @@ import (
 	activityRepository "github.com/aikidoaikido115/New-Acis-BE/modules/activity/repositories"
 	activityUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/activity/usecases"
 
+	auditLogController "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/controllers"
+	auditLogUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/usecases"
 	mealController "github.com/aikidoaikido115/New-Acis-BE/modules/meal/controllers"
 	mealRepository "github.com/aikidoaikido115/New-Acis-BE/modules/meal/repositories"
 	mealUsecase "github.com/aikidoaikido115/New-Acis-BE/modules/meal/usecases"
@@ -93,6 +95,7 @@ func setupRoutes(app *fiber.App, server configs.Server, jwt configs.JWT, supa co
 	SetupActivityRoutes(app, db, jwt, supa)
 	SetupWarehouseRoutes(app, db, jwt)
 	SetupSupportRoutes(app, db, jwt)
+	SetupAuditLogRoutes(app, db, jwt)
 
 	// API group
 	api := app.Group("/api")
@@ -127,6 +130,12 @@ func SetupUserRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.
 	userGroup.Get("/search", middlewares.JWTMiddleware(jwt), userController.GetUsersByFirstAndLastNameHandler)
 	userGroup.Patch("/", middlewares.JWTMiddleware(jwt), userController.UpdateUserByIDHandler)
 	userGroup.Post("/staff/files", middlewares.JWTMiddleware(jwt), userController.CreateStaffFileHandler)
+
+	adminGroup := app.Group("/api/admin")
+	adminGroup.Get("/users", middlewares.JWTMiddleware(jwt), userController.GetAllUsersHandler)
+	adminGroup.Patch("/users/:user_id/approval", middlewares.JWTMiddleware(jwt), userController.UpdateUserApprovalHandler)
+	adminGroup.Patch("/users/staffs/:staff_id/role", middlewares.JWTMiddleware(jwt), userController.UpdateStaffRoleByIDHandler)
+	adminGroup.Delete("/users/staffs/:staff_id", middlewares.JWTMiddleware(jwt), userController.DeleteStaffByIDHandler)
 }
 
 func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.Supabase) {
@@ -357,4 +366,16 @@ func SetupSupportRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	supportGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), supportController.DeleteSupportTicketByIDHandler)
 	supportGroup.Patch("/:id/status", middlewares.JWTMiddleware(jwt), supportController.UpdateSupportTicketStatusHandler)
 	supportGroup.Post("/", middlewares.JWTMiddleware(jwt), supportController.CreateSupportTicketHandler)
+}
+
+func SetupAuditLogRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
+	userRepository := userRepository.NewGormUserRepository(db)
+	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
+	auditLogUsecaseInstance := auditLogUsecase.NewAuditLogUseCase(auditLogRepository, userRepository)
+	auditLogControllerInstance := auditLogController.NewAuditLogController(auditLogUsecaseInstance)
+
+	auditLogGroup := app.Group("/api/admin/audit-logs")
+	auditLogGroup.Get("/", middlewares.JWTMiddleware(jwt), auditLogControllerInstance.GetAuditLogsHandler)
+	auditLogGroup.Get("/search", middlewares.JWTMiddleware(jwt), auditLogControllerInstance.SearchAuditLogsHandler)
+	auditLogGroup.Get("/:id", middlewares.JWTMiddleware(jwt), auditLogControllerInstance.GetAuditLogByIDHandler)
 }

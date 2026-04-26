@@ -4,7 +4,9 @@ import (
 	// "fmt"
 	// "mime/multipart"
 	// "strconv"
+	"errors"
 	"mime/multipart"
+	"strings"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/user/models"
@@ -149,7 +151,7 @@ func (c *UserController) RegisterHandler(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"status":      "Success",
 		"status_code": fiber.StatusCreated,
-		"message":     "user created successfully",
+		"message":     "Data submitted successfully. Pending administrator approval.",
 		"result":      data,
 	})
 }
@@ -197,6 +199,22 @@ func (c *UserController) LoginHandler(ctx *fiber.Ctx) error {
 
 	token, user, err := c.userusecase.Login(req.Username, req.Email, req.Password, req.Remember)
 	if err != nil {
+		if errors.Is(err, usecases.ErrAccountNotApproved) {
+			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"status":      fiber.ErrForbidden.Message,
+				"status_code": fiber.StatusForbidden,
+				"message":     "account is pending approval from admin",
+				"result":      nil,
+			})
+		}
+		if errors.Is(err, usecases.ErrInvalidCredentials) {
+			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"status":      fiber.ErrUnauthorized.Message,
+				"status_code": fiber.StatusUnauthorized,
+				"message":     "invalid username/email or password",
+				"result":      nil,
+			})
+		}
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
 			"status_code": fiber.ErrInternalServerError.Code,
@@ -216,6 +234,94 @@ func (c *UserController) LoginHandler(ctx *fiber.Ctx) error {
 			"email":         user.Email,
 			"profile_image": user.ProfileImage,
 		},
+	})
+}
+
+// UpdateUserApprovalHandler godoc
+// @Summary Update user approval
+// @Description Approve or suspend a user by is_approve flag. Admin only.
+// @Tags User
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param user_id path string true "User ID"
+// @Param request body models.UpdateUserApprovalRequest true "Approval payload"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "User approval updated successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 403 {object} object{status=string,status_code=int,message=string,result=any} "Forbidden - Admin only"
+// @Router /api/admin/users/{user_id}/approval [patch]
+func (c *UserController) UpdateUserApprovalHandler(ctx *fiber.Ctx) error {
+	adminUserID, ok := ctx.Locals("user_id").(string)
+	if !ok || adminUserID == "" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.StatusUnauthorized,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	targetUserID := ctx.Params("user_id")
+	if targetUserID == "" {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.StatusBadRequest,
+			"message":     "user_id is required",
+			"result":      nil,
+		})
+	}
+
+	var req models.UpdateUserApprovalRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.StatusBadRequest,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	if req.IsApprove == nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.StatusBadRequest,
+			"message":     "is_approve is required",
+			"result":      nil,
+		})
+	}
+
+	updatedUser, err := c.userusecase.UpdateUserApprovalByID(targetUserID, *req.IsApprove, adminUserID)
+	if err != nil {
+		if errors.Is(err, usecases.ErrAdminOnly) {
+			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"status":      fiber.ErrForbidden.Message,
+				"status_code": fiber.StatusForbidden,
+				"message":     "only users with 'Admin' role can manage users",
+				"result":      nil,
+			})
+		}
+		if errors.Is(err, usecases.ErrTargetUserNotFound) {
+			return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"status":      fiber.ErrNotFound.Message,
+				"status_code": fiber.StatusNotFound,
+				"message":     "user not found",
+				"result":      nil,
+			})
+		}
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.StatusBadRequest,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "User approval updated successfully",
+		"result":      updatedUser,
 	})
 }
 
@@ -534,6 +640,191 @@ func (c *UserController) GetUsersByFirstAndLastNameHandler(ctx *fiber.Ctx) error
 		"status_code": fiber.StatusOK,
 		"message":     "Users retrieved successfully",
 		"result":      users,
+	})
+}
+
+// GetAllUsersHandler godoc
+// @Summary Get all users
+// @Description Get all users. Admin only.
+// @Tags User
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=array} "Users retrieved successfully"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 403 {object} object{status=string,status_code=int,message=string,result=any} "Forbidden - Admin only"
+// @Router /api/admin/users [get]
+func (c *UserController) GetAllUsersHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.StatusUnauthorized,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	users, err := c.userusecase.GetAllUsers(userID)
+	if err != nil {
+		if strings.Contains(err.Error(), "Admin") {
+			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"status":      fiber.ErrForbidden.Message,
+				"status_code": fiber.StatusForbidden,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.StatusInternalServerError,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "Users retrieved successfully",
+		"result":      users,
+	})
+}
+
+// UpdateStaffRoleByIDHandler godoc
+// @Summary Update staff role by staff id
+// @Description Promote or demote a staff member between Medical Staff, Kitchen Staff, and Super User. Admin only.
+// @Tags User
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param staff_id path string true "Staff ID"
+// @Param request body models.UpdateStaffRoleRequest true "Role payload"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "Staff role updated successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 403 {object} object{status=string,status_code=int,message=string,result=any} "Forbidden - Admin only"
+// @Router /api/admin/users/staffs/{staff_id}/role [patch]
+func (c *UserController) UpdateStaffRoleByIDHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.StatusUnauthorized,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	staffID := ctx.Params("staff_id")
+	if staffID == "" {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.StatusBadRequest,
+			"message":     "staff_id is required",
+			"result":      nil,
+		})
+	}
+
+	var req models.UpdateStaffRoleRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.StatusBadRequest,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	updatedUser, err := c.userusecase.UpdateStaffRoleByID(staffID, req.RoleName, userID)
+	if err != nil {
+		if strings.Contains(err.Error(), "admin") {
+			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"status":      fiber.ErrForbidden.Message,
+				"status_code": fiber.StatusForbidden,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.StatusBadRequest,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "Staff role updated successfully",
+		"result":      updatedUser,
+	})
+}
+
+// DeleteStaffByIDHandler godoc
+// @Summary Delete staff and user
+// @Description Delete a staff member and the underlying user record. Admin only.
+// @Tags User
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param staff_id path string true "Staff ID"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=any} "Staff deleted successfully"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 403 {object} object{status=string,status_code=int,message=string,result=any} "Forbidden - Admin only"
+// @Router /api/admin/users/staffs/{staff_id} [delete]
+func (c *UserController) DeleteStaffByIDHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.StatusUnauthorized,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	staffID := ctx.Params("staff_id")
+	if staffID == "" {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.StatusBadRequest,
+			"message":     "staff_id is required",
+			"result":      nil,
+		})
+	}
+
+	if err := c.userusecase.DeleteStaffByID(staffID, userID); err != nil {
+		if strings.Contains(err.Error(), "admin") {
+			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"status":      fiber.ErrForbidden.Message,
+				"status_code": fiber.StatusForbidden,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
+		if strings.Contains(err.Error(), "not found") {
+			return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"status":      fiber.ErrNotFound.Message,
+				"status_code": fiber.StatusNotFound,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.StatusInternalServerError,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "Staff deleted successfully",
+		"result":      nil,
 	})
 }
 

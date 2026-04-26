@@ -76,7 +76,7 @@ func (uc *WarehouseUseCaseImpl) GetWarehouseItems(query models.ListWarehouseItem
 }
 
 func (uc *WarehouseUseCaseImpl) CreateWarehouseItem(req models.CreateWarehouseItemRequest, userID string) (*entities.WarehouseItem, error) {
-	if err := uc.ensureMedicalStaff(userID); err != nil {
+	if err := uc.ensureWarehouseItemCreator(userID); err != nil {
 		return nil, err
 	}
 
@@ -431,7 +431,7 @@ func (uc *WarehouseUseCaseImpl) GetWarehouseTransactionByID(id string, userID st
 }
 
 func (uc *WarehouseUseCaseImpl) ApproveTransactions(req models.ApproveTransactionsRequest, userID string) ([]*models.WarehouseTransactionResponse, error) {
-	if err := uc.ensureMedicalStaff(userID); err != nil {
+	if err := uc.ensureWarehouseTransactionManager(userID); err != nil {
 		return nil, err
 	}
 
@@ -566,7 +566,7 @@ func (uc *WarehouseUseCaseImpl) applyApprovedTransactionEffect(transaction *enti
 }
 
 func (uc *WarehouseUseCaseImpl) RejectTransactions(req models.RejectTransactionsRequest, userID string) ([]*models.WarehouseTransactionResponse, error) {
-	if err := uc.ensureMedicalStaff(userID); err != nil {
+	if err := uc.ensureWarehouseTransactionManager(userID); err != nil {
 		return nil, err
 	}
 
@@ -687,8 +687,54 @@ func (uc *WarehouseUseCaseImpl) ensureMedicalStaff(userID string) error {
 		return errors.New("failed to get user role: " + err.Error())
 	}
 
-	if role.Name != user_constants.RoleMedicalStaff && role.Name != user_constants.RoleSuperUser {
-		return errors.New("only users with 'Medical Staff' or 'Super User' role can manage warehouse data")
+	if role.Name != user_constants.RoleMedicalStaff && role.Name != user_constants.RoleSuperUser && role.Name != user_constants.RoleAdmin {
+		return errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can manage warehouse data")
+	}
+
+	return nil
+}
+
+func (uc *WarehouseUseCaseImpl) ensureWarehouseItemCreator(userID string) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return errors.New("user id is required")
+	}
+
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil {
+		return errors.New("failed to get user: " + err.Error())
+	}
+
+	role, err := uc.userRepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return errors.New("failed to get user role: " + err.Error())
+	}
+
+	if role.Name != user_constants.RoleSuperUser && role.Name != user_constants.RoleAdmin {
+		return errors.New("only users with 'Super User' or 'Admin' role can create warehouse items")
+	}
+
+	return nil
+}
+
+func (uc *WarehouseUseCaseImpl) ensureWarehouseTransactionManager(userID string) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return errors.New("user id is required")
+	}
+
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil {
+		return errors.New("failed to get user: " + err.Error())
+	}
+
+	role, err := uc.userRepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return errors.New("failed to get user role: " + err.Error())
+	}
+
+	if role.Name != user_constants.RoleSuperUser && role.Name != user_constants.RoleAdmin {
+		return errors.New("only users with 'Super User' or 'Admin' role can approve or reject warehouse transactions")
 	}
 
 	return nil

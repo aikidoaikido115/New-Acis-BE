@@ -14,7 +14,7 @@ import (
 
 var db *gorm.DB
 
-func InitDB(config configs.PostgreSQL) {
+func InitDB(config configs.PostgreSQL, seedAdmin configs.SeedAdmin) {
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 		config.Host,
@@ -47,7 +47,7 @@ func InitDB(config configs.PostgreSQL) {
 	log.Printf("Database connected: %s@%s:%s/%s", config.Username, config.Host, config.Port, config.Database)
 
 	// Auto seed database
-	seed.RunAll(db)
+	seed.RunAll(db, seedAdmin)
 }
 
 func GetDB() *gorm.DB {

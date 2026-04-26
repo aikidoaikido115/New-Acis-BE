@@ -533,8 +533,8 @@ func (uc *MealUseCaseImpl) ensureKitchenStaff(userID string) error {
 		return errors.New("failed to get user role: " + err.Error())
 	}
 
-	if role.Name != user_constants.RoleKitchenStaff {
-		return errors.New("only users with 'Kitchen Staff' role can manage meals")
+	if role.Name != user_constants.RoleKitchenStaff && role.Name != user_constants.RoleSuperUser && role.Name != user_constants.RoleAdmin {
+		return errors.New("only users with 'Kitchen Staff', 'Super User', or 'Admin' role can manage meals")
 	}
 
 	return nil

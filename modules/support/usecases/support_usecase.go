@@ -120,7 +120,7 @@ func (uc *SupportUseCaseImpl) GetSupportTicketByID(id string, userID string) (*e
 }
 
 func (uc *SupportUseCaseImpl) UpdateSupportTicketStatus(id string, req models.UpdateSupportTicketStatusRequest, userID string) (*entities.SupportTicket, error) {
-	if err := uc.ensureMedicalStaffAdmin(userID); err != nil {
+	if err := uc.ensureSupportManager(userID); err != nil {
 		return nil, err
 	}
 
@@ -154,7 +154,7 @@ func (uc *SupportUseCaseImpl) UpdateSupportTicketStatus(id string, req models.Up
 }
 
 func (uc *SupportUseCaseImpl) DeleteSupportTicketByID(id string, userID string) error {
-	if err := uc.ensureMedicalStaffAdmin(userID); err != nil {
+	if err := uc.ensureSupportManager(userID); err != nil {
 		return err
 	}
 
@@ -195,8 +195,8 @@ func (uc *SupportUseCaseImpl) ensureAllowedReporter(userID string) (string, erro
 		return "", errors.New("failed to get user role: " + err.Error())
 	}
 
-	if role.Name != user_constants.RoleMedicalStaff && role.Name != user_constants.RoleKitchenStaff && role.Name != user_constants.RoleSuperUser {
-		return "", errors.New("only users with 'Medical Staff', 'Kitchen Staff', or 'Super User' role can create support tickets")
+	if role.Name != user_constants.RoleMedicalStaff && role.Name != user_constants.RoleKitchenStaff && role.Name != user_constants.RoleSuperUser && role.Name != user_constants.RoleAdmin {
+		return "", errors.New("only users with 'Medical Staff', 'Kitchen Staff', 'Super User', or 'Admin' role can create support tickets")
 	}
 
 	return role.Name, nil
@@ -218,8 +218,31 @@ func (uc *SupportUseCaseImpl) ensureMedicalStaffAdmin(userID string) error {
 		return errors.New("failed to get user role: " + err.Error())
 	}
 
-	if role.Name != user_constants.RoleMedicalStaff && role.Name != user_constants.RoleSuperUser {
-		return errors.New("only users with 'Medical Staff' or 'Super User' role can manage support tickets")
+	if role.Name != user_constants.RoleMedicalStaff && role.Name != user_constants.RoleSuperUser && role.Name != user_constants.RoleAdmin {
+		return errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can manage support tickets")
+	}
+
+	return nil
+}
+
+func (uc *SupportUseCaseImpl) ensureSupportManager(userID string) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return errors.New("user id is required")
+	}
+
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return errors.New("failed to get user: " + err.Error())
+	}
+
+	role, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return errors.New("failed to get user role: " + err.Error())
+	}
+
+	if role.Name != user_constants.RoleSuperUser && role.Name != user_constants.RoleAdmin {
+		return errors.New("only users with 'Super User' or 'Admin' role can manage support ticket actions")
 	}
 
 	return nil
