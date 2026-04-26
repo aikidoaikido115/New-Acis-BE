@@ -1184,7 +1184,7 @@ func (c *EmrController) CreateDrugAllergyByResidentIDHandler(ctx *fiber.Ctx) err
 
 // CreateVitalSign godoc
 // @Summary Create Vital Sign
-// @Description Create a new vital sign entry for a resident
+// @Description Create a new vital sign entry for a resident on a selected date and time slot
 // @Tags VitalSign
 // @Accept json
 // @Produce json
@@ -1219,6 +1219,7 @@ func (c *EmrController) CreateVitalSignHandler(ctx *fiber.Ctx) error {
 
 	vitalSign := &entities.VitalSign{
 		ResidentID:             req.ResidentID,
+		TimeOfDay:              req.TimeOfDay,
 		Temperature:            req.Temperature,
 		HeartRate:              req.HeartRate,
 		BreathingRate:          req.BreathingRate,
@@ -1226,7 +1227,7 @@ func (c *EmrController) CreateVitalSignHandler(ctx *fiber.Ctx) error {
 		BloodPressureDiastolic: req.BloodPressureDiastolic,
 		OxygenSaturation:       req.OxygenSaturation,
 	}
-	createdVitalSign, err := c.emrUsecase.CreateVitalSign(vitalSign, userID)
+	createdVitalSign, err := c.emrUsecase.CreateVitalSign(vitalSign, req.Date, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -1245,11 +1246,13 @@ func (c *EmrController) CreateVitalSignHandler(ctx *fiber.Ctx) error {
 }
 
 // @Summary Get Vital Signs Overview
-// @Description Get today's vital signs with optional filters. vitalsign_status: 'all' (default), 'normal', or 'abnormal'
+// @Description Get vital signs by selected date with optional filters. vitalsign_status: 'all' (default), 'normal', or 'abnormal'
 // @Tags VitalSign
 // @Accept json
 // @Produce json
 // @Security BearerAuth
+// @Param date query string true "Selected date (YYYY-MM-DD)"
+// @Param time_of_day query string false "Time of day filter" Enums(เช้า,สาย,บ่าย,เย็น,กลางคืน,morning,late_morning,afternoon,evening,night)
 // @Param floor query int false "Filter by floor"
 // @Param label_ids query []string false "Filter by label IDs"
 // @Param vitalsign_status query string false "Filter by vital sign status" Enums(all, normal, abnormal)
@@ -1298,20 +1301,38 @@ func (c *EmrController) GetVitalSignsOverviewHandler(ctx *fiber.Ctx) error {
 }
 
 // @Summary Get Vital Signs by Resident ID
-// @Description Retrieve vital signs today for a specific resident, with an option to get only the latest entry. is_latest must be 'true' or 'false'
+// @Description Retrieve vital signs on a selected date for a specific resident, with an option to get only the latest entry. is_latest must be 'true' or 'false'
 // @Tags VitalSign
 // @Accept json
 // @Produce json
 // @Security BearerAuth
 // @Param resident_id query string true "Resident ID"
-// @Param is_latest query string true "Retrieve only the latest vital sign entry ('true' or 'false')" Enums(true, false)
+// @Param date query string true "Selected date (YYYY-MM-DD)"
+// @Param is_latest query string false "Retrieve only the latest vital sign entry ('true' or 'false')" Enums(true, false)
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
 // @Router /api/emr/vital-signs/resident [get]
 func (c *EmrController) GetVitalSignsByResidentHandler(ctx *fiber.Ctx) error {
-	residentID := ctx.Query("resident_id")
-	isLatest := ctx.Query("is_latest")
+	var req models.VitalSignQueryParams
+	if err := ctx.QueryParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	residentID := ""
+	if req.ResidentID != nil {
+		residentID = *req.ResidentID
+	}
+	isLatest := ctx.Query("is_latest", "false")
+	selectedDate := ""
+	if req.Date != nil {
+		selectedDate = *req.Date
+	}
 
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
@@ -1323,7 +1344,7 @@ func (c *EmrController) GetVitalSignsByResidentHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	vitalSigns, err := c.emrUsecase.GetVitalSignsByResident(residentID, isLatest, userID)
+	vitalSigns, err := c.emrUsecase.GetVitalSignsByResident(residentID, selectedDate, isLatest, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -1420,47 +1441,6 @@ func (c *EmrController) GetVitalSignsHistoryHandler(ctx *fiber.Ctx) error {
 		"status":      "Success",
 		"status_code": fiber.StatusOK,
 		"message":     "vital signs history retrieved successfully",
-		"result":      vitalSigns,
-	})
-}
-
-// @Summary Get Abnormal Vital Signs
-// @Description Retrieve a list of residents with abnormal vital signs today, with optional floor filter and option to get only the latest entry per resident. is_latest must be 'true' or 'false'
-// @Tags VitalSign
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param floor query int false "Filter by floor"
-// @Param is_latest query string true "Retrieve only the latest abnormal vital sign entry per resident ('true' or 'false')" Enums(true, false)
-// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
-// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
-// @Router /api/emr/vital-signs/abnormal [get]
-func (c *EmrController) GetAbnormalVitalSignsHandler(ctx *fiber.Ctx) error {
-	floor := ctx.Query("floor")
-	isLatest := ctx.Query("is_latest")
-
-	userID, ok := ctx.Locals("user_id").(string)
-	if !ok || userID == "" {
-		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
-			"status":      fiber.ErrUnauthorized.Message,
-			"status_code": fiber.ErrUnauthorized.Code,
-			"message":     "Unauthorized: Missing user ID",
-			"result":      nil,
-		})
-	}
-	vitalSigns, err := c.emrUsecase.GetAbnormalVitalSigns(floor, isLatest, userID)
-	if err != nil {
-		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
-			"status":      fiber.ErrInternalServerError.Message,
-			"status_code": fiber.ErrInternalServerError.Code,
-			"message":     err.Error(),
-			"result":      nil,
-		})
-	}
-	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
-		"status":      "Success",
-		"status_code": fiber.StatusOK,
-		"message":     "abnormal vital signs retrieved successfully",
 		"result":      vitalSigns,
 	})
 }
@@ -1572,7 +1552,7 @@ func (c *EmrController) CreateLaboratoryValueHandler(ctx *fiber.Ctx) error {
 		DiaperChange: req.DiaperChange,
 	}
 
-	createdLaboratoryValue, err := c.emrUsecase.CreateLaboratoryValue(laboratoryValue, userID)
+	createdLaboratoryValue, err := c.emrUsecase.CreateLaboratoryValue(laboratoryValue, req.Date, req.TimeOfDay, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -1590,11 +1570,13 @@ func (c *EmrController) CreateLaboratoryValueHandler(ctx *fiber.Ctx) error {
 }
 
 // @Summary Get Laboratory Values Overview
-// @Description Get today's laboratory values with optional filters. laboratory_value_status: 'all' (default), 'normal', or 'abnormal'. urine_type must be 'ml' or 'times' and must be provided together with urine_output.
+// @Description Get laboratory values for a specific date with optional filters. laboratory_value_status: 'all' (default), 'normal', or 'abnormal'. urine_type must be 'ml' or 'times' and must be provided together with urine_output.
 // @Tags LaboratoryValue
 // @Accept json
 // @Produce json
 // @Security BearerAuth
+// @Param date query string true "Filter by date (format: YYYY-MM-DD)"
+// @Param time_of_day query string false "Filter by time of day (เช้า/สาย/บ่าย/เย็น/กลางคืน)"
 // @Param floor query int false "Filter by floor"
 // @Param label_ids query []string false "Filter by label IDs"
 // @Param urine_type query string false "Filter by urine type (must be 'ml' or 'times' if urine_output is provided)" Enums(ml, times)
@@ -1644,12 +1626,13 @@ func (c *EmrController) GetLaboratoryValuesOverviewHandler(ctx *fiber.Ctx) error
 }
 
 // @Summary Get Laboratory Values by Resident ID
-// @Description Retrieve laboratory values today for a specific resident, with an option to get only the latest entry. is_latest must be 'true' or 'false'
+// @Description Retrieve laboratory values for a specific resident on a specific date, with an option to get only the latest entry. is_latest must be 'true' or 'false'
 // @Tags LaboratoryValue
 // @Accept json
 // @Produce json
 // @Security BearerAuth
 // @Param resident_id query string true "Resident ID"
+// @Param date query string true "Filter by date (format: YYYY-MM-DD)"
 // @Param is_latest query string true "Retrieve only the latest laboratory value entry ('true' or 'false')" Enums(true, false)
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
@@ -1657,6 +1640,7 @@ func (c *EmrController) GetLaboratoryValuesOverviewHandler(ctx *fiber.Ctx) error
 // @Router /api/emr/laboratory-values/resident [get]
 func (c *EmrController) GetLaboratoryValuesByResidentHandler(ctx *fiber.Ctx) error {
 	residentID := ctx.Query("resident_id")
+	dateStr := ctx.Query("date")
 	isLatest := ctx.Query("is_latest")
 
 	userID, ok := ctx.Locals("user_id").(string)
@@ -1669,7 +1653,7 @@ func (c *EmrController) GetLaboratoryValuesByResidentHandler(ctx *fiber.Ctx) err
 		})
 	}
 
-	laboratoryValues, err := c.emrUsecase.GetLaboratoryValuesByResident(residentID, isLatest, userID)
+	laboratoryValues, err := c.emrUsecase.GetLaboratoryValuesByResident(residentID, dateStr, isLatest, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -1766,48 +1750,6 @@ func (c *EmrController) GetLaboratoryValuesHistoryHandler(ctx *fiber.Ctx) error 
 		"status":      "Success",
 		"status_code": fiber.StatusOK,
 		"message":     "laboratory values history retrieved successfully",
-		"result":      laboratoryValues,
-	})
-}
-
-// @Summary Get Abnormal Laboratory Values
-// @Description Retrieve a list of residents with abnormal laboratory values today, with optional floor filter and option to get only the latest entry per resident. is_latest must be 'true' or 'false'
-// @Tags LaboratoryValue
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param floor query int false "Filter by floor"
-// @Param is_latest query string true "Retrieve only the latest abnormal laboratory value entry per resident ('true' or 'false')" Enums(true, false)
-// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}
-// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
-// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
-// @Router /api/emr/laboratory-values/abnormal [get]
-func (c *EmrController) GetAbnormalLaboratoryValuesHandler(ctx *fiber.Ctx) error {
-	floor := ctx.Query("floor")
-	isLatest := ctx.Query("is_latest")
-
-	userID, ok := ctx.Locals("user_id").(string)
-	if !ok || userID == "" {
-		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
-			"status":      fiber.ErrUnauthorized.Message,
-			"status_code": fiber.ErrUnauthorized.Code,
-			"message":     "Unauthorized: Missing user ID",
-			"result":      nil,
-		})
-	}
-	laboratoryValues, err := c.emrUsecase.GetAbnormalLaboratoryValues(floor, isLatest, userID)
-	if err != nil {
-		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
-			"status":      fiber.ErrInternalServerError.Message,
-			"status_code": fiber.ErrInternalServerError.Code,
-			"message":     err.Error(),
-			"result":      nil,
-		})
-	}
-	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
-		"status":      "Success",
-		"status_code": fiber.StatusOK,
-		"message":     "abnormal laboratory values retrieved successfully",
 		"result":      laboratoryValues,
 	})
 }

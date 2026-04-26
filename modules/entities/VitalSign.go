@@ -5,6 +5,8 @@ import "time"
 type VitalSign struct {
 	ID                     string    `json:"vital_sign_id" gorm:"primaryKey"`
 	ResidentID             string    `json:"resident_id" gorm:"primaryKey" `
+	MeasurementDate        time.Time `json:"measurement_date" gorm:"type:date;not null"`
+	TimeOfDay              string    `json:"time_of_day" gorm:"type:text;not null"`
 	Temperature            *float64  `json:"temperature"`
 	HeartRate              *int16    `json:"heart_rate"`
 	BreathingRate          *int16    `json:"breathing_rate"`

@@ -189,7 +189,6 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	vitalSignGroup.Get("/resident", middlewares.JWTMiddleware(jwt), emrController.GetVitalSignsByResidentHandler)
 	vitalSignGroup.Get("/room", middlewares.JWTMiddleware(jwt), emrController.GetRoomVitalSignsHandler)
 	vitalSignGroup.Get("/history/:resident_id", middlewares.JWTMiddleware(jwt), emrController.GetVitalSignsHistoryHandler)
-	vitalSignGroup.Get("/abnormal", middlewares.JWTMiddleware(jwt), emrController.GetAbnormalVitalSignsHandler)
 	vitalSignGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateVitalSignByIDHandler)
 
 	laboratoryValueGroup := app.Group("/api/emr/laboratory-values")
@@ -199,7 +198,6 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	laboratoryValueGroup.Get("/room", middlewares.JWTMiddleware(jwt), emrController.GetRoomLaboratoryValuesHandler)
 	laboratoryValueGroup.Get("/history/:resident_id", middlewares.JWTMiddleware(jwt), emrController.GetLaboratoryValuesHistoryHandler)
 	laboratoryValueGroup.Get("/urine-output-sum/:resident_id", middlewares.JWTMiddleware(jwt), emrController.GetUrineOutputSumByResidentIDHandler)
-	laboratoryValueGroup.Get("/abnormal", middlewares.JWTMiddleware(jwt), emrController.GetAbnormalLaboratoryValuesHandler)
 	laboratoryValueGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateLaboratoryValueByIDHandler)
 
 	nurseNoteGroup := app.Group("/api/emr/nurse-notes")

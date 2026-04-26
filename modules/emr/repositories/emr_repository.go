@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"time"
+
 	emr_constants "github.com/aikidoaikido115/New-Acis-BE/modules/emr/constants"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/models"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
@@ -90,8 +92,11 @@ type EmrRepository interface {
 
 	// VitalSign operations
 	CreateVitalSign(vitalSign *entities.VitalSign) (*entities.VitalSign, error)
+	VitalSignSlotExists(residentID string, measurementDate time.Time, timeOfDay string) (bool, error)
 
 	GetVitalSignByID(id string) (*entities.VitalSign, error)
+	GetVitalSignsByResidentIDOnDate(residentID string, dayDate time.Time, isLatest bool) ([]*entities.VitalSign, error)
+	GetVitalSignsOnDate(dayDate time.Time, isLatest bool) ([]*entities.VitalSign, error)
 	GetVitalSignsByRoomIDToday(roomID string, isLatest bool) ([]*entities.VitalSign, error)
 	GetVitalSignsByFloorToday(floor int16, isLatest bool) ([]*entities.VitalSign, error)
 	GetVitalSignsByResidentIDToday(residentID string, isLatest bool) ([]*entities.VitalSign, error)
@@ -111,6 +116,10 @@ type EmrRepository interface {
 	GetLaboratoryValuesHistory(residentID string) ([]*entities.LaboratoryValue, error)
 	GetLaboratoryValuesToday(isLatest bool) ([]*entities.LaboratoryValue, error)
 	GetLaboratoryValuesCustom(params models.LaboratoryValueQueryParams) ([]*entities.LaboratoryValue, int64, error)
+
+	LaboratoryValueSlotExists(residentID string, measurementDate time.Time, timeOfDay string) (bool, error)
+	GetLaboratoryValuesByResidentIDOnDate(residentID string, dayDate time.Time, isLatest bool) ([]*entities.LaboratoryValue, error)
+	GetLaboratoryValuesOnDate(dayDate time.Time, isLatest bool) ([]*entities.LaboratoryValue, error)
 
 	UpdateLaboratoryValueByID(laboratoryValue *entities.LaboratoryValue) (*entities.LaboratoryValue, error)
 
@@ -756,6 +765,20 @@ func (r *GormEmrRepository) CreateVitalSign(vitalSign *entities.VitalSign) (*ent
 	return vitalSign, nil
 }
 
+func (r *GormEmrRepository) VitalSignSlotExists(residentID string, measurementDate time.Time, timeOfDay string) (bool, error) {
+	var count int64
+	err := r.db.Model(&entities.VitalSign{}).
+		Where("resident_id = ?", residentID).
+		Where("measurement_date = ?::date", measurementDate.Format("2006-01-02")).
+		Where("LOWER(time_of_day) = LOWER(?)", timeOfDay).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
 func (r *GormEmrRepository) GetVitalSignByID(id string) (*entities.VitalSign, error) {
 	var vitalSign entities.VitalSign
 	if err := r.db.Where("id = ?", id).First(&vitalSign).Error; err != nil {
@@ -832,12 +855,16 @@ func (r *GormEmrRepository) GetVitalSignsByFloorToday(floor int16, isLatest bool
 }
 
 func (r *GormEmrRepository) GetVitalSignsByResidentIDToday(residentID string, isLatest bool) ([]*entities.VitalSign, error) {
+	bangkokNow := time.Now().In(time.FixedZone("ICT", 7*60*60))
+	return r.GetVitalSignsByResidentIDOnDate(residentID, bangkokNow, isLatest)
+}
+
+func (r *GormEmrRepository) GetVitalSignsByResidentIDOnDate(residentID string, dayDate time.Time, isLatest bool) ([]*entities.VitalSign, error) {
 	var vitalSigns []*entities.VitalSign
 
 	query := r.db.
 		Where("resident_id = ?", residentID).
-		Where("created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
-		Where("created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'").
+		Where("measurement_date = ?::date", dayDate.Format("2006-01-02")).
 		Order("created_at DESC")
 
 	if isLatest {
@@ -853,6 +880,11 @@ func (r *GormEmrRepository) GetVitalSignsByResidentIDToday(residentID string, is
 }
 
 func (r *GormEmrRepository) GetVitalSignsToday(isLatest bool) ([]*entities.VitalSign, error) {
+	bangkokNow := time.Now().In(time.FixedZone("ICT", 7*60*60))
+	return r.GetVitalSignsOnDate(bangkokNow, isLatest)
+}
+
+func (r *GormEmrRepository) GetVitalSignsOnDate(dayDate time.Time, isLatest bool) ([]*entities.VitalSign, error) {
 	var vitalSigns []*entities.VitalSign
 
 	query := r.db
@@ -862,8 +894,7 @@ func (r *GormEmrRepository) GetVitalSignsToday(isLatest bool) ([]*entities.Vital
 			Select("DISTINCT ON (vital_signs.resident_id) vital_signs.*")
 	}
 
-	query = query.Where("vital_signs.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
-		Where("vital_signs.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
+	query = query.Where("vital_signs.measurement_date = ?::date", dayDate.Format("2006-01-02"))
 
 	if isLatest {
 		query = query.Order("vital_signs.resident_id, vital_signs.created_at DESC")
@@ -918,6 +949,10 @@ func (r *GormEmrRepository) GetVitalSignsCustom(params models.VitalSignQueryPara
 			query = query.Where("vital_signs.resident_id IN (?)", subQuery)
 		}
 
+		if params.TimeOfDay != nil && *params.TimeOfDay != "" {
+			query = query.Where("LOWER(vital_signs.time_of_day) = LOWER(?)", *params.TimeOfDay)
+		}
+
 		if needResidentsJoin {
 			query = query.Joins("JOIN residents ON vital_signs.resident_id = residents.id")
 		}
@@ -925,12 +960,16 @@ func (r *GormEmrRepository) GetVitalSignsCustom(params models.VitalSignQueryPara
 			query = query.Joins("JOIN rooms ON residents.room_id = rooms.id")
 		}
 
-		if params.StartDate != nil {
+		if params.Date != nil && *params.Date != "" {
+			query = query.Where("vital_signs.measurement_date = ?::date", *params.Date)
+		} else if params.StartDate != nil {
 			query = query.Where("vital_signs.created_at >= ?", *params.StartDate)
 		} else {
 			query = query.Where("vital_signs.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'")
 		}
-		if params.EndDate != nil {
+		if params.Date != nil && *params.Date != "" {
+			// date filter already handles full-day selection
+		} else if params.EndDate != nil {
 			endDateInclusive := params.EndDate.AddDate(0, 0, 1)
 			query = query.Where("vital_signs.created_at < ?", endDateInclusive)
 		} else {
@@ -1192,6 +1231,43 @@ func (r *GormEmrRepository) UpdateLaboratoryValueByID(laboratoryValue *entities.
 		return nil, err
 	}
 	return laboratoryValue, nil
+}
+
+func (r *GormEmrRepository) LaboratoryValueSlotExists(residentID string, measurementDate time.Time, timeOfDay string) (bool, error) {
+	var count int64
+	r.db.Model(&entities.LaboratoryValue{}).
+		Where("resident_id = ?", residentID).
+		Where("measurement_date = ?::date", measurementDate.Format("2006-01-02")).
+		Where("LOWER(time_of_day) = LOWER(?)", timeOfDay).
+		Count(&count)
+	return count > 0, nil
+}
+
+func (r *GormEmrRepository) GetLaboratoryValuesByResidentIDOnDate(residentID string, dayDate time.Time, isLatest bool) ([]*entities.LaboratoryValue, error) {
+	query := r.db.
+		Where("resident_id = ?", residentID).
+		Where("measurement_date = ?::date", dayDate.Format("2006-01-02")).
+		Order("created_at DESC")
+	if isLatest {
+		query = query.Limit(1)
+	}
+	var labs []*entities.LaboratoryValue
+	err := query.Find(&labs).Error
+	return labs, err
+}
+
+func (r *GormEmrRepository) GetLaboratoryValuesOnDate(dayDate time.Time, isLatest bool) ([]*entities.LaboratoryValue, error) {
+	query := r.db
+	if isLatest {
+		query = query.Table("laboratory_values").
+			Select("DISTINCT ON (laboratory_values.resident_id) laboratory_values.*")
+	}
+	query = query.
+		Where("measurement_date = ?::date", dayDate.Format("2006-01-02")).
+		Order("resident_id, created_at DESC")
+	var labs []*entities.LaboratoryValue
+	err := query.Find(&labs).Error
+	return labs, err
 }
 
 func (r *GormEmrRepository) GetUrineOutputSumGroupByResident(params models.LaboratoryValueQueryParams, urineType string) (*models.UrineOutputSumResponse, error) {

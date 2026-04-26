@@ -124,10 +124,14 @@ definitions:
         type: number
       laboratory_value_id:
         type: string
+      measurement_date:
+        type: string
       resident_id:
         type: string
       stool:
         type: integer
+      time_of_day:
+        type: string
       updated_at:
         type: string
       urine_output:
@@ -393,12 +397,16 @@ definitions:
         type: string
       heart_rate:
         type: integer
+      measurement_date:
+        type: string
       oxygen_saturation:
         type: integer
       resident_id:
         type: string
       temperature:
         type: number
+      time_of_day:
+        type: string
       updated_at:
         type: string
       vital_sign_id:
@@ -602,6 +610,8 @@ definitions:
     properties:
       blood_glucose:
         type: number
+      date:
+        type: string
       diaper_change:
         type: integer
       fluid_in:
@@ -612,13 +622,17 @@ definitions:
         type: string
       stool:
         type: integer
+      time_of_day:
+        type: string
       urine_output:
         type: number
       urine_type:
         description: '"ml" หรือ "times"'
         type: string
     required:
+    - date
     - resident_id
+    - time_of_day
     type: object
   models.CreateMealPlanRequest:
     properties:
@@ -707,6 +721,8 @@ definitions:
         type: integer
       breathing_rate:
         type: integer
+      date:
+        type: string
       heart_rate:
         type: integer
       oxygen_saturation:
@@ -715,8 +731,12 @@ definitions:
         type: string
       temperature:
         type: number
+      time_of_day:
+        type: string
     required:
+    - date
     - resident_id
+    - time_of_day
     type: object
   models.CreateWarehouseItemRequest:
     properties:
@@ -825,11 +845,63 @@ definitions:
       waiting_residents:
         type: integer
     type: object
+  models.LaboratoryValueFieldStatus:
+    properties:
+      is_abnormal:
+        type: boolean
+      key:
+        type: string
+      label:
+        type: string
+    type: object
+  models.LaboratoryValuesOverviewItemResponse:
+    properties:
+      abnormal_list:
+        items:
+          type: string
+        type: array
+      blood_glucose:
+        type: number
+      created_at:
+        type: string
+      created_by_staff_id:
+        type: string
+      diaper_change:
+        type: integer
+      field_statuses:
+        items:
+          $ref: '#/definitions/models.LaboratoryValueFieldStatus'
+        type: array
+      fluid_in:
+        type: number
+      fluid_out:
+        type: number
+      laboratory_value_id:
+        type: string
+      measurement_date:
+        type: string
+      normal_list:
+        items:
+          type: string
+        type: array
+      resident_id:
+        type: string
+      stool:
+        type: integer
+      time_of_day:
+        type: string
+      updated_at:
+        type: string
+      urine_output:
+        type: number
+      urine_type:
+        type: string
+    type: object
   models.LaboratoryValuesOverviewResponse:
     properties:
       items:
         items:
-          $ref: '#/definitions/entities.LaboratoryValue'
+          $ref: '#/definitions/models.LaboratoryValuesOverviewItemResponse'
         type: array
       pagination:
         $ref: '#/definitions/models.OverviewPagination'
@@ -1182,11 +1254,61 @@ definitions:
       unit:
         type: string
     type: object
+  models.VitalSignFieldStatus:
+    properties:
+      is_abnormal:
+        type: boolean
+      key:
+        type: string
+      label:
+        type: string
+    type: object
+  models.VitalSignsOverviewItemResponse:
+    properties:
+      abnormal_list:
+        items:
+          type: string
+        type: array
+      blood_pressure_diastolic:
+        type: integer
+      blood_pressure_systolic:
+        type: integer
+      breathing_rate:
+        type: integer
+      created_at:
+        type: string
+      created_by_staff_id:
+        type: string
+      field_statuses:
+        items:
+          $ref: '#/definitions/models.VitalSignFieldStatus'
+        type: array
+      heart_rate:
+        type: integer
+      measurement_date:
+        type: string
+      normal_list:
+        items:
+          type: string
+        type: array
+      oxygen_saturation:
+        type: integer
+      resident_id:
+        type: string
+      temperature:
+        type: number
+      time_of_day:
+        type: string
+      updated_at:
+        type: string
+      vital_sign_id:
+        type: string
+    type: object
   models.VitalSignsOverviewResponse:
     properties:
       items:
         items:
-          $ref: '#/definitions/entities.VitalSign'
+          $ref: '#/definitions/models.VitalSignsOverviewItemResponse'
         type: array
       pagination:
         $ref: '#/definitions/models.OverviewPagination'
@@ -6312,74 +6434,6 @@ paths:
       summary: Update Laboratory Value by ID
       tags:
       - LaboratoryValue
-  /api/emr/laboratory-values/abnormal:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve a list of residents with abnormal laboratory values today,
-        with optional floor filter and option to get only the latest entry per resident.
-        is_latest must be 'true' or 'false'
-      parameters:
-      - description: Filter by floor
-        in: query
-        name: floor
-        type: integer
-      - description: Retrieve only the latest abnormal laboratory value entry per
-          resident ('true' or 'false')
-        enum:
-        - "true"
-        - "false"
-        in: query
-        name: is_latest
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              message:
-                type: string
-              result:
-                items:
-                  type: object
-                type: array
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            properties:
-              message:
-                type: string
-              result: {}
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            properties:
-              message:
-                type: string
-              result: {}
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get Abnormal Laboratory Values
-      tags:
-      - LaboratoryValue
   /api/emr/laboratory-values/history/{resident_id}:
     get:
       consumes:
@@ -6442,10 +6496,19 @@ paths:
     get:
       consumes:
       - application/json
-      description: 'Get today''s laboratory values with optional filters. laboratory_value_status:
-        ''all'' (default), ''normal'', or ''abnormal''. urine_type must be ''ml''
-        or ''times'' and must be provided together with urine_output.'
+      description: 'Get laboratory values for a specific date with optional filters.
+        laboratory_value_status: ''all'' (default), ''normal'', or ''abnormal''. urine_type
+        must be ''ml'' or ''times'' and must be provided together with urine_output.'
       parameters:
+      - description: 'Filter by date (format: YYYY-MM-DD)'
+        in: query
+        name: date
+        required: true
+        type: string
+      - description: Filter by time of day (เช้า/สาย/บ่าย/เย็น/กลางคืน)
+        in: query
+        name: time_of_day
+        type: string
       - description: Filter by floor
         in: query
         name: floor
@@ -6530,12 +6593,18 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve laboratory values today for a specific resident, with
-        an option to get only the latest entry. is_latest must be 'true' or 'false'
+      description: Retrieve laboratory values for a specific resident on a specific
+        date, with an option to get only the latest entry. is_latest must be 'true'
+        or 'false'
       parameters:
       - description: Resident ID
         in: query
         name: resident_id
+        required: true
+        type: string
+      - description: 'Filter by date (format: YYYY-MM-DD)'
+        in: query
+        name: date
         required: true
         type: string
       - description: Retrieve only the latest laboratory value entry ('true' or 'false')
@@ -7850,7 +7919,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new vital sign entry for a resident
+      description: Create a new vital sign entry for a resident on a selected date
+        and time slot
       parameters:
       - description: Vital sign information
         in: body
@@ -7991,62 +8061,6 @@ paths:
       summary: Update Vital Sign by ID
       tags:
       - VitalSign
-  /api/emr/vital-signs/abnormal:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve a list of residents with abnormal vital signs today, with
-        optional floor filter and option to get only the latest entry per resident.
-        is_latest must be 'true' or 'false'
-      parameters:
-      - description: Filter by floor
-        in: query
-        name: floor
-        type: integer
-      - description: Retrieve only the latest abnormal vital sign entry per resident
-          ('true' or 'false')
-        enum:
-        - "true"
-        - "false"
-        in: query
-        name: is_latest
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              message:
-                type: string
-              result:
-                items:
-                  type: object
-                type: array
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            properties:
-              message:
-                type: string
-              result: {}
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get Abnormal Vital Signs
-      tags:
-      - VitalSign
   /api/emr/vital-signs/history/{resident_id}:
     get:
       consumes:
@@ -8109,9 +8123,29 @@ paths:
     get:
       consumes:
       - application/json
-      description: 'Get today''s vital signs with optional filters. vitalsign_status:
+      description: 'Get vital signs by selected date with optional filters. vitalsign_status:
         ''all'' (default), ''normal'', or ''abnormal'''
       parameters:
+      - description: Selected date (YYYY-MM-DD)
+        in: query
+        name: date
+        required: true
+        type: string
+      - description: Time of day filter
+        enum:
+        - เช้า
+        - สาย
+        - บ่าย
+        - เย็น
+        - กลางคืน
+        - morning
+        - late_morning
+        - afternoon
+        - evening
+        - night
+        in: query
+        name: time_of_day
+        type: string
       - description: Filter by floor
         in: query
         name: floor
@@ -8188,12 +8222,17 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve vital signs today for a specific resident, with an option
-        to get only the latest entry. is_latest must be 'true' or 'false'
+      description: Retrieve vital signs on a selected date for a specific resident,
+        with an option to get only the latest entry. is_latest must be 'true' or 'false'
       parameters:
       - description: Resident ID
         in: query
         name: resident_id
+        required: true
+        type: string
+      - description: Selected date (YYYY-MM-DD)
+        in: query
+        name: date
         required: true
         type: string
       - description: Retrieve only the latest vital sign entry ('true' or 'false')
@@ -8202,7 +8241,6 @@ paths:
         - "false"
         in: query
         name: is_latest
-        required: true
         type: string
       produces:
       - application/json

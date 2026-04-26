@@ -88,6 +88,8 @@ type CreateRoomRequest struct {
 
 type CreateVitalSignRequest struct {
 	ResidentID             string   `json:"resident_id" binding:"required"`
+	Date                   string   `json:"date" binding:"required"`
+	TimeOfDay              string   `json:"time_of_day" binding:"required"`
 	Temperature            *float64 `json:"temperature"`
 	HeartRate              *int16   `json:"heart_rate"`
 	BreathingRate          *int16   `json:"breathing_rate"`
@@ -97,6 +99,8 @@ type CreateVitalSignRequest struct {
 }
 
 type VitalSignQueryParams struct {
+	Date            *string    `json:"date" form:"date" query:"date"`
+	TimeOfDay       *string    `json:"time_of_day" form:"time_of_day" query:"time_of_day"`
 	ResidentID      *string    `json:"resident_id" form:"resident_id" query:"resident_id"`
 	RoomID          *string    `json:"room_id" form:"room_id" query:"room_id"`
 	Floor           *int16     `json:"floor" form:"floor" query:"floor"`             // nil = ทุกชั้น, มีค่า = ชั้นนั้น
@@ -122,6 +126,8 @@ type UpdateVitalSignRequest struct {
 
 type CreateLaboratoryValueRequest struct {
 	ResidentID   string   `json:"resident_id" binding:"required"`
+	Date         string   `json:"date" binding:"required"`
+	TimeOfDay    string   `json:"time_of_day" binding:"required"`
 	BloodGlucose *float64 `json:"blood_glucose"`
 	FluidIn      *float64 `json:"fluid_in"`
 	FluidOut     *float64 `json:"fluid_out"`
@@ -134,6 +140,8 @@ type CreateLaboratoryValueRequest struct {
 type LaboratoryValueQueryParams struct {
 	ResidentID            *string    `json:"resident_id" form:"resident_id" query:"resident_id"`
 	RoomID                *string    `json:"room_id" form:"room_id" query:"room_id"`
+	Date                  *string    `json:"date" form:"date" query:"date"`
+	TimeOfDay             *string    `json:"time_of_day" form:"time_of_day" query:"time_of_day"`
 	Floor                 *int16     `json:"floor" form:"floor" query:"floor"`
 	LabelIDs              []string   `json:"label_ids" form:"label_ids" query:"label_ids"`
 	StartDate             *time.Time `json:"start_date" form:"start_date" query:"start_date"`
