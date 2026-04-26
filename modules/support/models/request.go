@@ -8,9 +8,10 @@ type CreateSupportTicketRequest struct {
 }
 
 type ListSupportTicketsQuery struct {
-	Search       string `query:"search" json:"search"`
-	Status       string `query:"status" json:"status"`
-	ReporterRole string `query:"reporterRole" json:"reporterRole"`
+	Search          string `query:"search" json:"search"`
+	Status          string `query:"status" json:"status"`
+	ReporterRole    string `query:"reporterRole" json:"reporterRole"`
+	CreatedByUserID string `query:"createdByUserId" json:"createdByUserId"`
 }
 
 type UpdateSupportTicketStatusRequest struct {
