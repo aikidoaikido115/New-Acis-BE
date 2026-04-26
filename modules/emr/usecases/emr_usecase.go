@@ -191,6 +191,111 @@ func (uc *EmrUseCaseImpl) ensureMedicalStaff(userID string) error {
 	return nil
 }
 
+func (uc *EmrUseCaseImpl) resolveStaffDisplayName(staffID string, cache map[string]string) string {
+	if staffID == "" {
+		return ""
+	}
+
+	if cache != nil {
+		if name, ok := cache[staffID]; ok {
+			return name
+		}
+	}
+
+	staff, err := uc.userrepo.GetStaffByID(staffID)
+	if err != nil {
+		if cache != nil {
+			cache[staffID] = staffID
+		}
+		return staffID
+	}
+
+	fullName := strings.TrimSpace(strings.TrimSpace(staff.User.FirstName) + " " + strings.TrimSpace(staff.User.LastName))
+	if fullName == "" {
+		fullName = strings.TrimSpace(staff.User.Nickname)
+	}
+	if fullName == "" {
+		fullName = strings.TrimSpace(staff.User.Username)
+	}
+	if fullName == "" {
+		fullName = staffID
+	}
+
+	if cache != nil {
+		cache[staffID] = fullName
+	}
+
+	return fullName
+}
+
+func (uc *EmrUseCaseImpl) populateNurseNotesStaffNames(notes []*entities.NurseNote) {
+	cache := map[string]string{}
+	for _, note := range notes {
+		if note == nil {
+			continue
+		}
+		note.CreatedByStaffName = uc.resolveStaffDisplayName(note.CreatedByStaffID, cache)
+	}
+}
+
+func (uc *EmrUseCaseImpl) populateNurseNoteStaffName(note *entities.NurseNote) {
+	if note == nil {
+		return
+	}
+	note.CreatedByStaffName = uc.resolveStaffDisplayName(note.CreatedByStaffID, nil)
+}
+
+func (uc *EmrUseCaseImpl) populateWoundCareNotesStaffNames(notes []*entities.WoundCareNote) {
+	cache := map[string]string{}
+	for _, note := range notes {
+		if note == nil {
+			continue
+		}
+		note.CreatedByStaffName = uc.resolveStaffDisplayName(note.CreatedByStaffID, cache)
+	}
+}
+
+func (uc *EmrUseCaseImpl) populateWoundCareNoteStaffName(note *entities.WoundCareNote) {
+	if note == nil {
+		return
+	}
+	note.CreatedByStaffName = uc.resolveStaffDisplayName(note.CreatedByStaffID, nil)
+}
+
+func (uc *EmrUseCaseImpl) populateRelativeNotesStaffNames(notes []*entities.RelativeNote) {
+	cache := map[string]string{}
+	for _, note := range notes {
+		if note == nil {
+			continue
+		}
+		note.CreatedByStaffName = uc.resolveStaffDisplayName(note.CreatedByStaffID, cache)
+	}
+}
+
+func (uc *EmrUseCaseImpl) populateRelativeNoteStaffName(note *entities.RelativeNote) {
+	if note == nil {
+		return
+	}
+	note.CreatedByStaffName = uc.resolveStaffDisplayName(note.CreatedByStaffID, nil)
+}
+
+func (uc *EmrUseCaseImpl) populateDoctorOrdersStaffNames(orders []*entities.DoctorOrder) {
+	cache := map[string]string{}
+	for _, order := range orders {
+		if order == nil {
+			continue
+		}
+		order.CreatedByStaffName = uc.resolveStaffDisplayName(order.CreatedByStaffID, cache)
+	}
+}
+
+func (uc *EmrUseCaseImpl) populateDoctorOrderStaffName(order *entities.DoctorOrder) {
+	if order == nil {
+		return
+	}
+	order.CreatedByStaffName = uc.resolveStaffDisplayName(order.CreatedByStaffID, nil)
+}
+
 func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID string) (*entities.Resident, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
@@ -2437,6 +2542,8 @@ func (uc *EmrUseCaseImpl) CreateNurseNote(note *entities.NurseNote, userID strin
 		log.Printf("[ERROR] Failed to create audit log for nurse note %s: %v", created.ID, err)
 	}
 
+	uc.populateNurseNoteStaffName(created)
+
 	return created, nil
 }
 
@@ -2444,7 +2551,14 @@ func (uc *EmrUseCaseImpl) GetNurseNotesOverview(userID string) ([]*entities.Nurs
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
-	return uc.emrrepo.GetNurseNotesOverview()
+
+	notes, err := uc.emrrepo.GetNurseNotesOverview()
+	if err != nil {
+		return nil, err
+	}
+
+	uc.populateNurseNotesStaffNames(notes)
+	return notes, nil
 }
 
 func (uc *EmrUseCaseImpl) GetNurseNotesByResidentID(residentID string, userID string) ([]*entities.NurseNote, error) {
@@ -2460,7 +2574,13 @@ func (uc *EmrUseCaseImpl) GetNurseNotesByResidentID(residentID string, userID st
 		return nil, errors.New("resident not found")
 	}
 
-	return uc.emrrepo.GetNurseNotesByResidentID(residentID)
+	notes, err := uc.emrrepo.GetNurseNotesByResidentID(residentID)
+	if err != nil {
+		return nil, err
+	}
+
+	uc.populateNurseNotesStaffNames(notes)
+	return notes, nil
 }
 
 func (uc *EmrUseCaseImpl) UpdateNurseNoteByID(noteID string, note *entities.NurseNote, userID string) (*entities.NurseNote, error) {
@@ -2511,6 +2631,8 @@ func (uc *EmrUseCaseImpl) UpdateNurseNoteByID(noteID string, note *entities.Nurs
 	if err != nil {
 		log.Printf("[ERROR] Failed to create audit log for nurse note %s: %v", updated.ID, err)
 	}
+
+	uc.populateNurseNoteStaffName(updated)
 
 	return updated, nil
 }
@@ -2603,6 +2725,8 @@ func (uc *EmrUseCaseImpl) CreateWoundCareNote(note *entities.WoundCareNote, user
 		log.Printf("[ERROR] Failed to create audit log for wound care note %s: %v", created.ID, err)
 	}
 
+	uc.populateWoundCareNoteStaffName(created)
+
 	return created, nil
 }
 
@@ -2610,7 +2734,14 @@ func (uc *EmrUseCaseImpl) GetWoundCareNotesOverview(userID string) ([]*entities.
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
-	return uc.emrrepo.GetWoundCareNotesOverview()
+
+	notes, err := uc.emrrepo.GetWoundCareNotesOverview()
+	if err != nil {
+		return nil, err
+	}
+
+	uc.populateWoundCareNotesStaffNames(notes)
+	return notes, nil
 }
 
 func (uc *EmrUseCaseImpl) GetWoundCareNotesByResidentID(residentID string, userID string) ([]*entities.WoundCareNote, error) {
@@ -2626,7 +2757,13 @@ func (uc *EmrUseCaseImpl) GetWoundCareNotesByResidentID(residentID string, userI
 		return nil, errors.New("resident not found")
 	}
 
-	return uc.emrrepo.GetWoundCareNotesByResidentID(residentID)
+	notes, err := uc.emrrepo.GetWoundCareNotesByResidentID(residentID)
+	if err != nil {
+		return nil, err
+	}
+
+	uc.populateWoundCareNotesStaffNames(notes)
+	return notes, nil
 }
 
 func (uc *EmrUseCaseImpl) UpdateWoundCareNoteByID(noteID string, note *entities.WoundCareNote, userID string, imageFile multipart.File) (*entities.WoundCareNote, error) {
@@ -2691,6 +2828,8 @@ func (uc *EmrUseCaseImpl) UpdateWoundCareNoteByID(noteID string, note *entities.
 	if err != nil {
 		log.Printf("[ERROR] Failed to create audit log for wound care note %s: %v", updated.ID, err)
 	}
+
+	uc.populateWoundCareNoteStaffName(updated)
 
 	return updated, nil
 }
@@ -2775,6 +2914,8 @@ func (uc *EmrUseCaseImpl) CreateRelativeNote(note *entities.RelativeNote, userID
 		log.Printf("[ERROR] Failed to create audit log for relative note %s: %v", created.ID, err)
 	}
 
+	uc.populateRelativeNoteStaffName(created)
+
 	return created, nil
 }
 
@@ -2782,7 +2923,14 @@ func (uc *EmrUseCaseImpl) GetRelativeNotesOverview(userID string) ([]*entities.R
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
-	return uc.emrrepo.GetRelativeNotesOverview()
+
+	notes, err := uc.emrrepo.GetRelativeNotesOverview()
+	if err != nil {
+		return nil, err
+	}
+
+	uc.populateRelativeNotesStaffNames(notes)
+	return notes, nil
 }
 
 func (uc *EmrUseCaseImpl) GetRelativeNotesByResidentID(residentID string, userID string) ([]*entities.RelativeNote, error) {
@@ -2798,7 +2946,13 @@ func (uc *EmrUseCaseImpl) GetRelativeNotesByResidentID(residentID string, userID
 		return nil, errors.New("resident not found")
 	}
 
-	return uc.emrrepo.GetRelativeNotesByResidentID(residentID)
+	notes, err := uc.emrrepo.GetRelativeNotesByResidentID(residentID)
+	if err != nil {
+		return nil, err
+	}
+
+	uc.populateRelativeNotesStaffNames(notes)
+	return notes, nil
 }
 
 func (uc *EmrUseCaseImpl) UpdateRelativeNoteByID(noteID string, note *entities.RelativeNote, userID string) (*entities.RelativeNote, error) {
@@ -2842,6 +2996,8 @@ func (uc *EmrUseCaseImpl) UpdateRelativeNoteByID(noteID string, note *entities.R
 	if err != nil {
 		log.Printf("[ERROR] Failed to create audit log for relative note %s: %v", updated.ID, err)
 	}
+
+	uc.populateRelativeNoteStaffName(updated)
 
 	return updated, nil
 }
@@ -2924,6 +3080,8 @@ func (uc *EmrUseCaseImpl) CreateDoctorOrder(order *entities.DoctorOrder, userID 
 		log.Printf("[ERROR] Failed to create audit log for doctor order %s: %v", created.ID, err)
 	}
 
+	uc.populateDoctorOrderStaffName(created)
+
 	return created, nil
 }
 
@@ -2931,7 +3089,14 @@ func (uc *EmrUseCaseImpl) GetDoctorOrdersOverview(userID string) ([]*entities.Do
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
-	return uc.emrrepo.GetDoctorOrdersOverview()
+
+	orders, err := uc.emrrepo.GetDoctorOrdersOverview()
+	if err != nil {
+		return nil, err
+	}
+
+	uc.populateDoctorOrdersStaffNames(orders)
+	return orders, nil
 }
 
 func (uc *EmrUseCaseImpl) GetDoctorOrdersByResidentID(residentID string, userID string) ([]*entities.DoctorOrder, error) {
@@ -2947,7 +3112,13 @@ func (uc *EmrUseCaseImpl) GetDoctorOrdersByResidentID(residentID string, userID 
 		return nil, errors.New("resident not found")
 	}
 
-	return uc.emrrepo.GetDoctorOrdersByResidentID(residentID)
+	orders, err := uc.emrrepo.GetDoctorOrdersByResidentID(residentID)
+	if err != nil {
+		return nil, err
+	}
+
+	uc.populateDoctorOrdersStaffNames(orders)
+	return orders, nil
 }
 
 func (uc *EmrUseCaseImpl) UpdateDoctorOrderByID(orderID string, order *entities.DoctorOrder, userID string) (*entities.DoctorOrder, error) {
@@ -3010,6 +3181,8 @@ func (uc *EmrUseCaseImpl) UpdateDoctorOrderByID(orderID string, order *entities.
 	if err != nil {
 		log.Printf("[ERROR] Failed to create audit log for doctor order %s: %v", updated.ID, err)
 	}
+
+	uc.populateDoctorOrderStaffName(updated)
 
 	return updated, nil
 }

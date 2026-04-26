@@ -51,6 +51,10 @@ func (r *GormSupportRepository) GetSupportTickets(queryParams models.ListSupport
 		query = query.Where("reporter_role = ?", strings.TrimSpace(queryParams.ReporterRole))
 	}
 
+	if strings.TrimSpace(queryParams.CreatedByUserID) != "" {
+		query = query.Where("created_by_user_id = ?", strings.TrimSpace(queryParams.CreatedByUserID))
+	}
+
 	if err := query.Order("created_at DESC").Find(&tickets).Error; err != nil {
 		return nil, err
 	}
