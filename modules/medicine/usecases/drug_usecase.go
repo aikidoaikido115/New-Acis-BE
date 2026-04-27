@@ -87,6 +87,54 @@ func (uc *DrugUseCaseImpl) ensureMedicalStaff(userID string) error {
 	return nil
 }
 
+// func (uc *DrugUseCaseImpl) CreateDrugMaster(req models.CreateDrugMasterRequest, userID string) (*entities.DrugMaster, error) {
+// 	if err := uc.ensureMedicalStaff(userID); err != nil {
+// 		return nil, err
+// 	}
+
+// 	name := strings.TrimSpace(req.Name)
+// 	dose := strings.TrimSpace(req.Dose)
+// 	if name == "" || dose == "" {
+// 		return nil, errors.New("name and dose are required")
+// 	}
+
+// 	// Dose format must be: <number> <unit>, e.g. 50 mg, 5 mL
+// 	pattern := regexp.MustCompile(`(?i)^([0-9]+(?:\.[0-9]+)?)\s*(mcg|mg|g|kg|ml|l|iu)$`)
+// 	matches := pattern.FindStringSubmatch(dose)
+func normalizeDose(input string) (string, error) {
+	trimmed := strings.TrimSpace(input)
+	pattern := regexp.MustCompile(`(?i)^([0-9]+(?:\.[0-9]+)?)\s*(.+)$`)
+	matches := pattern.FindStringSubmatch(trimmed)
+	if len(matches) != 3 {
+		return "", errors.New("invalid dose format: use '<number> <unit>'")
+	}
+
+	amount := matches[1]
+	unitRaw := strings.TrimSpace(matches[2])
+	if unitRaw == "" {
+		return "", errors.New("invalid dose format: use '<number> <unit>'")
+	}
+
+	unitKey := strings.ToLower(unitRaw)
+	unitMap := map[string]string{
+		"mcg": "mcg",
+		"mg":  "mg",
+		"g":   "g",
+		"kg":  "kg",
+		"ml":  "mL",
+		"l":   "L",
+		"iu":  "IU",
+	}
+	// dose = amount + " " + unitMap[unit]
+	if mapped, ok := unitMap[unitKey]; ok {
+		unitRaw = mapped
+	} else {
+		unitRaw = strings.Join(strings.Fields(unitRaw), " ")
+	}
+
+	return amount + " " + unitRaw, nil
+}
+
 func (uc *DrugUseCaseImpl) CreateDrugMaster(req models.CreateDrugMasterRequest, userID string) (*entities.DrugMaster, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
@@ -98,25 +146,11 @@ func (uc *DrugUseCaseImpl) CreateDrugMaster(req models.CreateDrugMasterRequest, 
 		return nil, errors.New("name and dose are required")
 	}
 
-	// Dose format must be: <number> <unit>, e.g. 50 mg, 5 mL
-	pattern := regexp.MustCompile(`(?i)^([0-9]+(?:\.[0-9]+)?)\s*(mcg|mg|g|kg|ml|l|iu)$`)
-	matches := pattern.FindStringSubmatch(dose)
-	if len(matches) != 3 {
-		return nil, errors.New("invalid dose format: use '<number> <unit>' and allowed units are mcg, mg, g, kg, mL, L, IU")
+	normalizedDose, err := normalizeDose(dose)
+	if err != nil {
+		return nil, err
 	}
-
-	amount := matches[1]
-	unit := strings.ToLower(matches[2])
-	unitMap := map[string]string{
-		"mcg": "mcg",
-		"mg":  "mg",
-		"g":   "g",
-		"kg":  "kg",
-		"ml":  "mL",
-		"l":   "L",
-		"iu":  "IU",
-	}
-	dose = amount + " " + unitMap[unit]
+	dose = normalizedDose
 
 	exists, err := uc.drugRepo.DrugMasterExistsByNameAndDose(name, dose)
 	if err != nil {
@@ -207,24 +241,28 @@ func (uc *DrugUseCaseImpl) UpdateDrugMasterByID(id string, req models.UpdateDrug
 			return nil, errors.New("dose cannot be empty")
 		}
 
-		pattern := regexp.MustCompile(`(?i)^([0-9]+(?:\.[0-9]+)?)\s*(mcg|mg|g|kg|ml|l|iu)$`)
-		matches := pattern.FindStringSubmatch(dose)
-		if len(matches) != 3 {
-			return nil, errors.New("invalid dose format: use '<number> <unit>' and allowed units are mcg, mg, g, kg, mL, L, IU")
-		}
+		// pattern := regexp.MustCompile(`(?i)^([0-9]+(?:\.[0-9]+)?)\s*(mcg|mg|g|kg|ml|l|iu)$`)
+		// matches := pattern.FindStringSubmatch(dose)
+		// if len(matches) != 3 {
+		// 	return nil, errors.New("invalid dose format: use '<number> <unit>' and allowed units are mcg, mg, g, kg, mL, L, IU")
+		// }
 
-		amount := matches[1]
-		unit := strings.ToLower(matches[2])
-		unitMap := map[string]string{
-			"mcg": "mcg",
-			"mg":  "mg",
-			"g":   "g",
-			"kg":  "kg",
-			"ml":  "mL",
-			"l":   "L",
-			"iu":  "IU",
+		// amount := matches[1]
+		// unit := strings.ToLower(matches[2])
+		// unitMap := map[string]string{
+		// 	"mcg": "mcg",
+		// 	"mg":  "mg",
+		// 	"g":   "g",
+		// 	"kg":  "kg",
+		// 	"ml":  "mL",
+		// 	"l":   "L",
+		// 	"iu":  "IU",
+		normalizedDose, err := normalizeDose(dose)
+		if err != nil {
+			return nil, err
 		}
-		newDose = amount + " " + unitMap[unit]
+		// newDose = amount + " " + unitMap[unit]
+		newDose = normalizedDose
 	}
 
 	if newName != current.Name || newDose != current.Dose {

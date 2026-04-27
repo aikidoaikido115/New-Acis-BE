@@ -27,17 +27,18 @@ import (
 
 	"github.com/google/uuid"
 	// "golang.org/x/text/unicode/norm"
+	"gorm.io/datatypes"
 )
 
 type EmrUsecase interface {
 
 	// Resident operations
-	CreateResident(resident *entities.Resident, userID string) (*entities.Resident, error)
+	CreateResident(resident *entities.Resident, userID string, file multipart.File) (*entities.Resident, error)
 	GetResidentByID(id string, userID string) (*entities.Resident, error)
 	GetResidentByRoomID(roomID string, userID string) ([]*entities.Resident, error)
 	GetAllResidents(userID string) ([]*entities.Resident, error)
 	GetResidentOverview(req models.ResidentQueryParams, userID string) (*models.ResidentOverviewListResponse, error)
-	UpdateResidentByID(residentID string, data models.UpdateResidentRequest, userID string) (*entities.Resident, error)
+	UpdateResidentByID(residentID string, data models.UpdateResidentRequest, userID string, file multipart.File) (*entities.Resident, error)
 
 	// Dashboard operations
 	GetNumberOfResidentsDashboard(userID string) (models.NumberOfResidentsDashboardResponse, error)
@@ -189,6 +190,49 @@ func (uc *EmrUseCaseImpl) ensureMedicalStaff(userID string) error {
 	return nil
 }
 
+func normalizeOptionalString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
+func normalizeOptionalTime(value *time.Time) *time.Time {
+	if value == nil || value.IsZero() {
+		return nil
+	}
+	return value
+}
+
+func sanitizeEmergencyContacts(contacts []models.EmergencyContact) datatypes.JSON {
+	cleaned := make([]models.EmergencyContact, 0, len(contacts))
+	for _, contact := range contacts {
+		name := strings.TrimSpace(contact.Name)
+		relation := strings.TrimSpace(contact.Relation)
+		phone := strings.TrimSpace(contact.Phone)
+		if name == "" && relation == "" && phone == "" {
+			continue
+		}
+		cleaned = append(cleaned, models.EmergencyContact{
+			Name:     name,
+			Relation: relation,
+			Phone:    phone,
+		})
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+	raw, err := json.Marshal(cleaned)
+	if err != nil {
+		return nil
+	}
+	return datatypes.JSON(raw)
+}
+
 func (uc *EmrUseCaseImpl) resolveStaffDisplayName(staffID string, cache map[string]string) string {
 	if staffID == "" {
 		return ""
@@ -294,7 +338,7 @@ func (uc *EmrUseCaseImpl) populateDoctorOrderStaffName(order *entities.DoctorOrd
 	order.CreatedByStaffName = uc.resolveStaffDisplayName(order.CreatedByStaffID, nil)
 }
 
-func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID string) (*entities.Resident, error) {
+func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID string, file multipart.File) (*entities.Resident, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
@@ -307,12 +351,15 @@ func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID str
 		return nil, errors.New("date_of_birth cannot be in the future")
 	}
 
-	roomExists, err := uc.emrrepo.RoomExists(resident.RoomID)
-	if err != nil {
-		return nil, errors.New("failed to verify room existence: " + err.Error())
-	}
-	if !roomExists {
-		return nil, errors.New("room does not exist")
+	resident.RoomID = normalizeOptionalString(resident.RoomID)
+	if resident.RoomID != nil {
+		roomExists, err := uc.emrrepo.RoomExists(*resident.RoomID)
+		if err != nil {
+			return nil, errors.New("failed to verify room existence: " + err.Error())
+		}
+		if !roomExists {
+			return nil, errors.New("room does not exist")
+		}
 	}
 
 	resident.Gender = strings.ToLower(strings.TrimSpace(resident.Gender))
@@ -320,20 +367,24 @@ func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID str
 		return nil, errors.New("gender must be either 'male', 'female', or 'other'")
 	}
 
-	resident.IdCardNumber = strings.TrimSpace(resident.IdCardNumber)
-	if len(resident.IdCardNumber) != 13 {
-		return nil, errors.New("ID card number must be 13 characters long or not missing")
+	resident.IdCardNumber = normalizeOptionalString(resident.IdCardNumber)
+	resident.ProfileImage = normalizeOptionalString(resident.ProfileImage)
+	if resident.IdCardNumber != nil {
+		if len(*resident.IdCardNumber) != 13 {
+			return nil, errors.New("ID card number must be 13 characters long")
+		}
+		idCardExists, err := uc.emrrepo.IdCardNumberExists(*resident.IdCardNumber)
+		if err != nil {
+			return nil, errors.New("failed to verify ID card number existence: " + err.Error())
+		}
+		if idCardExists {
+			return nil, errors.New("ID card number already exists")
+		}
 	}
 
-	idCardExists, err := uc.emrrepo.IdCardNumberExists(resident.IdCardNumber)
-	if err != nil {
-		return nil, errors.New("failed to verify ID card number existence: " + err.Error())
-	}
-	if idCardExists {
-		return nil, errors.New("ID card number already exists")
-	}
+	resident.CheckInDate = normalizeOptionalTime(resident.CheckInDate)
 
-	if resident.ExpectedCheckOutDate != nil && resident.ExpectedCheckOutDate.Before(resident.CheckInDate) {
+	if resident.ExpectedCheckOutDate != nil && resident.CheckInDate != nil && resident.ExpectedCheckOutDate.Before(*resident.CheckInDate) {
 		return nil, errors.New("expected check-out date cannot be before check-in date")
 	}
 
@@ -345,8 +396,25 @@ func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID str
 		return nil, errors.New("resuscitation status must be either 'CPR' or 'DNR'")
 	}
 
-	if resident.EmergencyHospitalPhone != nil && len(*resident.EmergencyHospitalPhone) != 10 {
-		return nil, errors.New("emergency hospital phone must be 10 characters long")
+	resident.EmergencyHospitalPhone = normalizeOptionalString(resident.EmergencyHospitalPhone)
+
+	if file != nil {
+		fileExtension, err := utils.DetectFileType(file)
+		if err != nil {
+			return nil, errors.New("invalid file: " + err.Error())
+		}
+
+		if _, err = file.Seek(0, io.SeekStart); err != nil {
+			return nil, errors.New("failed to reset file pointer: " + err.Error())
+		}
+
+		fileName := uuid.New().String() + fileExtension
+		profileURL, err := utils.UploadFile2Supa(file, fileName, "resident_profiles/", uc.supa)
+		if err != nil {
+			return nil, errors.New("failed to upload resident profile image: " + err.Error())
+		}
+
+		resident.ProfileImage = &profileURL
 	}
 
 	resident.ID = uuid.New().String()
@@ -373,6 +441,8 @@ func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID str
 		"surgical_history":              createdResident.SugicalHistory,
 		"preferred_emergency_hospital":  createdResident.PreferredEmergencyHospital,
 		"emergency_hospital_phone":      createdResident.EmergencyHospitalPhone,
+		"profile_image":                 createdResident.ProfileImage,
+		"emergency_contacts":            createdResident.EmergencyContacts,
 	})
 	auditLog := &entities.AuditLogs{
 		ID:        uuid.New().String(),
@@ -507,6 +577,10 @@ func (uc *EmrUseCaseImpl) GetResidentOverview(req models.ResidentQueryParams, us
 		for i, rl := range r.ResidentLabels {
 			labelNames[i] = rl.IntakeLabel.LabelName
 		}
+		var floor *int16
+		if r.Room.ID != "" {
+			floor = &r.Room.Floor
+		}
 
 		response = append(response, &models.ResidentOverviewResponse{
 			ResidentID:   r.ID,
@@ -515,6 +589,11 @@ func (uc *EmrUseCaseImpl) GetResidentOverview(req models.ResidentQueryParams, us
 			Nickname:     r.Nickname,
 			RoomNumber:   r.Room.RoomNumber,
 			IntakeLabels: labelNames,
+			Gender:       r.Gender,
+			Status:       r.Status,
+			CheckInDate:  r.CheckInDate,
+			ExpectedCheckOutDate: r.ExpectedCheckOutDate,
+			Floor:        floor,
 		})
 	}
 	totalPages := 0
@@ -533,7 +612,7 @@ func (uc *EmrUseCaseImpl) GetResidentOverview(req models.ResidentQueryParams, us
 	}, nil
 }
 
-func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.UpdateResidentRequest, userID string) (*entities.Resident, error) {
+func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.UpdateResidentRequest, userID string, file multipart.File) (*entities.Resident, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
@@ -561,17 +640,22 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 		"surgical_history":              resident.SugicalHistory,
 		"preferred_emergency_hospital":  resident.PreferredEmergencyHospital,
 		"emergency_hospital_phone":      resident.EmergencyHospitalPhone,
+		"profile_image":                 resident.ProfileImage,
+		"emergency_contacts":            resident.EmergencyContacts,
 	})
 
 	if data.RoomID != nil {
-		roomExists, err := uc.emrrepo.RoomExists(*data.RoomID)
-		if err != nil {
-			return nil, errors.New("failed to verify room existence: " + err.Error())
+		roomID := normalizeOptionalString(data.RoomID)
+		if roomID != nil {
+			roomExists, err := uc.emrrepo.RoomExists(*roomID)
+			if err != nil {
+				return nil, errors.New("failed to verify room existence: " + err.Error())
+			}
+			if !roomExists {
+				return nil, errors.New("room does not exist")
+			}
 		}
-		if !roomExists {
-			return nil, errors.New("room does not exist")
-		}
-		resident.RoomID = *data.RoomID
+		resident.RoomID = roomID
 	}
 
 	if data.FirstName != nil {
@@ -605,17 +689,19 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 	}
 
 	if data.IdCardNumber != nil {
-		idCard := strings.TrimSpace(*data.IdCardNumber)
-		if len(idCard) != 13 {
-			return nil, errors.New("ID card number must be 13 characters long")
-		}
-		if idCard != resident.IdCardNumber {
-			idCardExists, err := uc.emrrepo.IdCardNumberExists(idCard)
-			if err != nil {
-				return nil, errors.New("failed to verify ID card number existence: " + err.Error())
+		idCard := normalizeOptionalString(data.IdCardNumber)
+		if idCard != nil {
+			if len(*idCard) != 13 {
+				return nil, errors.New("ID card number must be 13 characters long")
 			}
-			if idCardExists {
-				return nil, errors.New("ID card number already exists")
+				if resident.IdCardNumber == nil || *idCard != *resident.IdCardNumber {
+				idCardExists, err := uc.emrrepo.IdCardNumberExists(*idCard)
+				if err != nil {
+					return nil, errors.New("failed to verify ID card number existence: " + err.Error())
+				}
+				if idCardExists {
+					return nil, errors.New("ID card number already exists")
+				}
 			}
 		}
 		resident.IdCardNumber = idCard
@@ -626,11 +712,11 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 	}
 
 	if data.CheckInDate != nil {
-		resident.CheckInDate = *data.CheckInDate
+		resident.CheckInDate = normalizeOptionalTime(data.CheckInDate)
 	}
 
 	if data.ExpectedCheckOutDate != nil {
-		if data.ExpectedCheckOutDate.Before(resident.CheckInDate) {
+		if resident.CheckInDate != nil && data.ExpectedCheckOutDate.Before(*resident.CheckInDate) {
 			return nil, errors.New("expected check-out date cannot be before check-in date")
 		}
 		resident.ExpectedCheckOutDate = data.ExpectedCheckOutDate
@@ -667,10 +753,34 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 	}
 
 	if data.EmergencyHospitalPhone != nil {
-		if len(*data.EmergencyHospitalPhone) != 10 {
-			return nil, errors.New("emergency hospital phone must be 10 characters long")
+		resident.EmergencyHospitalPhone = normalizeOptionalString(data.EmergencyHospitalPhone)
+	}
+
+	if data.ProfileImage != nil {
+		resident.ProfileImage = normalizeOptionalString(data.ProfileImage)
+	}
+
+	if data.EmergencyContacts != nil {
+		resident.EmergencyContacts = sanitizeEmergencyContacts(*data.EmergencyContacts)
+	}
+
+	if file != nil {
+		fileExtension, err := utils.DetectFileType(file)
+		if err != nil {
+			return nil, errors.New("invalid file: " + err.Error())
 		}
-		resident.EmergencyHospitalPhone = data.EmergencyHospitalPhone
+
+		if _, err = file.Seek(0, io.SeekStart); err != nil {
+			return nil, errors.New("failed to reset file pointer: " + err.Error())
+		}
+
+		fileName := uuid.New().String() + fileExtension
+		profileURL, err := utils.UploadFile2Supa(file, fileName, "resident_profiles/", uc.supa)
+		if err != nil {
+			return nil, errors.New("failed to upload resident profile image: " + err.Error())
+		}
+
+		resident.ProfileImage = &profileURL
 	}
 
 	updatedResident, err := uc.emrrepo.UpdateResident(resident)
@@ -695,6 +805,8 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 		"surgical_history":              updatedResident.SugicalHistory,
 		"preferred_emergency_hospital":  updatedResident.PreferredEmergencyHospital,
 		"emergency_hospital_phone":      updatedResident.EmergencyHospitalPhone,
+		"emergency_contacts":            updatedResident.EmergencyContacts,
+		"profile_image":                 updatedResident.ProfileImage,
 	})
 	auditLog := &entities.AuditLogs{
 		ID:        uuid.New().String(),

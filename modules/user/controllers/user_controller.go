@@ -898,6 +898,7 @@ func (c *UserController) LogoutHandler(ctx *fiber.Ctx) error {
 // @Param last_name formData string false "Last Name"
 // @Param nickname formData string false "Nickname"
 // @Param gender formData string false "Gender"
+// @Param phone formData string false "Phone"
 // @Param profile_image formData file false "Profile Image"
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=object} "User updated successfully"
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Invalid form data"
@@ -938,6 +939,9 @@ func (c *UserController) UpdateUserByIDHandler(ctx *fiber.Ctx) error {
 	}
 	if nicknames := form.Value["nickname"]; len(nicknames) > 0 {
 		user.Nickname = nicknames[0]
+	}
+	if phones := form.Value["phone"]; len(phones) > 0 {
+		user.Phone = phones[0]
 	}
 	if genders := form.Value["gender"]; len(genders) > 0 {
 		user.Gender = genders[0]

@@ -1,6 +1,10 @@
 package models
 
-import "github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+import (
+	"time"
+
+	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+)
 
 type NumberOfResidentsDashboardResponse struct {
 	TotalResidents         int16 `json:"total_residents"`
@@ -29,12 +33,17 @@ type UrineOutputSummaryByResidentResponse struct {
 }
 
 type ResidentOverviewResponse struct {
-	ResidentID   string   `json:"resident_id"`
-	FirstName    string   `json:"first_name"`
-	LastName     string   `json:"last_name"`
-	Nickname     *string  `json:"nickname"`
-	RoomNumber   string   `json:"room_number"`
-	IntakeLabels []string `json:"intake_labels"`
+	ResidentID          string     `json:"resident_id"`
+	FirstName           string     `json:"first_name"`
+	LastName            string     `json:"last_name"`
+	Nickname            *string    `json:"nickname"`
+	RoomNumber          string     `json:"room_number"`
+	IntakeLabels        []string   `json:"intake_labels"`
+	Gender              string     `json:"gender"`
+	Status              string     `json:"status"`
+	CheckInDate         *time.Time `json:"check_in_date"`
+	ExpectedCheckOutDate *time.Time `json:"expected_check_out_date"`
+	Floor               *int16     `json:"floor"`
 }
 
 type OverviewPagination struct {
