@@ -248,3 +248,66 @@ type UpdateDoctorOrderRequest struct {
 	Frequency *string `json:"frequency"`
 	OrderedBy *string `json:"ordered_by"`
 }
+
+type IssueRelativeMagicLinkRequest struct {
+	ResidentID string `json:"resident_id" binding:"required"`
+}
+
+type RelativePortalLoginRequest struct {
+	ResidentID string `json:"resident_id"`
+	Token      string `json:"token"`
+	Password   string `json:"password" binding:"required"`
+	Remember   bool   `json:"remember"`
+}
+
+type RelativePortalLoginResponse struct {
+	Token      string `json:"token"`
+	UserID     string `json:"user_id"`
+	Username   string `json:"username"`
+	Email      string `json:"email"`
+	RoleName   string `json:"role_name"`
+	ResidentID string `json:"resident_id"`
+}
+
+type RelativeMagicLinkResponse struct {
+	ResidentID string `json:"resident_id"`
+	RelativeID string `json:"relative_id"`
+	Token      string `json:"token"`
+	MagicLink  string `json:"magic_link"`
+	ExpiresAt  string `json:"expires_at"`
+}
+
+type RelativeDashboardResponse struct {
+	ResidentID    string                  `json:"resident_id"`
+	ResidentName  string                  `json:"resident_name"`
+	Date          string                  `json:"date"`
+	LastUpdatedAt *string                 `json:"last_updated_at"`
+	Notes         []RelativeDashboardNote `json:"notes"`
+}
+
+type RelativeDashboardNote struct {
+	ID        string `json:"id"`
+	Content   string `json:"content"`
+	CreatedAt string `json:"created_at"`
+}
+
+type RelativePatientInfoResponse struct {
+	ResidentID                string   `json:"resident_id"`
+	FirstName                 string   `json:"first_name"`
+	LastName                  string   `json:"last_name"`
+	Nickname                  *string  `json:"nickname"`
+	Gender                    string   `json:"gender"`
+	DateOfBirth               string   `json:"date_of_birth"`
+	Age                       int      `json:"age"`
+	IdCardNumber              string   `json:"id_card_number"`
+	PurposeOfStay             *string  `json:"purpose_of_stay"`
+	CheckInDate               string   `json:"check_in_date"`
+	Status                    string   `json:"status"`
+	PreExistingConditions     []string `json:"pre_existing_conditions"`
+	PreExistingConditionsNote *string  `json:"pre_existing_conditions_note"`
+	SurgicalHistory           []string `json:"surgical_history"`
+	FoodAllergies             []string `json:"food_allergies"`
+	DrugAllergies             []string `json:"drug_allergies"`
+	EmergencyHospital         *string  `json:"emergency_hospital"`
+	EmergencyHospitalPhone    *string  `json:"emergency_hospital_phone"`
+}
