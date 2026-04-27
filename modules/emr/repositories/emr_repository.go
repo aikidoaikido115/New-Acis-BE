@@ -262,7 +262,7 @@ func (r *GormEmrRepository) GetResidentsCustom(params models.ResidentQueryParams
 	}
 
 	query := applyFilters(
-		r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Preload("ResidentAllergies.Allergy").Preload("ResidentDA.DrugAllergy").Model(&entities.Resident{}),
+		r.db.Preload("Room").Preload("ResidentLabels.IntakeLabel").Model(&entities.Resident{}),
 	)
 
 	query = query.Order("residents.check_in_date DESC")

@@ -514,6 +514,7 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 		"last_name":     existingUser.LastName,
 		"nickname":      existingUser.Nickname,
 		"gender":        existingUser.Gender,
+		"phone":         existingUser.Phone,
 		"profile_image": existingUser.ProfileImage,
 	})
 
@@ -543,6 +544,10 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 
 	if user.Nickname != "" {
 		existingUser.Nickname = user.Nickname
+	}
+	
+    if user.Phone != "" {
+		existingUser.Phone = user.Phone
 	}
 
 	if user.Gender != "" {
@@ -580,6 +585,7 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 		"last_name":     existingUser.LastName,
 		"nickname":      existingUser.Nickname,
 		"gender":        existingUser.Gender,
+		"phone":         existingUser.Phone,
 		"profile_image": existingUser.ProfileImage,
 	})
 
