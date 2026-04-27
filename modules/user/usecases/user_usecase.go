@@ -40,6 +40,7 @@ type UserUsecase interface {
 
 	GetUserByID(id string) (*entities.User, error)
 	GetAllUsers(userID string) ([]*entities.User, error)
+	GetStaffIDMapByUserIDs(userIDs []string, adminUserID string) (map[string]string, error)
 	GetUsersByFirstAndLastName(firstName string, lastName string) ([]*entities.User, error)
 	UpdateUserByID(id string, user *entities.User, file multipart.File) (*entities.User, error)
 	UpdateUserApprovalByID(targetUserID string, isApprove bool, adminUserID string) (*entities.User, error)
@@ -347,6 +348,13 @@ func (u *UserUseCaseImpl) GetAllUsers(userID string) ([]*entities.User, error) {
 		return nil, errors.New("failed to retrieve all users: " + err.Error())
 	}
 	return users, nil
+}
+
+func (u *UserUseCaseImpl) GetStaffIDMapByUserIDs(userIDs []string, adminUserID string) (map[string]string, error) {
+	if err := u.ensureAdmin(adminUserID); err != nil {
+		return nil, err
+	}
+	return u.userrepo.GetStaffIDMapByUserIDs(userIDs)
 }
 
 func (u *UserUseCaseImpl) GetUsersByFirstAndLastName(firstName string, lastName string) ([]*entities.User, error) {

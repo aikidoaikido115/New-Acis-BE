@@ -7,6 +7,7 @@ import (
 	"errors"
 	"mime/multipart"
 	"strings"
+	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/user/models"
@@ -683,11 +684,64 @@ func (c *UserController) GetAllUsersHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
+	userIDs := make([]string, 0, len(users))
+	for _, user := range users {
+		if user != nil && user.ID != "" {
+			userIDs = append(userIDs, user.ID)
+		}
+	}
+
+	staffIDMap, err := c.userusecase.GetStaffIDMapByUserIDs(userIDs, userID)
+	if err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.StatusInternalServerError,
+			"message":     "failed to load staff mapping: " + err.Error(),
+			"result":      nil,
+		})
+	}
+
+	type adminUserResponse struct {
+		UserID      string         `json:"user_id"`
+		StaffID     string         `json:"staff_id,omitempty"`
+		Username    string         `json:"username"`
+		Email       string         `json:"email"`
+		FirstName   string         `json:"first_name"`
+		LastName    string         `json:"last_name"`
+		Nickname    string         `json:"nickname"`
+		IsApprove   bool           `json:"is_approve"`
+		CreatedAt   time.Time      `json:"created_at"`
+		Role        entities.Role  `json:"role"`
+	}
+
+	response := make([]adminUserResponse, 0, len(users))
+	for _, user := range users {
+		if user == nil {
+			continue
+		}
+
+		item := adminUserResponse{
+			UserID:    user.ID,
+			Username:  user.Username,
+			Email:     user.Email,
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+			Nickname:  user.Nickname,
+			IsApprove: user.IsApprove,
+			CreatedAt: user.CreatedAt,
+			Role:      user.Role,
+		}
+		if staffID, ok := staffIDMap[user.ID]; ok {
+			item.StaffID = staffID
+		}
+		response = append(response, item)
+	}
+
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":      "Success",
 		"status_code": fiber.StatusOK,
 		"message":     "Users retrieved successfully",
-		"result":      users,
+		"result":      response,
 	})
 }
 

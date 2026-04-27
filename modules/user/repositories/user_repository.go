@@ -34,6 +34,7 @@ type UserRepository interface {
 	UsernameExists(username string) (bool, error)
 	EmailExists(email string) (bool, error)
 	GetAllUsers() ([]*entities.User, error)
+	GetStaffIDMapByUserIDs(userIDs []string) (map[string]string, error)
 	UpdateUserByID(user *entities.User) error
 	UpdateUserApprovalByID(userID string, isApprove bool) error
 	DeleteStaffAndUserByStaffID(staffID string) error
@@ -191,6 +192,33 @@ func (r *GormUserRepository) GetAllUsers() ([]*entities.User, error) {
 		return nil, err
 	}
 	return users, nil
+}
+
+func (r *GormUserRepository) GetStaffIDMapByUserIDs(userIDs []string) (map[string]string, error) {
+	result := map[string]string{}
+	if len(userIDs) == 0 {
+		return result, nil
+	}
+
+	type staffRow struct {
+		UserID  string
+		StaffID string
+	}
+
+	var rows []staffRow
+	if err := r.db.
+		Table("staffs").
+		Select("user_id, id as staff_id").
+		Where("user_id IN ?", userIDs).
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	for _, row := range rows {
+		result[row.UserID] = row.StaffID
+	}
+
+	return result, nil
 }
 
 func (r *GormUserRepository) UpdateUserByID(user *entities.User) error {
