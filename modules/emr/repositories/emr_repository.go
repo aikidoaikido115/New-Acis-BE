@@ -149,6 +149,16 @@ type EmrRepository interface {
 	UpdateRelativeNoteByID(note *entities.RelativeNote) (*entities.RelativeNote, error)
 	DeleteRelativeNoteByID(id string) error
 
+	// Relative portal operations
+	CreateRelative(relative *entities.Relative) (*entities.Relative, error)
+	GetRelativeByID(id string) (*entities.Relative, error)
+	GetRelativeByResidentID(residentID string) (*entities.Relative, error)
+	GetRelativeByUserID(userID string) (*entities.Relative, error)
+	CreateRelativeMagicLinkToken(token *entities.RelativeMagicLinkToken) (*entities.RelativeMagicLinkToken, error)
+	GetLatestValidRelativeMagicLinkTokenByResidentID(residentID string, now time.Time) (*entities.RelativeMagicLinkToken, error)
+	GetRelativeMagicLinkTokenByToken(token string) (*entities.RelativeMagicLinkToken, error)
+	TouchRelativeMagicLinkTokenLastAccessed(tokenID string, accessedAt time.Time) error
+
 	// DoctorOrder operations
 	CreateDoctorOrder(order *entities.DoctorOrder) (*entities.DoctorOrder, error)
 	GetDoctorOrderByID(id string) (*entities.DoctorOrder, error)
@@ -1454,6 +1464,74 @@ func (r *GormEmrRepository) UpdateRelativeNoteByID(note *entities.RelativeNote) 
 
 func (r *GormEmrRepository) DeleteRelativeNoteByID(id string) error {
 	return r.db.Where("id = ?", id).Delete(&entities.RelativeNote{}).Error
+}
+
+func (r *GormEmrRepository) CreateRelative(relative *entities.Relative) (*entities.Relative, error) {
+	if err := r.db.Create(&relative).Error; err != nil {
+		return nil, err
+	}
+	return r.GetRelativeByID(relative.ID)
+}
+
+func (r *GormEmrRepository) GetRelativeByID(id string) (*entities.Relative, error) {
+	var relative entities.Relative
+	if err := r.db.Preload("Resident").Preload("User").First(&relative, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	return &relative, nil
+}
+
+func (r *GormEmrRepository) GetRelativeByResidentID(residentID string) (*entities.Relative, error) {
+	var relative entities.Relative
+	if err := r.db.Preload("Resident").Preload("User").First(&relative, "resident_id = ?", residentID).Error; err != nil {
+		return nil, err
+	}
+	return &relative, nil
+}
+
+func (r *GormEmrRepository) GetRelativeByUserID(userID string) (*entities.Relative, error) {
+	var relative entities.Relative
+	if err := r.db.Preload("Resident").Preload("User").First(&relative, "user_id = ?", userID).Error; err != nil {
+		return nil, err
+	}
+	return &relative, nil
+}
+
+func (r *GormEmrRepository) CreateRelativeMagicLinkToken(token *entities.RelativeMagicLinkToken) (*entities.RelativeMagicLinkToken, error) {
+	if err := r.db.Create(&token).Error; err != nil {
+		return nil, err
+	}
+	return r.GetRelativeMagicLinkTokenByToken(token.Token)
+}
+
+func (r *GormEmrRepository) GetLatestValidRelativeMagicLinkTokenByResidentID(residentID string, now time.Time) (*entities.RelativeMagicLinkToken, error) {
+	var token entities.RelativeMagicLinkToken
+	if err := r.db.
+		Where("resident_id = ? AND expires_at > ?", residentID, now).
+		Order("created_at DESC").
+		First(&token).Error; err != nil {
+		return nil, err
+	}
+
+	return r.GetRelativeMagicLinkTokenByToken(token.Token)
+}
+
+func (r *GormEmrRepository) GetRelativeMagicLinkTokenByToken(rawToken string) (*entities.RelativeMagicLinkToken, error) {
+	var token entities.RelativeMagicLinkToken
+	if err := r.db.
+		Preload("Relative").
+		Preload("Resident").
+		Where("token = ?", rawToken).
+		First(&token).Error; err != nil {
+		return nil, err
+	}
+	return &token, nil
+}
+
+func (r *GormEmrRepository) TouchRelativeMagicLinkTokenLastAccessed(tokenID string, accessedAt time.Time) error {
+	return r.db.Model(&entities.RelativeMagicLinkToken{}).
+		Where("id = ?", tokenID).
+		Update("last_accessed_at", accessedAt).Error
 }
 
 func (r *GormEmrRepository) CreateDoctorOrder(order *entities.DoctorOrder) (*entities.DoctorOrder, error) {
