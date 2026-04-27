@@ -143,7 +143,7 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	userRepository := userRepository.NewGormUserRepository(db)
 
 	emrRepository := emrRepository.NewGormEmrRepository(db)
-	emrUsecase := emrUsecase.NewEmrUseCase(emrRepository, auditLogRepository, userRepository, supa)
+	emrUsecase := emrUsecase.NewEmrUseCase(emrRepository, auditLogRepository, userRepository, supa, jwt)
 	emrController := emrController.NewEmrController(emrUsecase)
 
 	residentGroup := app.Group("/api/emr/residents")
@@ -220,6 +220,17 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	relativeNoteGroup.Get("/resident/all", middlewares.JWTMiddleware(jwt), emrController.GetRelativeNotesByResidentHandler)
 	relativeNoteGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateRelativeNoteByIDHandler)
 	relativeNoteGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), emrController.DeleteRelativeNoteByIDHandler)
+
+	relativePortalStaffGroup := app.Group("/api/emr/relatives")
+	relativePortalStaffGroup.Get("/magic-link", middlewares.JWTMiddleware(jwt), emrController.GetRelativeMagicLinkHandler)
+	relativePortalStaffGroup.Post("/magic-link/issue", middlewares.JWTMiddleware(jwt), emrController.IssueRelativeMagicLinkHandler)
+
+	relativePortalAuthGroup := app.Group("/api/relative/auth")
+	relativePortalAuthGroup.Post("/login", emrController.RelativePortalLoginHandler)
+
+	relativePortalGroup := app.Group("/api/relative")
+	relativePortalGroup.Get("/dashboard", middlewares.JWTMiddleware(jwt), emrController.GetRelativeDashboardHandler)
+	relativePortalGroup.Get("/patient-info", middlewares.JWTMiddleware(jwt), emrController.GetRelativePatientInfoHandler)
 
 	doctorOrderGroup := app.Group("/api/emr/doctor-orders")
 	doctorOrderGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateDoctorOrderHandler)
