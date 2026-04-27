@@ -7,12 +7,15 @@ import (
 	// "mime/multipart"
 	"mime/multipart"
 	"strings"
+	"encoding/json"
+	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/models"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/usecases"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/datatypes"
 )
 
 type EmrController struct {
@@ -39,14 +42,27 @@ func NewEmrController(emrUsecase usecases.EmrUsecase) *EmrController {
 // @Router /api/emr/residents [post]
 func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
 	var req models.CreateResidentRequest
-
-	if err := ctx.BodyParser(&req); err != nil {
-		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      fiber.ErrBadRequest.Message,
-			"status_code": fiber.ErrBadRequest.Code,
-			"message":     err.Error(),
-			"result":      nil,
-		})
+	var file multipart.File
+	if form, err := ctx.MultipartForm(); err == nil && (len(form.Value) > 0 || len(form.File) > 0) {
+		var parseErr error
+		req, file, parseErr = parseResidentCreateForm(form)
+		if parseErr != nil {
+			return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"status":      fiber.ErrBadRequest.Message,
+				"status_code": fiber.ErrBadRequest.Code,
+				"message":     parseErr.Error(),
+				"result":      nil,
+			})
+		}
+	} else {
+		if err := ctx.BodyParser(&req); err != nil {
+			return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"status":      fiber.ErrBadRequest.Message,
+				"status_code": fiber.ErrBadRequest.Code,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
 	}
 
 	userID, ok := ctx.Locals("user_id").(string)
@@ -57,6 +73,29 @@ func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
 			"message":     "Unauthorized: Missing user ID",
 			"result":      nil,
 		})
+	}
+
+    emergencyContactsJSON := datatypes.JSON(nil)
+	if len(req.EmergencyContacts) > 0 {
+		cleanedContacts := make([]models.EmergencyContact, 0, len(req.EmergencyContacts))
+		for _, contact := range req.EmergencyContacts {
+			name := strings.TrimSpace(contact.Name)
+			relation := strings.TrimSpace(contact.Relation)
+			phone := strings.TrimSpace(contact.Phone)
+			if name == "" && relation == "" && phone == "" {
+				continue
+			}
+			cleanedContacts = append(cleanedContacts, models.EmergencyContact{
+				Name:     name,
+				Relation: relation,
+				Phone:    phone,
+			})
+		}
+		if len(cleanedContacts) > 0 {
+			if raw, err := json.Marshal(cleanedContacts); err == nil {
+				emergencyContactsJSON = datatypes.JSON(raw)
+			}
+		}
 	}
 
 	resident := &entities.Resident{
@@ -77,10 +116,16 @@ func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
 		SugicalHistory:             req.SugicalHistory,
 		PreferredEmergencyHospital: req.PreferredEmergencyHospital,
 		EmergencyHospitalPhone:     req.EmergencyHospitalPhone,
+		ProfileImage:               req.ProfileImage,
+		EmergencyContacts:          emergencyContactsJSON,
 	}
 
-	createdResident, err := c.emrUsecase.CreateResident(resident, userID)
-	if err != nil {
+	if file != nil {
+		defer file.Close()
+	}
+
+	createdResident, err := c.emrUsecase.CreateResident(resident, userID, file)	if err != nil {
+		if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
 			"status_code": fiber.ErrInternalServerError.Code,
@@ -293,14 +338,28 @@ func (c *EmrController) GetResidentOverviewHandler(ctx *fiber.Ctx) error {
 // @Router /api/emr/residents/{id} [patch]
 func (c *EmrController) UpdateResidentByIDHandler(ctx *fiber.Ctx) error {
 	var req models.UpdateResidentRequest
+	var file multipart.File
 
-	if err := ctx.BodyParser(&req); err != nil {
-		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
-			"status":      fiber.ErrBadRequest.Message,
-			"status_code": fiber.ErrBadRequest.Code,
-			"message":     err.Error(),
-			"result":      nil,
-		})
+	if form, err := ctx.MultipartForm(); err == nil && (len(form.Value) > 0 || len(form.File) > 0) {
+		var parseErr error
+		req, file, parseErr = parseResidentUpdateForm(form)
+		if parseErr != nil {
+			return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"status":      fiber.ErrBadRequest.Message,
+				"status_code": fiber.ErrBadRequest.Code,
+				"message":     parseErr.Error(),
+				"result":      nil,
+			})
+		}
+	} else {
+		if err := ctx.BodyParser(&req); err != nil {
+			return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"status":      fiber.ErrBadRequest.Message,
+				"status_code": fiber.ErrBadRequest.Code,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
 	}
 
 	userID, ok := ctx.Locals("user_id").(string)
@@ -315,7 +374,11 @@ func (c *EmrController) UpdateResidentByIDHandler(ctx *fiber.Ctx) error {
 
 	residentID := ctx.Params("id")
 
-	updatedResident, err := c.emrUsecase.UpdateResidentByID(residentID, req, userID)
+	if file != nil {
+		defer file.Close()
+	}
+
+	updatedResident, err := c.emrUsecase.UpdateResidentByID(residentID, req, userID, file)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -332,6 +395,201 @@ func (c *EmrController) UpdateResidentByIDHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+func parseResidentCreateForm(form *multipart.Form) (models.CreateResidentRequest, multipart.File, error) {
+	var req models.CreateResidentRequest
+	var file multipart.File
+
+	if value, ok := getFormValue(form, "first_name"); ok {
+		req.FirstName = value
+	}
+	if value, ok := getFormValue(form, "last_name"); ok {
+		req.LastName = value
+	}
+	if value, ok := getFormValue(form, "gender"); ok {
+		req.Gender = value
+	}
+	if value, ok := getFormValue(form, "status"); ok {
+		req.Status = value
+	}
+	if value, ok := getFormValue(form, "date_of_birth"); ok {
+		parsed, err := parseOptionalTime(value)
+		if err != nil || parsed == nil {
+			return req, nil, err
+		}
+		req.DateOfBirth = *parsed
+	}
+
+	if value, ok := getFormValue(form, "nickname"); ok {
+		req.Nickname = &value
+	}
+	if value, ok := getFormValue(form, "id_card_number"); ok {
+		req.IdCardNumber = &value
+	}
+	if value, ok := getFormValue(form, "purpose_of_stay"); ok {
+		req.PurposeOfStay = &value
+	}
+	if value, ok := getFormValue(form, "check_in_date"); ok {
+		req.CheckInDate, _ = parseOptionalTime(value)
+	}
+	if value, ok := getFormValue(form, "expected_check_out_date"); ok {
+		req.ExpectedCheckOutDate, _ = parseOptionalTime(value)
+	}
+	if value, ok := getFormValue(form, "room_id"); ok {
+		req.RoomID = &value
+	}
+	if value, ok := getFormValue(form, "pre_existing_conditions"); ok {
+		req.PreExistingConditions = &value
+	}
+	if value, ok := getFormValue(form, "pre_existing_conditions_notes"); ok {
+		req.PreExistingConditionsNotes = &value
+	}
+	if value, ok := getFormValue(form, "resuscitation_status"); ok {
+		req.ResucitationStatus = &value
+	}
+	if value, ok := getFormValue(form, "surgical_history"); ok {
+		req.SugicalHistory = &value
+	}
+	if value, ok := getFormValue(form, "preferred_emergency_hospital"); ok {
+		req.PreferredEmergencyHospital = &value
+	}
+	if value, ok := getFormValue(form, "emergency_hospital_phone"); ok {
+		req.EmergencyHospitalPhone = &value
+	}
+	if value, ok := getFormValue(form, "profile_image"); ok {
+		req.ProfileImage = &value
+	}
+	if value, ok := getFormValue(form, "emergency_contacts"); ok {
+		var contacts []models.EmergencyContact
+		if err := json.Unmarshal([]byte(value), &contacts); err != nil {
+			return req, nil, err
+		}
+		req.EmergencyContacts = contacts
+	}
+
+	if files := form.File["profile_image"]; len(files) > 0 {
+		fileHeader := files[0]
+		opened, err := fileHeader.Open()
+		if err != nil {
+			return req, nil, err
+		}
+		file = opened
+	}
+
+	if req.FirstName == "" || req.LastName == "" || req.Gender == "" || req.Status == "" || req.DateOfBirth.IsZero() {
+		return req, file, fiber.ErrBadRequest
+	}
+
+	return req, file, nil
+}
+
+func parseResidentUpdateForm(form *multipart.Form) (models.UpdateResidentRequest, multipart.File, error) {
+	var req models.UpdateResidentRequest
+	var file multipart.File
+
+	if value, ok := getFormValue(form, "room_id"); ok {
+		req.RoomID = &value
+	}
+	if value, ok := getFormValue(form, "first_name"); ok {
+		req.FirstName = &value
+	}
+	if value, ok := getFormValue(form, "last_name"); ok {
+		req.LastName = &value
+	}
+	if value, ok := getFormValue(form, "gender"); ok {
+		req.Gender = &value
+	}
+	if value, ok := getFormValue(form, "nickname"); ok {
+		req.Nickname = &value
+	}
+	if value, ok := getFormValue(form, "id_card_number"); ok {
+		req.IdCardNumber = &value
+	}
+	if value, ok := getFormValue(form, "date_of_birth"); ok {
+		req.DateOfBirth, _ = parseOptionalTime(value)
+	}
+	if value, ok := getFormValue(form, "purpose_of_stay"); ok {
+		req.PurposeOfStay = &value
+	}
+	if value, ok := getFormValue(form, "check_in_date"); ok {
+		req.CheckInDate, _ = parseOptionalTime(value)
+	}
+	if value, ok := getFormValue(form, "expected_check_out_date"); ok {
+		req.ExpectedCheckOutDate, _ = parseOptionalTime(value)
+	}
+	if value, ok := getFormValue(form, "status"); ok {
+		req.Status = &value
+	}
+	if value, ok := getFormValue(form, "pre_existing_conditions"); ok {
+		req.PreExistingConditions = &value
+	}
+	if value, ok := getFormValue(form, "pre_existing_conditions_notes"); ok {
+		req.PreExistingConditionsNotes = &value
+	}
+	if value, ok := getFormValue(form, "resuscitation_status"); ok {
+		req.ResucitationStatus = &value
+	}
+	if value, ok := getFormValue(form, "surgical_history"); ok {
+		req.SugicalHistory = &value
+	}
+	if value, ok := getFormValue(form, "preferred_emergency_hospital"); ok {
+		req.PreferredEmergencyHospital = &value
+	}
+	if value, ok := getFormValue(form, "emergency_hospital_phone"); ok {
+		req.EmergencyHospitalPhone = &value
+	}
+	if value, ok := getFormValue(form, "profile_image"); ok {
+		req.ProfileImage = &value
+	}
+	if value, ok := getFormValue(form, "emergency_contacts"); ok {
+		var contacts []models.EmergencyContact
+		if err := json.Unmarshal([]byte(value), &contacts); err != nil {
+			return req, nil, err
+		}
+		req.EmergencyContacts = &contacts
+	}
+	if value, ok := getFormValue(form, "labels"); ok {
+		var labels []models.IntakeLabelRequest
+		if err := json.Unmarshal([]byte(value), &labels); err != nil {
+			return req, nil, err
+		}
+		req.Labels = labels
+	}
+
+	if files := form.File["profile_image"]; len(files) > 0 {
+		fileHeader := files[0]
+		opened, err := fileHeader.Open()
+		if err != nil {
+			return req, nil, err
+		}
+		file = opened
+	}
+
+	return req, file, nil
+}
+
+func getFormValue(form *multipart.Form, key string) (string, bool) {
+	values := form.Value[key]
+	if len(values) == 0 {
+		return "", false
+	}
+	return strings.TrimSpace(values[0]), true
+}
+
+func parseOptionalTime(value string) (*time.Time, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	if parsed, err := time.Parse(time.RFC3339, trimmed); err == nil {
+		return &parsed, nil
+	}
+	if parsed, err := time.Parse("2006-01-02", trimmed); err == nil {
+		return &parsed, nil
+	}
+
+	return nil, fiber.ErrBadRequest
+}
 // GetRoomByID godoc
 // @Summary Get Room by ID
 // @Description Retrieve room information by room ID

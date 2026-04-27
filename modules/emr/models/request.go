@@ -3,16 +3,16 @@ package models
 import "time"
 
 type CreateResidentRequest struct {
-	RoomID    string `json:"room_id" binding:"required"`
+	RoomID    *string `json:"room_id"`
 	FirstName string `json:"first_name" binding:"required"`
 	LastName  string `json:"last_name" binding:"required"`
 	Gender    string `json:"gender" binding:"required"`
 
 	Nickname                   *string    `json:"nickname"`
-	IdCardNumber               string     `json:"id_card_number" binding:"required"`
+	IdCardNumber               *string    `json:"id_card_number"`
 	DateOfBirth                time.Time  `json:"date_of_birth" binding:"required"`
 	PurposeOfStay              *string    `json:"purpose_of_stay"`
-	CheckInDate                time.Time  `json:"check_in_date" binding:"required"`
+	CheckInDate                *time.Time `json:"check_in_date"`
 	ExpectedCheckOutDate       *time.Time `json:"expected_check_out_date"`
 	Status                     string     `json:"status" binding:"required"`
 	PreExistingConditions      *string    `json:"pre_existing_conditions"`
@@ -21,6 +21,14 @@ type CreateResidentRequest struct {
 	SugicalHistory             *string    `json:"surgical_history"`
 	PreferredEmergencyHospital *string    `json:"preferred_emergency_hospital"`
 	EmergencyHospitalPhone     *string    `json:"emergency_hospital_phone"`
+	ProfileImage               *string    `json:"profile_image"`
+	EmergencyContacts          []EmergencyContact `json:"emergency_contacts"`
+}
+
+type EmergencyContact struct {
+	Name     string `json:"name"`
+	Relation string `json:"relation"`
+	Phone    string `json:"phone"`
 }
 
 type IntakeLabelRequest struct {
@@ -72,6 +80,8 @@ type UpdateResidentRequest struct {
 	SugicalHistory             *string    `json:"surgical_history"`
 	PreferredEmergencyHospital *string    `json:"preferred_emergency_hospital"`
 	EmergencyHospitalPhone     *string    `json:"emergency_hospital_phone"`
+	ProfileImage               *string    `json:"profile_image"`
+	EmergencyContacts          *[]EmergencyContact `json:"emergency_contacts"`
 
 	Labels []IntakeLabelRequest `json:"labels,omitempty"` // ใช้ logic เดิม: label_name มีอยู่ → ใช้อันเดิม, ไม่มี → สร้างใหม่
 }
