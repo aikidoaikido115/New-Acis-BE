@@ -124,8 +124,8 @@ func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
 		defer file.Close()
 	}
 
-	createdResident, err := c.emrUsecase.CreateResident(resident, userID, file)	if err != nil {
-		if err != nil {
+	createdResident, err := c.emrUsecase.CreateResident(resident, userID, file)
+	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
 			"status_code": fiber.ErrInternalServerError.Code,

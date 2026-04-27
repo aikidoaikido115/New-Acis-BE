@@ -115,7 +115,8 @@ func normalizeDose(input string) (string, error) {
 		return "", errors.New("invalid dose format: use '<number> <unit>'")
 	}
 
-	unitKey := strings.ToLower(unitRaw)	unitMap := map[string]string{
+	unitKey := strings.ToLower(unitRaw)
+	unitMap := map[string]string{
 		"mcg": "mcg",
 		"mg":  "mg",
 		"g":   "g",
