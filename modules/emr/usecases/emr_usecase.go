@@ -31,6 +31,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+
 	// "golang.org/x/text/unicode/norm"
 	"gorm.io/datatypes"
 )
@@ -738,17 +739,17 @@ func (uc *EmrUseCaseImpl) GetResidentOverview(req models.ResidentQueryParams, us
 		}
 
 		response = append(response, &models.ResidentOverviewResponse{
-			ResidentID:   r.ID,
-			FirstName:    r.FirstName,
-			LastName:     r.LastName,
-			Nickname:     r.Nickname,
-			RoomNumber:   r.Room.RoomNumber,
-			IntakeLabels: labelNames,
-			Gender:       r.Gender,
-			Status:       r.Status,
-			CheckInDate:  r.CheckInDate,
+			ResidentID:           r.ID,
+			FirstName:            r.FirstName,
+			LastName:             r.LastName,
+			Nickname:             r.Nickname,
+			RoomNumber:           r.Room.RoomNumber,
+			IntakeLabels:         labelNames,
+			Gender:               r.Gender,
+			Status:               r.Status,
+			CheckInDate:          r.CheckInDate,
 			ExpectedCheckOutDate: r.ExpectedCheckOutDate,
-			Floor:        floor,
+			Floor:                floor,
 		})
 	}
 	totalPages := 0
@@ -849,7 +850,7 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 			if len(*idCard) != 13 {
 				return nil, errors.New("ID card number must be 13 characters long")
 			}
-				if resident.IdCardNumber == nil || *idCard != *resident.IdCardNumber {
+			if resident.IdCardNumber == nil || *idCard != *resident.IdCardNumber {
 				idCardExists, err := uc.emrrepo.IdCardNumberExists(*idCard)
 				if err != nil {
 					return nil, errors.New("failed to verify ID card number existence: " + err.Error())
@@ -3789,6 +3790,49 @@ func (uc *EmrUseCaseImpl) GetRelativePatientInfo(userID string) (*models.Relativ
 		}
 	}
 
+	personalDrugs, err := uc.emrrepo.GetPersonalDrugsByResidentID(relative.ResidentID)
+	if err != nil {
+		return nil, errors.New("failed to get medications: " + err.Error())
+	}
+
+	medications := make([]models.RelativePatientMedication, 0, len(personalDrugs))
+	for _, pd := range personalDrugs {
+		if pd == nil {
+			continue
+		}
+
+		dose := strings.TrimSpace(strings.TrimSpace(pd.Amount) + " " + strings.TrimSpace(pd.AmountUnit))
+		if dose == "" {
+			dose = strings.TrimSpace(pd.DrugMaster.Dose)
+		}
+
+		frequency := strings.TrimSpace(fmt.Sprintf("%d ครั้ง/วัน", pd.Frequency))
+		if pd.TimeOfDay != "" {
+			frequency = strings.TrimSpace(frequency + " (" + pd.TimeOfDay + ")")
+		}
+
+		notes := strings.TrimSpace(pd.Timing)
+		if pd.Description != "" {
+			if notes != "" {
+				notes = notes + " - " + strings.TrimSpace(pd.Description)
+			} else {
+				notes = strings.TrimSpace(pd.Description)
+			}
+		}
+
+		medications = append(medications, models.RelativePatientMedication{
+			Name:      strings.TrimSpace(pd.DrugMaster.Name),
+			Dose:      dose,
+			Frequency: frequency,
+			Notes:     notes,
+		})
+	}
+
+	emergencyContacts := make([]models.EmergencyContact, 0)
+	if len(resident.EmergencyContacts) > 0 {
+		_ = json.Unmarshal(resident.EmergencyContacts, &emergencyContacts)
+	}
+
 	now := time.Now()
 	age := now.Year() - resident.DateOfBirth.Year()
 	if now.Month() < resident.DateOfBirth.Month() || (now.Month() == resident.DateOfBirth.Month() && now.Day() < resident.DateOfBirth.Day()) {
@@ -3815,10 +3859,13 @@ func (uc *EmrUseCaseImpl) GetRelativePatientInfo(userID string) (*models.Relativ
 		PreExistingConditions:     splitTextList(resident.PreExistingConditions),
 		PreExistingConditionsNote: resident.PreExistingConditionsNotes,
 		SurgicalHistory:           splitTextList(resident.SugicalHistory),
+		Medications:               medications,
+		ResuscitationStatus:       resident.ResucitationStatus,
 		FoodAllergies:             foodAllergies,
 		DrugAllergies:             drugAllergies,
 		EmergencyHospital:         resident.PreferredEmergencyHospital,
 		EmergencyHospitalPhone:    resident.EmergencyHospitalPhone,
+		EmergencyContacts:         emergencyContacts,
 	}, nil
 }
 

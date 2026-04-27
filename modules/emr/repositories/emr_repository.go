@@ -29,6 +29,7 @@ type EmrRepository interface {
 	UpdateResident(resident *entities.Resident) (*entities.Resident, error)
 	ResidentExists(id string) (bool, error)
 	IdCardNumberExists(idCardNumber string) (bool, error)
+	GetPersonalDrugsByResidentID(residentID string) ([]*entities.PersonalDrug, error)
 
 	// Dashboard operations
 	GetNumberOfResidentsDashboard() (models.NumberOfResidentsDashboardResponse, error)
@@ -212,6 +213,19 @@ func (r *GormEmrRepository) GetAllResidents() ([]*entities.Resident, error) {
 		return nil, err
 	}
 	return residents, nil
+}
+
+func (r *GormEmrRepository) GetPersonalDrugsByResidentID(residentID string) ([]*entities.PersonalDrug, error) {
+	var personalDrugs []*entities.PersonalDrug
+	if err := r.db.
+		Preload("DrugMaster").
+		Where("resident_id = ?", residentID).
+		Order("created_at DESC").
+		Find(&personalDrugs).Error; err != nil {
+		return nil, err
+	}
+
+	return personalDrugs, nil
 }
 
 func (r *GormEmrRepository) GetResidentsCustom(params models.ResidentQueryParams) ([]*entities.Resident, int64, error) {
