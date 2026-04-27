@@ -3795,6 +3795,11 @@ func (uc *EmrUseCaseImpl) GetRelativePatientInfo(userID string) (*models.Relativ
 		age--
 	}
 
+	idCardNumber := ""
+	if resident.IdCardNumber != nil {
+		idCardNumber = *resident.IdCardNumber
+	}
+
 	return &models.RelativePatientInfoResponse{
 		ResidentID:                resident.ID,
 		FirstName:                 resident.FirstName,
@@ -3803,7 +3808,7 @@ func (uc *EmrUseCaseImpl) GetRelativePatientInfo(userID string) (*models.Relativ
 		Gender:                    resident.Gender,
 		DateOfBirth:               resident.DateOfBirth.Format("2006-01-02"),
 		Age:                       age,
-		IdCardNumber:              resident.IdCardNumber,
+		IdCardNumber:              idCardNumber,
 		PurposeOfStay:             resident.PurposeOfStay,
 		CheckInDate:               resident.CheckInDate.Format("2006-01-02"),
 		Status:                    resident.Status,
