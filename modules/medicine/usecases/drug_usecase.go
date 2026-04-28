@@ -1478,6 +1478,11 @@ func (uc *DrugUseCaseImpl) TakeDrugPlansByResidentIDToday(residentID string, req
 		return nil, err
 	}
 
+	// Ensure today's drug plans are generated before bulk-taking
+	if err := uc.ensureTodayDrugPlans(&residentID); err != nil {
+		return nil, err
+	}
+
 	drugPlans, err := uc.drugRepo.GetDrugPlansByResidentIDToday(residentID)
 	if err != nil {
 		return nil, errors.New("failed to get today's drug plans by resident: " + err.Error())
@@ -1516,6 +1521,11 @@ func (uc *DrugUseCaseImpl) OmitDrugPlansByResidentIDToday(residentID string, req
 	omittedReason := strings.TrimSpace(req.OmittedReason)
 	if omittedReason == "" {
 		return nil, errors.New("omitted_reason is required")
+	}
+
+	// Ensure today's drug plans are generated before bulk-omitting
+	if err := uc.ensureTodayDrugPlans(&residentID); err != nil {
+		return nil, err
 	}
 
 	drugPlans, err := uc.drugRepo.GetDrugPlansByResidentIDToday(residentID)
