@@ -813,7 +813,7 @@ func (c *DrugController) GetDrugPlansTodayHandler(ctx *fiber.Ctx) error {
 
 // GetDrugPlansOverview godoc
 // @Summary Get Drug Plans Overview (Today)
-// @Description Retrieve today's drug plans with optional filters by time_of_day, take_type, and resident name search
+// @Description Retrieve today's drug plans with optional filters by time_of_day, take_type, floor, intake labels, and resident name search
 // @Tags DrugPlan
 // @Accept json
 // @Produce json
@@ -821,6 +821,8 @@ func (c *DrugController) GetDrugPlansTodayHandler(ctx *fiber.Ctx) error {
 // @Param time_of_day query string false "Time of day filter"
 // @Param take_type query string false "Take type filter" Enums(regular, as_needed)
 // @Param search query string false "Search by resident first_name, last_name, nickname"
+// @Param floor query int false "Floor filter"
+// @Param label_ids query string false "Filter by intake label IDs (comma-separated or repeated)"
 // @Param page query int false "Page number (default 1)"
 // @Param page_size query int false "Page size (default 20, max 100)"
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object}

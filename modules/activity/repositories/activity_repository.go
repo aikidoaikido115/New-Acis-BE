@@ -43,7 +43,7 @@ type ActivityRepository interface {
 	GetParticipationByResidentIDAndASID(residentID, asID string) (*entities.Participation, error)
 	GetParticipationsByASIDAndResidentIDs(asID string, residentIDs []string) ([]*entities.Participation, error)
 	GetAllParticipations() ([]*entities.Participation, error)
-	GetResidentsByScheduleIDCustom(asID string, params activityModels.ResidentsByScheduleQueryParams) ([]*entities.Participation, error)
+	GetResidentsByScheduleIDCustom(asID string, params activityModels.ResidentsByScheduleQueryParams) ([]*entities.Participation, int64, error)
 	UpdateParticipation(participation *entities.Participation) (*entities.Participation, error)
 	UpdateParticipationIsParticipatingByResidentIDs(asID string, residentIDs []string, isParticipating bool) error
 	DeleteParticipation(residentID, asID string) error
@@ -238,48 +238,66 @@ func (r *GormActivityRepository) GetAllParticipations() ([]*entities.Participati
 	return participations, nil
 }
 
-func (r *GormActivityRepository) GetResidentsByScheduleIDCustom(asID string, params activityModels.ResidentsByScheduleQueryParams) ([]*entities.Participation, error) {
+func (r *GormActivityRepository) GetResidentsByScheduleIDCustom(asID string, params activityModels.ResidentsByScheduleQueryParams) ([]*entities.Participation, int64, error) {
 	var participations []*entities.Participation
 
-	query := r.db.Model(&entities.Participation{}).
-		Joins("JOIN residents ON residents.id = participations.resident_id").
-		Joins("JOIN rooms ON rooms.id = residents.room_id").
-		Where("participations.as_id = ?", asID)
+	buildQuery := func() *gorm.DB {
+		query := r.db.Model(&entities.Participation{}).
+			Joins("JOIN residents ON residents.id = participations.resident_id").
+			Joins("JOIN rooms ON rooms.id = residents.room_id").
+			Where("participations.as_id = ?", asID)
 
-	if params.Search != nil && *params.Search != "" {
-		like := "%" + *params.Search + "%"
-		query = query.Where(
-			"residents.first_name ILIKE ? OR residents.last_name ILIKE ? OR residents.nickname ILIKE ?",
-			like, like, like,
-		)
+		if params.Search != nil && *params.Search != "" {
+			like := "%" + *params.Search + "%"
+			query = query.Where(
+				"residents.first_name ILIKE ? OR residents.last_name ILIKE ? OR residents.nickname ILIKE ?",
+				like, like, like,
+			)
+		}
+
+		if params.Floor != nil {
+			query = query.Where("rooms.floor = ?", *params.Floor)
+		}
+
+		if len(params.LabelIDs) > 0 {
+			residentIDsSubQuery := r.db.
+				Table("resident_labels").
+				Select("resident_labels.resident_id").
+				Where("resident_labels.label_id IN ?", params.LabelIDs).
+				Group("resident_labels.resident_id").
+				Having("COUNT(DISTINCT resident_labels.label_id) = ?", len(params.LabelIDs))
+
+			query = query.Where("participations.resident_id IN (?)", residentIDsSubQuery)
+		}
+
+		return query
 	}
 
-	if params.Floor != nil {
-		query = query.Where("rooms.floor = ?", *params.Floor)
+	countSubQuery := buildQuery().Select("participations.id")
+	var total int64
+	if err := r.db.Table("(?) AS filtered_participations", countSubQuery).Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
 
-	if len(params.LabelIDs) > 0 {
-		residentIDsSubQuery := r.db.
-			Table("resident_labels").
-			Select("resident_labels.resident_id").
-			Where("resident_labels.label_id IN ?", params.LabelIDs).
-			Group("resident_labels.resident_id").
-			Having("COUNT(DISTINCT resident_labels.label_id) = ?", len(params.LabelIDs))
-
-		query = query.Where("participations.resident_id IN (?)", residentIDsSubQuery)
-	}
-
-	if err := query.
+	dataQuery := buildQuery().
 		Preload("Resident.Room").
 		Preload("Resident.ResidentLabels.IntakeLabel").
 		Order("rooms.floor ASC").
 		Order("rooms.room_number ASC").
-		Order("residents.first_name ASC").
-		Find(&participations).Error; err != nil {
-		return nil, err
+		Order("residents.first_name ASC")
+
+	if params.Limit > 0 {
+		dataQuery = dataQuery.Limit(params.Limit)
+	}
+	if params.Offset > 0 {
+		dataQuery = dataQuery.Offset(params.Offset)
 	}
 
-	return participations, nil
+	if err := dataQuery.Find(&participations).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return participations, total, nil
 }
 
 func (r *GormActivityRepository) UpdateParticipation(participation *entities.Participation) (*entities.Participation, error) {

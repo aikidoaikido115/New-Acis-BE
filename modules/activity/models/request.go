@@ -75,4 +75,8 @@ type ResidentsByScheduleQueryParams struct {
 	Search   *string  `json:"search" form:"search" query:"search"`
 	Floor    *int16   `json:"floor" form:"floor" query:"floor"`
 	LabelIDs []string `json:"label_ids" form:"label_ids" query:"label_ids"`
+	Page     *int     `json:"page" form:"page" query:"page"`
+	PageSize *int     `json:"page_size" form:"page_size" query:"page_size"`
+	Limit    int      `json:"limit" form:"limit" query:"limit"`
+	Offset   int      `json:"offset" form:"offset" query:"offset"`
 }

@@ -22,3 +22,15 @@ type ResidentByScheduleResponse struct {
 	IntakeLabels    []string `json:"intake_labels"`
 	IsParticipating bool     `json:"is_participating"`
 }
+
+type ActivityPagination struct {
+	Page       int `json:"page"`
+	PageSize   int `json:"page_size"`
+	TotalItems int `json:"total_items"`
+	TotalPages int `json:"total_pages"`
+}
+
+type ResidentsByScheduleListResponse struct {
+	Items      []*ResidentByScheduleResponse `json:"items"`
+	Pagination ActivityPagination            `json:"pagination"`
+}

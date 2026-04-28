@@ -55,7 +55,7 @@ type DrugRepository interface {
 	GetDrugPlansToday() ([]*entities.DrugPlan, error)
 	GetDrugPlansByResidentID(residentID string) ([]*entities.DrugPlan, error)
 	GetDrugPlansByResidentIDToday(residentID string) ([]*entities.DrugPlan, error)
-	GetDrugPlansTodayCustom(timeOfDay *string, search *string, takeType *string, page int, pageSize int) ([]*entities.DrugPlan, int64, error)
+	GetDrugPlansTodayCustom(timeOfDay *string, search *string, takeType *string, floor *int16, labelIDs []string, page int, pageSize int) ([]*entities.DrugPlan, int64, error)
 	GetDrugAdministrationHistory(req models.DrugAdministrationHistoryQueryParams, page int, pageSize int) ([]models.DrugAdministrationHistoryItem, int64, error)
 	GetDrugPlansTodayResidentSummary() (*models.DrugPlanResidentSummaryResponse, error)
 	HasDrugPlanForPersonalDrugOnDate(pdID string, date time.Time) (bool, error)
@@ -472,7 +472,7 @@ func (r *GormDrugRepository) GetDrugPlansByResidentIDToday(residentID string) ([
 	return drugPlans, nil
 }
 
-func (r *GormDrugRepository) GetDrugPlansTodayCustom(timeOfDay *string, search *string, takeType *string, page int, pageSize int) ([]*entities.DrugPlan, int64, error) {
+func (r *GormDrugRepository) GetDrugPlansTodayCustom(timeOfDay *string, search *string, takeType *string, floor *int16, labelIDs []string, page int, pageSize int) ([]*entities.DrugPlan, int64, error) {
 	var drugPlans []*entities.DrugPlan
 
 	applyFilters := func(query *gorm.DB) *gorm.DB {
@@ -480,6 +480,10 @@ func (r *GormDrugRepository) GetDrugPlansTodayCustom(timeOfDay *string, search *
 			Joins("JOIN personal_drugs ON drug_plans.pd_id = personal_drugs.id").
 			Where("drug_plans.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
 			Where("drug_plans.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
+
+		needResidentsJoin := false
+		needRoomsJoin := false
+		needLabelsJoin := false
 
 		if timeOfDay != nil && *timeOfDay != "" {
 			query = query.Where("personal_drugs.time_of_day ILIKE ?", "%"+*timeOfDay+"%")
@@ -491,16 +495,41 @@ func (r *GormDrugRepository) GetDrugPlansTodayCustom(timeOfDay *string, search *
 
 		if search != nil && *search != "" {
 			like := "%" + *search + "%"
-			query = query.
-				Joins("JOIN residents ON personal_drugs.resident_id = residents.id").
-				Where("(residents.first_name ILIKE ? OR residents.last_name ILIKE ? OR residents.nickname ILIKE ?)", like, like, like)
+			needResidentsJoin = true
+			query = query.Where("(residents.first_name ILIKE ? OR residents.last_name ILIKE ? OR residents.nickname ILIKE ?)", like, like, like)
+		}
+
+		if floor != nil {
+			needResidentsJoin = true
+			needRoomsJoin = true
+			query = query.Where("rooms.floor = ?", *floor)
+		}
+
+		if len(labelIDs) > 0 {
+			needResidentsJoin = true
+			needLabelsJoin = true
+			query = query.Where("resident_labels.label_id IN ?", labelIDs).
+				Group("drug_plans.id").
+				Having("COUNT(DISTINCT resident_labels.label_id) = ?", len(labelIDs))
+		}
+
+		if needResidentsJoin {
+			query = query.Joins("JOIN residents ON personal_drugs.resident_id = residents.id")
+		}
+		if needRoomsJoin {
+			query = query.Joins("JOIN rooms ON residents.room_id = rooms.id")
+		}
+		if needLabelsJoin {
+			query = query.Joins("JOIN resident_labels ON residents.id = resident_labels.resident_id")
 		}
 
 		return query
 	}
 
 	var total int64
-	if err := applyFilters(r.db.Model(&entities.DrugPlan{})).Count(&total).Error; err != nil {
+	countBase := applyFilters(r.db.Model(&entities.DrugPlan{}))
+	countSubQuery := countBase.Select("drug_plans.id")
+	if err := r.db.Table("(?) AS filtered_drug_plans", countSubQuery).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
