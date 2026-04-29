@@ -85,10 +85,10 @@ func (f *fakeActivityRepo) UpdateActivitySchedule(activitySchedule *entities.Act
 	return activitySchedule, nil
 }
 
-func (f *fakeActivityRepo) GetResidentsByScheduleIDCustom(asID string, params activityModels.ResidentsByScheduleQueryParams) ([]*entities.Participation, error) {
+func (f *fakeActivityRepo) GetResidentsByScheduleIDCustom(asID string, params activityModels.ResidentsByScheduleQueryParams) ([]*entities.Participation, int64, error) {
 	f.getResidentsByScheduleCallCount++
 	f.capturedResidentsByScheduleASID = asID
-	return f.residentsByScheduleResponse, nil
+	return f.residentsByScheduleResponse, int64(len(f.residentsByScheduleResponse)), nil
 }
 
 func (f *fakeActivityRepo) GetParticipationsByASIDAndResidentIDs(asID string, residentIDs []string) ([]*entities.Participation, error) {
@@ -398,18 +398,23 @@ func TestGetResidentsByScheduleIDCustom_Success_MapAndDedupeIntakeLabels(t *test
 	result, err := uc.GetResidentsByScheduleIDCustom("as-1", activityModels.ResidentsByScheduleQueryParams{})
 
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	if assert.NotNil(t, result) {
+		assert.Len(t, result.Items, 1)
+	}
 	assert.Equal(t, 1, activityRepository.getResidentsByScheduleCallCount)
 	assert.Equal(t, "as-1", activityRepository.capturedResidentsByScheduleASID)
 
-	assert.Equal(t, "r1", result[0].ResidentID)
-	assert.Equal(t, "Bob", result[0].FirstName)
-	assert.Equal(t, "Lee", result[0].LastName)
-	if assert.NotNil(t, result[0].Nickname) {
-		assert.Equal(t, "Bobby", *result[0].Nickname)
+	if assert.NotNil(t, result) && assert.Len(t, result.Items, 1) {
+		item := result.Items[0]
+		assert.Equal(t, "r1", item.ResidentID)
+		assert.Equal(t, "Bob", item.FirstName)
+		assert.Equal(t, "Lee", item.LastName)
+		if assert.NotNil(t, item.Nickname) {
+			assert.Equal(t, "Bobby", *item.Nickname)
+		}
+		assert.Equal(t, "A-101", item.RoomNumber)
+		assert.Equal(t, int16(2), item.Floor)
+		assert.True(t, item.IsParticipating)
+		assert.Equal(t, []string{"Diabetes", "Low Sodium"}, item.IntakeLabels)
 	}
-	assert.Equal(t, "A-101", result[0].RoomNumber)
-	assert.Equal(t, int16(2), result[0].Floor)
-	assert.True(t, result[0].IsParticipating)
-	assert.Equal(t, []string{"Diabetes", "Low Sodium"}, result[0].IntakeLabels)
 }

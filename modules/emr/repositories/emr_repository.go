@@ -129,24 +129,24 @@ type EmrRepository interface {
 	// NurseNote operations
 	CreateNurseNote(note *entities.NurseNote) (*entities.NurseNote, error)
 	GetNurseNoteByID(id string) (*entities.NurseNote, error)
-	GetNurseNotesOverview() ([]*entities.NurseNote, error)
-	GetNurseNotesByResidentID(residentID string) ([]*entities.NurseNote, error)
+	GetNurseNotesOverviewOnDate(dayDate time.Time) ([]*entities.NurseNote, error)
+	GetNurseNotesByResidentIDOnDate(residentID string, dayDate time.Time) ([]*entities.NurseNote, error)
 	UpdateNurseNoteByID(note *entities.NurseNote) (*entities.NurseNote, error)
 	DeleteNurseNoteByID(id string) error
 
 	// WoundCareNote operations
 	CreateWoundCareNote(note *entities.WoundCareNote) (*entities.WoundCareNote, error)
 	GetWoundCareNoteByID(id string) (*entities.WoundCareNote, error)
-	GetWoundCareNotesOverview() ([]*entities.WoundCareNote, error)
-	GetWoundCareNotesByResidentID(residentID string) ([]*entities.WoundCareNote, error)
+	GetWoundCareNotesOverviewOnDate(dayDate time.Time) ([]*entities.WoundCareNote, error)
+	GetWoundCareNotesByResidentIDOnDate(residentID string, dayDate time.Time) ([]*entities.WoundCareNote, error)
 	UpdateWoundCareNoteByID(note *entities.WoundCareNote) (*entities.WoundCareNote, error)
 	DeleteWoundCareNoteByID(id string) error
 
 	// RelativeNote operations
 	CreateRelativeNote(note *entities.RelativeNote) (*entities.RelativeNote, error)
 	GetRelativeNoteByID(id string) (*entities.RelativeNote, error)
-	GetRelativeNotesOverview() ([]*entities.RelativeNote, error)
-	GetRelativeNotesByResidentID(residentID string) ([]*entities.RelativeNote, error)
+	GetRelativeNotesOverviewOnDate(dayDate time.Time) ([]*entities.RelativeNote, error)
+	GetRelativeNotesByResidentIDOnDate(residentID string, dayDate time.Time) ([]*entities.RelativeNote, error)
 	UpdateRelativeNoteByID(note *entities.RelativeNote) (*entities.RelativeNote, error)
 	DeleteRelativeNoteByID(id string) error
 
@@ -163,8 +163,8 @@ type EmrRepository interface {
 	// DoctorOrder operations
 	CreateDoctorOrder(order *entities.DoctorOrder) (*entities.DoctorOrder, error)
 	GetDoctorOrderByID(id string) (*entities.DoctorOrder, error)
-	GetDoctorOrdersOverview() ([]*entities.DoctorOrder, error)
-	GetDoctorOrdersByResidentID(residentID string) ([]*entities.DoctorOrder, error)
+	GetDoctorOrdersOverviewOnDate(dayDate time.Time) ([]*entities.DoctorOrder, error)
+	GetDoctorOrdersByResidentIDOnDate(residentID string, dayDate time.Time) ([]*entities.DoctorOrder, error)
 	UpdateDoctorOrderByID(order *entities.DoctorOrder) (*entities.DoctorOrder, error)
 	DeleteDoctorOrderByID(id string) error
 
@@ -1369,17 +1369,24 @@ func (r *GormEmrRepository) GetNurseNoteByID(id string) (*entities.NurseNote, er
 	return &note, nil
 }
 
-func (r *GormEmrRepository) GetNurseNotesOverview() ([]*entities.NurseNote, error) {
+func (r *GormEmrRepository) GetNurseNotesOverviewOnDate(dayDate time.Time) ([]*entities.NurseNote, error) {
 	var notes []*entities.NurseNote
-	if err := r.db.Order("created_at DESC").Find(&notes).Error; err != nil {
+	if err := r.db.
+		Where("DATE(created_at AT TIME ZONE 'Asia/Bangkok') = ?", dayDate.Format("2006-01-02")).
+		Order("created_at DESC").
+		Find(&notes).Error; err != nil {
 		return nil, err
 	}
 	return notes, nil
 }
 
-func (r *GormEmrRepository) GetNurseNotesByResidentID(residentID string) ([]*entities.NurseNote, error) {
+func (r *GormEmrRepository) GetNurseNotesByResidentIDOnDate(residentID string, dayDate time.Time) ([]*entities.NurseNote, error) {
 	var notes []*entities.NurseNote
-	if err := r.db.Where("resident_id = ?", residentID).Order("created_at DESC").Find(&notes).Error; err != nil {
+	if err := r.db.
+		Where("resident_id = ?", residentID).
+		Where("DATE(created_at AT TIME ZONE 'Asia/Bangkok') = ?", dayDate.Format("2006-01-02")).
+		Order("created_at DESC").
+		Find(&notes).Error; err != nil {
 		return nil, err
 	}
 	return notes, nil
@@ -1411,17 +1418,24 @@ func (r *GormEmrRepository) GetWoundCareNoteByID(id string) (*entities.WoundCare
 	return &note, nil
 }
 
-func (r *GormEmrRepository) GetWoundCareNotesOverview() ([]*entities.WoundCareNote, error) {
+func (r *GormEmrRepository) GetWoundCareNotesOverviewOnDate(dayDate time.Time) ([]*entities.WoundCareNote, error) {
 	var notes []*entities.WoundCareNote
-	if err := r.db.Order("created_at DESC").Find(&notes).Error; err != nil {
+	if err := r.db.
+		Where("DATE(created_at AT TIME ZONE 'Asia/Bangkok') = ?", dayDate.Format("2006-01-02")).
+		Order("created_at DESC").
+		Find(&notes).Error; err != nil {
 		return nil, err
 	}
 	return notes, nil
 }
 
-func (r *GormEmrRepository) GetWoundCareNotesByResidentID(residentID string) ([]*entities.WoundCareNote, error) {
+func (r *GormEmrRepository) GetWoundCareNotesByResidentIDOnDate(residentID string, dayDate time.Time) ([]*entities.WoundCareNote, error) {
 	var notes []*entities.WoundCareNote
-	if err := r.db.Where("resident_id = ?", residentID).Order("created_at DESC").Find(&notes).Error; err != nil {
+	if err := r.db.
+		Where("resident_id = ?", residentID).
+		Where("DATE(created_at AT TIME ZONE 'Asia/Bangkok') = ?", dayDate.Format("2006-01-02")).
+		Order("created_at DESC").
+		Find(&notes).Error; err != nil {
 		return nil, err
 	}
 	return notes, nil
@@ -1453,17 +1467,24 @@ func (r *GormEmrRepository) GetRelativeNoteByID(id string) (*entities.RelativeNo
 	return &note, nil
 }
 
-func (r *GormEmrRepository) GetRelativeNotesOverview() ([]*entities.RelativeNote, error) {
+func (r *GormEmrRepository) GetRelativeNotesOverviewOnDate(dayDate time.Time) ([]*entities.RelativeNote, error) {
 	var notes []*entities.RelativeNote
-	if err := r.db.Order("created_at DESC").Find(&notes).Error; err != nil {
+	if err := r.db.
+		Where("DATE(created_at AT TIME ZONE 'Asia/Bangkok') = ?", dayDate.Format("2006-01-02")).
+		Order("created_at DESC").
+		Find(&notes).Error; err != nil {
 		return nil, err
 	}
 	return notes, nil
 }
 
-func (r *GormEmrRepository) GetRelativeNotesByResidentID(residentID string) ([]*entities.RelativeNote, error) {
+func (r *GormEmrRepository) GetRelativeNotesByResidentIDOnDate(residentID string, dayDate time.Time) ([]*entities.RelativeNote, error) {
 	var notes []*entities.RelativeNote
-	if err := r.db.Where("resident_id = ?", residentID).Order("created_at DESC").Find(&notes).Error; err != nil {
+	if err := r.db.
+		Where("resident_id = ?", residentID).
+		Where("DATE(created_at AT TIME ZONE 'Asia/Bangkok') = ?", dayDate.Format("2006-01-02")).
+		Order("created_at DESC").
+		Find(&notes).Error; err != nil {
 		return nil, err
 	}
 	return notes, nil
@@ -1563,17 +1584,24 @@ func (r *GormEmrRepository) GetDoctorOrderByID(id string) (*entities.DoctorOrder
 	return &order, nil
 }
 
-func (r *GormEmrRepository) GetDoctorOrdersOverview() ([]*entities.DoctorOrder, error) {
+func (r *GormEmrRepository) GetDoctorOrdersOverviewOnDate(dayDate time.Time) ([]*entities.DoctorOrder, error) {
 	var orders []*entities.DoctorOrder
-	if err := r.db.Order("created_at DESC").Find(&orders).Error; err != nil {
+	if err := r.db.
+		Where("order_date = ?", dayDate.Format("2006-01-02")).
+		Order("created_at DESC").
+		Find(&orders).Error; err != nil {
 		return nil, err
 	}
 	return orders, nil
 }
 
-func (r *GormEmrRepository) GetDoctorOrdersByResidentID(residentID string) ([]*entities.DoctorOrder, error) {
+func (r *GormEmrRepository) GetDoctorOrdersByResidentIDOnDate(residentID string, dayDate time.Time) ([]*entities.DoctorOrder, error) {
 	var orders []*entities.DoctorOrder
-	if err := r.db.Where("resident_id = ?", residentID).Order("created_at DESC").Find(&orders).Error; err != nil {
+	if err := r.db.
+		Where("resident_id = ?", residentID).
+		Where("order_date = ?", dayDate.Format("2006-01-02")).
+		Order("created_at DESC").
+		Find(&orders).Error; err != nil {
 		return nil, err
 	}
 	return orders, nil

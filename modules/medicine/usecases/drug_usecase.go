@@ -24,7 +24,7 @@ type DrugUsecase interface {
 	UpdateDrugMasterByID(id string, req models.UpdateDrugMasterRequest, userID string) (*entities.DrugMaster, error)
 	DeleteDrugMasterByID(id string, userID string) error
 
-	CreatePersonalDrug(req models.CreatePersonalDrugRequest, userID string) (*entities.PersonalDrug, error)
+	CreatePersonalDrug(req models.CreatePersonalDrugRequest, userID string) ([]*entities.PersonalDrug, error)
 	GetPersonalDrugsOverview(req models.PersonalDrugOverviewQueryParams, userID string) (*models.PersonalDrugOverviewResponse, error)
 	GetPersonalDrugsByResidentID(residentID string, userID string) ([]*entities.PersonalDrug, error)
 	GetPersonalDrugsByResidentIDToday(residentID string, userID string) ([]*entities.PersonalDrug, error)
@@ -98,9 +98,9 @@ func (uc *DrugUseCaseImpl) ensureMedicalStaff(userID string) error {
 // 		return nil, errors.New("name and dose are required")
 // 	}
 
-// 	// Dose format must be: <number> <unit>, e.g. 50 mg, 5 mL
-// 	pattern := regexp.MustCompile(`(?i)^([0-9]+(?:\.[0-9]+)?)\s*(mcg|mg|g|kg|ml|l|iu)$`)
-// 	matches := pattern.FindStringSubmatch(dose)
+// // Dose format must be: <number> <unit>, e.g. 50 mg, 5 mL
+// pattern := regexp.MustCompile(`(?i)^([0-9]+(?:\.[0-9]+)?)\s*(mcg|mg|g|kg|ml|l|iu)$`)
+// matches := pattern.FindStringSubmatch(dose)
 func normalizeDose(input string) (string, error) {
 	trimmed := strings.TrimSpace(input)
 	pattern := regexp.MustCompile(`(?i)^([0-9]+(?:\.[0-9]+)?)\s*(.+)$`)
@@ -370,6 +370,33 @@ func validateTimeOfDay(value string) error {
 	}
 
 	return nil
+}
+
+func splitTimeOfDayTokens(value string) ([]string, error) {
+	if err := validateTimeOfDay(value); err != nil {
+		return nil, err
+	}
+
+	parts := strings.Split(value, ",")
+	seen := make(map[string]struct{}, len(parts))
+	tokens := make([]string, 0, len(parts))
+	for _, part := range parts {
+		token := normalizeEnumInput(part)
+		if token == "" {
+			return nil, errors.New("time_of_day contains an empty value")
+		}
+		if _, ok := seen[token]; ok {
+			continue
+		}
+		seen[token] = struct{}{}
+		tokens = append(tokens, token)
+	}
+
+	if len(tokens) == 0 {
+		return nil, errors.New("time_of_day is required")
+	}
+
+	return tokens, nil
 }
 
 func parseDateInput(value string) (time.Time, error) {
@@ -690,7 +717,7 @@ func validateAsNeededDateRange(takeType string, startDate *time.Time, endDate *t
 	return nil
 }
 
-func (uc *DrugUseCaseImpl) CreatePersonalDrug(req models.CreatePersonalDrugRequest, userID string) (*entities.PersonalDrug, error) {
+func (uc *DrugUseCaseImpl) CreatePersonalDrug(req models.CreatePersonalDrugRequest, userID string) ([]*entities.PersonalDrug, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
@@ -698,7 +725,8 @@ func (uc *DrugUseCaseImpl) CreatePersonalDrug(req models.CreatePersonalDrugReque
 	if err := validateTakeType(req.TakeType); err != nil {
 		return nil, err
 	}
-	if err := validateTimeOfDay(req.TimeOfDay); err != nil {
+	timeOfDayTokens, err := splitTimeOfDayTokens(req.TimeOfDay)
+	if err != nil {
 		return nil, err
 	}
 	if req.Frequency <= 0 {
@@ -733,42 +761,48 @@ func (uc *DrugUseCaseImpl) CreatePersonalDrug(req models.CreatePersonalDrugReque
 		return nil, errors.New("drug master not found: " + err.Error())
 	}
 
-	personalDrug := &entities.PersonalDrug{
-		ID:          uuid.New().String(),
-		ResidentID:  req.ResidentID,
-		DmID:        req.DmID,
-		Amount:      req.Amount,
-		AmountUnit:  req.AmountUnit,
-		Frequency:   req.Frequency,
-		TimeOfDay:   req.TimeOfDay,
-		Timing:      req.Timing,
-		Description: "",
-		TakeType:    normalizeEnumInput(req.TakeType),
-		StartDate:   startDate,
-		EndDate:     endDate,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-	}
-	if req.Description != nil {
-		personalDrug.Description = *req.Description
+	personalDrugs := make([]*entities.PersonalDrug, 0, len(timeOfDayTokens))
+	for _, timeOfDay := range timeOfDayTokens {
+		personalDrug := &entities.PersonalDrug{
+			ID:          uuid.New().String(),
+			ResidentID:  req.ResidentID,
+			DmID:        req.DmID,
+			Amount:      req.Amount,
+			AmountUnit:  req.AmountUnit,
+			Frequency:   req.Frequency,
+			TimeOfDay:   timeOfDay,
+			Timing:      req.Timing,
+			Description: "",
+			TakeType:    normalizeEnumInput(req.TakeType),
+			StartDate:   startDate,
+			EndDate:     endDate,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+		if req.Description != nil {
+			personalDrug.Description = *req.Description
+		}
+		personalDrugs = append(personalDrugs, personalDrug)
 	}
 
-	created, err := uc.drugRepo.CreatePersonalDrug(personalDrug)
+	created, err := uc.drugRepo.CreatePersonalDrugs(personalDrugs)
 	if err != nil {
 		return nil, errors.New("failed to create personal drug: " + err.Error())
 	}
 
-	newValue, _ := json.Marshal(created)
-	auditLog := &entities.AuditLogs{
-		ID:        uuid.New().String(),
-		TableName: "personal_drugs",
-		RecordID:  created.ID,
-		UserID:    userID,
-		Action:    audit_constants.AuditActionInsert,
-		OldValue:  "",
-		NewValue:  string(newValue),
+	for _, item := range created {
+		newValue, _ := json.Marshal(item)
+		auditLog := &entities.AuditLogs{
+			ID:        uuid.New().String(),
+			TableName: "personal_drugs",
+			RecordID:  item.ID,
+			UserID:    userID,
+			Action:    audit_constants.AuditActionInsert,
+			OldValue:  "",
+			NewValue:  string(newValue),
+		}
+		_, _ = uc.auditLogRepo.CreateAuditLog(auditLog)
 	}
-	_, _ = uc.auditLogRepo.CreateAuditLog(auditLog)
 
 	return created, nil
 }
@@ -1148,6 +1182,19 @@ func (uc *DrugUseCaseImpl) GetDrugPlansOverview(req models.DrugPlanOverviewQuery
 		req.TakeType = &v
 	}
 
+	if len(req.LabelIDs) > 0 {
+		expandedLabelIDs := make([]string, 0, len(req.LabelIDs))
+		for _, id := range req.LabelIDs {
+			for _, part := range strings.Split(id, ",") {
+				part = strings.TrimSpace(part)
+				if part != "" {
+					expandedLabelIDs = append(expandedLabelIDs, part)
+				}
+			}
+		}
+		req.LabelIDs = expandedLabelIDs
+	}
+
 	page := 1
 	if req.Page != nil {
 		if *req.Page <= 0 {
@@ -1167,7 +1214,7 @@ func (uc *DrugUseCaseImpl) GetDrugPlansOverview(req models.DrugPlanOverviewQuery
 		pageSize = 100
 	}
 
-	result, total, err := uc.drugRepo.GetDrugPlansTodayCustom(req.TimeOfDay, req.Search, req.TakeType, page, pageSize)
+	result, total, err := uc.drugRepo.GetDrugPlansTodayCustom(req.TimeOfDay, req.Search, req.TakeType, req.Floor, req.LabelIDs, page, pageSize)
 	if err != nil {
 		return nil, errors.New("failed to get drug plans overview: " + err.Error())
 	}

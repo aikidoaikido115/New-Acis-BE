@@ -106,22 +106,22 @@ type EmrUsecase interface {
 
 	// NurseNote operations
 	CreateNurseNote(note *entities.NurseNote, userID string) (*entities.NurseNote, error)
-	GetNurseNotesOverview(userID string) ([]*entities.NurseNote, error)
-	GetNurseNotesByResidentID(residentID string, userID string) ([]*entities.NurseNote, error)
+	GetNurseNotesOverview(dateInput string, userID string) ([]*entities.NurseNote, error)
+	GetNurseNotesByResidentID(residentID string, dateInput string, userID string) ([]*entities.NurseNote, error)
 	UpdateNurseNoteByID(noteID string, note *entities.NurseNote, userID string) (*entities.NurseNote, error)
 	DeleteNurseNoteByID(noteID string, userID string) error
 
 	// WoundCareNote operations
 	CreateWoundCareNote(note *entities.WoundCareNote, userID string, imageFile multipart.File) (*entities.WoundCareNote, error)
-	GetWoundCareNotesOverview(userID string) ([]*entities.WoundCareNote, error)
-	GetWoundCareNotesByResidentID(residentID string, userID string) ([]*entities.WoundCareNote, error)
+	GetWoundCareNotesOverview(dateInput string, userID string) ([]*entities.WoundCareNote, error)
+	GetWoundCareNotesByResidentID(residentID string, dateInput string, userID string) ([]*entities.WoundCareNote, error)
 	UpdateWoundCareNoteByID(noteID string, note *entities.WoundCareNote, userID string, imageFile multipart.File) (*entities.WoundCareNote, error)
 	DeleteWoundCareNoteByID(noteID string, userID string) error
 
 	// RelativeNote operations
 	CreateRelativeNote(note *entities.RelativeNote, userID string) (*entities.RelativeNote, error)
-	GetRelativeNotesOverview(userID string) ([]*entities.RelativeNote, error)
-	GetRelativeNotesByResidentID(residentID string, userID string) ([]*entities.RelativeNote, error)
+	GetRelativeNotesOverview(dateInput string, userID string) ([]*entities.RelativeNote, error)
+	GetRelativeNotesByResidentID(residentID string, dateInput string, userID string) ([]*entities.RelativeNote, error)
 	UpdateRelativeNoteByID(noteID string, note *entities.RelativeNote, userID string) (*entities.RelativeNote, error)
 	DeleteRelativeNoteByID(noteID string, userID string) error
 
@@ -134,8 +134,8 @@ type EmrUsecase interface {
 
 	// DoctorOrder operations
 	CreateDoctorOrder(order *entities.DoctorOrder, userID string) (*entities.DoctorOrder, error)
-	GetDoctorOrdersOverview(userID string) ([]*entities.DoctorOrder, error)
-	GetDoctorOrdersByResidentID(residentID string, userID string) ([]*entities.DoctorOrder, error)
+	GetDoctorOrdersOverview(dateInput string, userID string) ([]*entities.DoctorOrder, error)
+	GetDoctorOrdersByResidentID(residentID string, dateInput string, userID string) ([]*entities.DoctorOrder, error)
 	UpdateDoctorOrderByID(orderID string, order *entities.DoctorOrder, userID string) (*entities.DoctorOrder, error)
 	DeleteDoctorOrderByID(orderID string, userID string) error
 	//todo search resident by like sql
@@ -3017,12 +3017,17 @@ func (uc *EmrUseCaseImpl) CreateNurseNote(note *entities.NurseNote, userID strin
 	return created, nil
 }
 
-func (uc *EmrUseCaseImpl) GetNurseNotesOverview(userID string) ([]*entities.NurseNote, error) {
+func (uc *EmrUseCaseImpl) GetNurseNotesOverview(dateInput string, userID string) ([]*entities.NurseNote, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
 
-	notes, err := uc.emrrepo.GetNurseNotesOverview()
+	selectedDate, err := parseVitalSignDateInput(dateInput)
+	if err != nil {
+		return nil, err
+	}
+
+	notes, err := uc.emrrepo.GetNurseNotesOverviewOnDate(selectedDate)
 	if err != nil {
 		return nil, err
 	}
@@ -3031,7 +3036,7 @@ func (uc *EmrUseCaseImpl) GetNurseNotesOverview(userID string) ([]*entities.Nurs
 	return notes, nil
 }
 
-func (uc *EmrUseCaseImpl) GetNurseNotesByResidentID(residentID string, userID string) ([]*entities.NurseNote, error) {
+func (uc *EmrUseCaseImpl) GetNurseNotesByResidentID(residentID string, dateInput string, userID string) ([]*entities.NurseNote, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
@@ -3044,7 +3049,12 @@ func (uc *EmrUseCaseImpl) GetNurseNotesByResidentID(residentID string, userID st
 		return nil, errors.New("resident not found")
 	}
 
-	notes, err := uc.emrrepo.GetNurseNotesByResidentID(residentID)
+	selectedDate, err := parseVitalSignDateInput(dateInput)
+	if err != nil {
+		return nil, err
+	}
+
+	notes, err := uc.emrrepo.GetNurseNotesByResidentIDOnDate(residentID, selectedDate)
 	if err != nil {
 		return nil, err
 	}
@@ -3200,12 +3210,17 @@ func (uc *EmrUseCaseImpl) CreateWoundCareNote(note *entities.WoundCareNote, user
 	return created, nil
 }
 
-func (uc *EmrUseCaseImpl) GetWoundCareNotesOverview(userID string) ([]*entities.WoundCareNote, error) {
+func (uc *EmrUseCaseImpl) GetWoundCareNotesOverview(dateInput string, userID string) ([]*entities.WoundCareNote, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
 
-	notes, err := uc.emrrepo.GetWoundCareNotesOverview()
+	selectedDate, err := parseVitalSignDateInput(dateInput)
+	if err != nil {
+		return nil, err
+	}
+
+	notes, err := uc.emrrepo.GetWoundCareNotesOverviewOnDate(selectedDate)
 	if err != nil {
 		return nil, err
 	}
@@ -3214,7 +3229,7 @@ func (uc *EmrUseCaseImpl) GetWoundCareNotesOverview(userID string) ([]*entities.
 	return notes, nil
 }
 
-func (uc *EmrUseCaseImpl) GetWoundCareNotesByResidentID(residentID string, userID string) ([]*entities.WoundCareNote, error) {
+func (uc *EmrUseCaseImpl) GetWoundCareNotesByResidentID(residentID string, dateInput string, userID string) ([]*entities.WoundCareNote, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
@@ -3227,7 +3242,12 @@ func (uc *EmrUseCaseImpl) GetWoundCareNotesByResidentID(residentID string, userI
 		return nil, errors.New("resident not found")
 	}
 
-	notes, err := uc.emrrepo.GetWoundCareNotesByResidentID(residentID)
+	selectedDate, err := parseVitalSignDateInput(dateInput)
+	if err != nil {
+		return nil, err
+	}
+
+	notes, err := uc.emrrepo.GetWoundCareNotesByResidentIDOnDate(residentID, selectedDate)
 	if err != nil {
 		return nil, err
 	}
@@ -3389,12 +3409,17 @@ func (uc *EmrUseCaseImpl) CreateRelativeNote(note *entities.RelativeNote, userID
 	return created, nil
 }
 
-func (uc *EmrUseCaseImpl) GetRelativeNotesOverview(userID string) ([]*entities.RelativeNote, error) {
+func (uc *EmrUseCaseImpl) GetRelativeNotesOverview(dateInput string, userID string) ([]*entities.RelativeNote, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
 
-	notes, err := uc.emrrepo.GetRelativeNotesOverview()
+	selectedDate, err := parseVitalSignDateInput(dateInput)
+	if err != nil {
+		return nil, err
+	}
+
+	notes, err := uc.emrrepo.GetRelativeNotesOverviewOnDate(selectedDate)
 	if err != nil {
 		return nil, err
 	}
@@ -3403,7 +3428,7 @@ func (uc *EmrUseCaseImpl) GetRelativeNotesOverview(userID string) ([]*entities.R
 	return notes, nil
 }
 
-func (uc *EmrUseCaseImpl) GetRelativeNotesByResidentID(residentID string, userID string) ([]*entities.RelativeNote, error) {
+func (uc *EmrUseCaseImpl) GetRelativeNotesByResidentID(residentID string, dateInput string, userID string) ([]*entities.RelativeNote, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
@@ -3416,7 +3441,12 @@ func (uc *EmrUseCaseImpl) GetRelativeNotesByResidentID(residentID string, userID
 		return nil, errors.New("resident not found")
 	}
 
-	notes, err := uc.emrrepo.GetRelativeNotesByResidentID(residentID)
+	selectedDate, err := parseVitalSignDateInput(dateInput)
+	if err != nil {
+		return nil, err
+	}
+
+	notes, err := uc.emrrepo.GetRelativeNotesByResidentIDOnDate(residentID, selectedDate)
 	if err != nil {
 		return nil, err
 	}
@@ -3920,12 +3950,17 @@ func (uc *EmrUseCaseImpl) CreateDoctorOrder(order *entities.DoctorOrder, userID 
 	return created, nil
 }
 
-func (uc *EmrUseCaseImpl) GetDoctorOrdersOverview(userID string) ([]*entities.DoctorOrder, error) {
+func (uc *EmrUseCaseImpl) GetDoctorOrdersOverview(dateInput string, userID string) ([]*entities.DoctorOrder, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
 
-	orders, err := uc.emrrepo.GetDoctorOrdersOverview()
+	selectedDate, err := parseVitalSignDateInput(dateInput)
+	if err != nil {
+		return nil, err
+	}
+
+	orders, err := uc.emrrepo.GetDoctorOrdersOverviewOnDate(selectedDate)
 	if err != nil {
 		return nil, err
 	}
@@ -3934,7 +3969,7 @@ func (uc *EmrUseCaseImpl) GetDoctorOrdersOverview(userID string) ([]*entities.Do
 	return orders, nil
 }
 
-func (uc *EmrUseCaseImpl) GetDoctorOrdersByResidentID(residentID string, userID string) ([]*entities.DoctorOrder, error) {
+func (uc *EmrUseCaseImpl) GetDoctorOrdersByResidentID(residentID string, dateInput string, userID string) ([]*entities.DoctorOrder, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
 	}
@@ -3947,7 +3982,12 @@ func (uc *EmrUseCaseImpl) GetDoctorOrdersByResidentID(residentID string, userID 
 		return nil, errors.New("resident not found")
 	}
 
-	orders, err := uc.emrrepo.GetDoctorOrdersByResidentID(residentID)
+	selectedDate, err := parseVitalSignDateInput(dateInput)
+	if err != nil {
+		return nil, err
+	}
+
+	orders, err := uc.emrrepo.GetDoctorOrdersByResidentIDOnDate(residentID, selectedDate)
 	if err != nil {
 		return nil, err
 	}

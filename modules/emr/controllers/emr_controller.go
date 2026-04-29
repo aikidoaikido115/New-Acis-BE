@@ -2174,6 +2174,7 @@ func (c *EmrController) CreateNurseNoteHandler(ctx *fiber.Ctx) error {
 }
 
 func (c *EmrController) GetNurseNotesOverviewHandler(ctx *fiber.Ctx) error {
+	selectedDate := ctx.Query("date")
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
 		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
@@ -2184,7 +2185,7 @@ func (c *EmrController) GetNurseNotesOverviewHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	result, err := c.emrUsecase.GetNurseNotesOverview(userID)
+	result, err := c.emrUsecase.GetNurseNotesOverview(selectedDate, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -2204,6 +2205,7 @@ func (c *EmrController) GetNurseNotesOverviewHandler(ctx *fiber.Ctx) error {
 
 func (c *EmrController) GetNurseNotesByResidentHandler(ctx *fiber.Ctx) error {
 	residentID := ctx.Query("resident_id")
+	selectedDate := ctx.Query("date")
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
 		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
@@ -2214,7 +2216,7 @@ func (c *EmrController) GetNurseNotesByResidentHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	result, err := c.emrUsecase.GetNurseNotesByResidentID(residentID, userID)
+	result, err := c.emrUsecase.GetNurseNotesByResidentID(residentID, selectedDate, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -2396,6 +2398,7 @@ func (c *EmrController) CreateWoundCareNoteHandler(ctx *fiber.Ctx) error {
 }
 
 func (c *EmrController) GetWoundCareNotesOverviewHandler(ctx *fiber.Ctx) error {
+	selectedDate := ctx.Query("date")
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
 		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
@@ -2406,7 +2409,7 @@ func (c *EmrController) GetWoundCareNotesOverviewHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	result, err := c.emrUsecase.GetWoundCareNotesOverview(userID)
+	result, err := c.emrUsecase.GetWoundCareNotesOverview(selectedDate, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -2426,6 +2429,7 @@ func (c *EmrController) GetWoundCareNotesOverviewHandler(ctx *fiber.Ctx) error {
 
 func (c *EmrController) GetWoundCareNotesByResidentHandler(ctx *fiber.Ctx) error {
 	residentID := ctx.Query("resident_id")
+	selectedDate := ctx.Query("date")
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
 		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
@@ -2436,7 +2440,7 @@ func (c *EmrController) GetWoundCareNotesByResidentHandler(ctx *fiber.Ctx) error
 		})
 	}
 
-	result, err := c.emrUsecase.GetWoundCareNotesByResidentID(residentID, userID)
+	result, err := c.emrUsecase.GetWoundCareNotesByResidentID(residentID, selectedDate, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -2633,6 +2637,7 @@ func (c *EmrController) CreateRelativeNoteHandler(ctx *fiber.Ctx) error {
 }
 
 func (c *EmrController) GetRelativeNotesOverviewHandler(ctx *fiber.Ctx) error {
+	selectedDate := ctx.Query("date")
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
 		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
@@ -2643,7 +2648,7 @@ func (c *EmrController) GetRelativeNotesOverviewHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	result, err := c.emrUsecase.GetRelativeNotesOverview(userID)
+	result, err := c.emrUsecase.GetRelativeNotesOverview(selectedDate, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -2663,6 +2668,7 @@ func (c *EmrController) GetRelativeNotesOverviewHandler(ctx *fiber.Ctx) error {
 
 func (c *EmrController) GetRelativeNotesByResidentHandler(ctx *fiber.Ctx) error {
 	residentID := ctx.Query("resident_id")
+	selectedDate := ctx.Query("date")
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
 		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
@@ -2673,7 +2679,7 @@ func (c *EmrController) GetRelativeNotesByResidentHandler(ctx *fiber.Ctx) error 
 		})
 	}
 
-	result, err := c.emrUsecase.GetRelativeNotesByResidentID(residentID, userID)
+	result, err := c.emrUsecase.GetRelativeNotesByResidentID(residentID, selectedDate, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -3010,16 +3016,18 @@ func (c *EmrController) CreateDoctorOrderHandler(ctx *fiber.Ctx) error {
 
 // GetDoctorOrdersOverviewHandler godoc
 // @Summary Get Doctor Orders Overview
-// @Description Retrieve all doctor orders for overview screen
+// @Description Retrieve doctor orders for overview screen on a selected date
 // @Tags DoctorOrder
 // @Accept json
 // @Produce json
 // @Security BearerAuth
+// @Param date query string true "Selected date (YYYY-MM-DD)"
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "Doctor orders overview retrieved successfully"
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/doctor-orders/overview [get]
 func (c *EmrController) GetDoctorOrdersOverviewHandler(ctx *fiber.Ctx) error {
+	selectedDate := ctx.Query("date")
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
 		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
@@ -3030,7 +3038,7 @@ func (c *EmrController) GetDoctorOrdersOverviewHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	result, err := c.emrUsecase.GetDoctorOrdersOverview(userID)
+	result, err := c.emrUsecase.GetDoctorOrdersOverview(selectedDate, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -3050,18 +3058,20 @@ func (c *EmrController) GetDoctorOrdersOverviewHandler(ctx *fiber.Ctx) error {
 
 // GetDoctorOrdersByResidentHandler godoc
 // @Summary Get Doctor Orders By Resident
-// @Description Retrieve all doctor orders for a specific resident
+// @Description Retrieve doctor orders for a specific resident on a selected date
 // @Tags DoctorOrder
 // @Accept json
 // @Produce json
 // @Security BearerAuth
 // @Param resident_id query string true "Resident ID"
+// @Param date query string true "Selected date (YYYY-MM-DD)"
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=[]object} "Doctor orders retrieved successfully"
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized"
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
 // @Router /api/emr/doctor-orders/resident/all [get]
 func (c *EmrController) GetDoctorOrdersByResidentHandler(ctx *fiber.Ctx) error {
 	residentID := ctx.Query("resident_id")
+	selectedDate := ctx.Query("date")
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
 		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
@@ -3072,7 +3082,7 @@ func (c *EmrController) GetDoctorOrdersByResidentHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	result, err := c.emrUsecase.GetDoctorOrdersByResidentID(residentID, userID)
+	result, err := c.emrUsecase.GetDoctorOrdersByResidentID(residentID, selectedDate, userID)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,

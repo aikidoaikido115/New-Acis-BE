@@ -874,7 +874,7 @@ func (c *ActivityController) GetAllParticipationsHandler(ctx *fiber.Ctx) error {
 
 // GetResidentsByScheduleIDCustomHandler godoc
 // @Summary Get Residents by Activity Schedule ID (Custom)
-// @Description Retrieve residents in a schedule with room and intake labels. Supports filters by search, floor, and intake label IDs.
+// @Description Retrieve residents in a schedule with room and intake labels. Supports filters by search, floor, and intake label IDs with pagination.
 // @Tags Participation
 // @Accept json
 // @Produce json
@@ -883,7 +883,9 @@ func (c *ActivityController) GetAllParticipationsHandler(ctx *fiber.Ctx) error {
 // @Param search query string false "Search by resident first_name, last_name, nickname"
 // @Param floor query int false "Filter by room floor"
 // @Param label_ids query []string false "Filter by intake label IDs (match all provided labels)"
-// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]models.ResidentByScheduleResponse}
+// @Param page query int false "Page number (default 1)"
+// @Param page_size query int false "Page size (default 20, max 100)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.ResidentsByScheduleListResponse}
 // @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}

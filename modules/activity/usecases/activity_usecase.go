@@ -51,7 +51,7 @@ type ActivityUsecase interface {
 	CreateParticipation(req activityModels.CreateParticipationRequest, userID string, files []*multipart.FileHeader) (*entities.Participation, error)
 	GetParticipationByResidentIDAndASID(residentID, asID string) (*entities.Participation, error)
 	GetAllParticipations() ([]*entities.Participation, error)
-	GetResidentsByScheduleIDCustom(asID string, params activityModels.ResidentsByScheduleQueryParams) ([]*activityModels.ResidentByScheduleResponse, error)
+	GetResidentsByScheduleIDCustom(asID string, params activityModels.ResidentsByScheduleQueryParams) (*activityModels.ResidentsByScheduleListResponse, error)
 	UpdateParticipationByResidentIDAndASID(residentID, asID string, req activityModels.UpdateParticipationRequest, userID string, files []*multipart.FileHeader) (*entities.Participation, error)
 	BulkUpdateParticipationIsParticipatingByResidentIDs(req activityModels.BulkUpdateParticipationIsParticipatingByResidentIDsRequest, userID string) ([]*entities.Participation, error)
 	DeleteParticipationByResidentIDAndASID(residentID, asID string) error
@@ -715,13 +715,44 @@ func (uc *ActivityUseCaseImpl) GetAllParticipations() ([]*entities.Participation
 	return uc.repo.GetAllParticipations()
 }
 
-func (uc *ActivityUseCaseImpl) GetResidentsByScheduleIDCustom(asID string, params activityModels.ResidentsByScheduleQueryParams) ([]*activityModels.ResidentByScheduleResponse, error) {
+func (uc *ActivityUseCaseImpl) GetResidentsByScheduleIDCustom(asID string, params activityModels.ResidentsByScheduleQueryParams) (*activityModels.ResidentsByScheduleListResponse, error) {
 	asID = strings.TrimSpace(asID)
 	if asID == "" {
 		return nil, errors.New("activity schedule id is required")
 	}
 
-	participations, err := uc.repo.GetResidentsByScheduleIDCustom(asID, params)
+	page := 1
+	if params.Page != nil {
+		if *params.Page <= 0 {
+			return nil, errors.New("page must be greater than 0")
+		}
+		page = *params.Page
+	}
+
+	pageSize := 20
+	if params.PageSize != nil {
+		if *params.PageSize <= 0 {
+			return nil, errors.New("page_size must be greater than 0")
+		}
+		pageSize = *params.PageSize
+	} else if params.Limit > 0 {
+		pageSize = params.Limit
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	hasPagination := params.Page != nil || params.PageSize != nil || params.Limit > 0 || params.Offset > 0
+	if params.Page == nil && params.Offset > 0 {
+		page = (params.Offset / pageSize) + 1
+	}
+
+	if hasPagination {
+		params.Limit = pageSize
+		params.Offset = (page - 1) * pageSize
+	}
+
+	participations, total, err := uc.repo.GetResidentsByScheduleIDCustom(asID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -754,7 +785,20 @@ func (uc *ActivityUseCaseImpl) GetResidentsByScheduleIDCustom(asID string, param
 		})
 	}
 
-	return result, nil
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(pageSize) - 1) / int64(pageSize))
+	}
+
+	return &activityModels.ResidentsByScheduleListResponse{
+		Items: result,
+		Pagination: activityModels.ActivityPagination{
+			Page:       page,
+			PageSize:   pageSize,
+			TotalItems: int(total),
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (uc *ActivityUseCaseImpl) UpdateParticipationByResidentIDAndASID(residentID, asID string, req activityModels.UpdateParticipationRequest, userID string, files []*multipart.FileHeader) (*entities.Participation, error) {

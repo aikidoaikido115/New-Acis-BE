@@ -31,7 +31,7 @@ services:
       - postgres
       - model
   model:
-    image: aikidoaikido115/new-acis-ai:1.0.1
+    image: aikidoaikido115/new-acis-ai:1.0.3
     container_name: new_acis_ai
     restart: unless-stopped
     env_file:
