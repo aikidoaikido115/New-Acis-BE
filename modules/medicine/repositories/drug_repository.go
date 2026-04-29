@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"errors"
 	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
@@ -33,6 +34,7 @@ type DrugRepository interface {
 
 	// PersonalDrug Operations
 	CreatePersonalDrug(personalDrug *entities.PersonalDrug) (*entities.PersonalDrug, error)
+	CreatePersonalDrugs(personalDrugs []*entities.PersonalDrug) ([]*entities.PersonalDrug, error)
 	GetPersonalDrugByID(id string) (*entities.PersonalDrug, error)
 	GetAllPersonalDrugs() ([]*entities.PersonalDrug, error)
 	GetPersonalDrugsToday() ([]*entities.PersonalDrug, error)
@@ -141,6 +143,38 @@ func (r *GormDrugRepository) CreatePersonalDrug(personalDrug *entities.PersonalD
 	}
 
 	return r.GetPersonalDrugByID(personalDrug.ID)
+}
+
+func (r *GormDrugRepository) CreatePersonalDrugs(personalDrugs []*entities.PersonalDrug) ([]*entities.PersonalDrug, error) {
+	if len(personalDrugs) == 0 {
+		return nil, errors.New("personal_drugs cannot be empty")
+	}
+
+	if err := r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&personalDrugs).Error; err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	ids := make([]string, 0, len(personalDrugs))
+	for _, personalDrug := range personalDrugs {
+		ids = append(ids, personalDrug.ID)
+	}
+
+	var created []*entities.PersonalDrug
+	if err := r.db.
+		Preload("Resident").
+		Preload("DrugMaster").
+		Where("id IN ?", ids).
+		Order("created_at ASC").
+		Find(&created).Error; err != nil {
+		return nil, err
+	}
+
+	return created, nil
 }
 
 func (r *GormDrugRepository) GetPersonalDrugByID(id string) (*entities.PersonalDrug, error) {
