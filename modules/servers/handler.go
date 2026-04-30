@@ -143,7 +143,9 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	userRepository := userRepository.NewGormUserRepository(db)
 
 	emrRepository := emrRepository.NewGormEmrRepository(db)
-	emrUsecase := emrUsecase.NewEmrUseCase(emrRepository, auditLogRepository, userRepository, supa)
+	drugRepository := medicineRepository.NewGormDrugRepository(db)
+	drugUsecase := medicineUsecase.NewDrugUseCase(drugRepository, auditLogRepository, userRepository)
+	emrUsecase := emrUsecase.NewEmrUseCase(emrRepository, auditLogRepository, userRepository, drugUsecase, supa)
 	emrController := emrController.NewEmrController(emrUsecase)
 
 	residentGroup := app.Group("/api/emr/residents")
@@ -163,6 +165,8 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	dashboardGroup := app.Group("/api/emr/dashboard")
 	dashboardGroup.Get("/residents", middlewares.JWTMiddleware(jwt), emrController.GetNumberOfResidentsDashboardHandler)
 	dashboardGroup.Get("/resident-gender-stats", middlewares.JWTMiddleware(jwt), emrController.GetResidentGenderStatsDashboardHandler)
+	dashboardGroup.Get("/vital-sign-stats", middlewares.JWTMiddleware(jwt), emrController.GetVitalSignStatsDashboardHandler)
+	dashboardGroup.Get("/drug-plan-time-of-day-stats", middlewares.JWTMiddleware(jwt), emrController.GetDrugPlanTimeOfDayStatsDashboardHandler)
 	dashboardGroup.Get("/resident-allergy-stats", middlewares.JWTMiddleware(jwt), emrController.GetResidentAllergyStatsDashboardHandler)
 	dashboardGroup.Get("/resident-drug-allergy-stats", middlewares.JWTMiddleware(jwt), emrController.GetResidentDrugAllergyStatsDashboardHandler)
 
@@ -350,6 +354,9 @@ func SetupWarehouseRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	warehouseTransactionGroup.Get("/:id", middlewares.JWTMiddleware(jwt), warehouseController.GetWarehouseTransactionByIDHandler)
 	warehouseTransactionGroup.Patch("/approve", middlewares.JWTMiddleware(jwt), warehouseController.ApproveTransactionsHandler)
 	warehouseTransactionGroup.Patch("/reject", middlewares.JWTMiddleware(jwt), warehouseController.RejectTransactionsHandler)
+
+	warehouseDashboardGroup := app.Group("/api/warehouse/dashboard")
+	warehouseDashboardGroup.Get("/summary", middlewares.JWTMiddleware(jwt), warehouseController.GetWarehouseDashboardSummaryHandler)
 }
 
 func SetupSupportRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {

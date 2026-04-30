@@ -25,7 +25,7 @@ type Resident struct {
 	SugicalHistory             *string    `json:"surgical_history"`
 	PreferredEmergencyHospital *string    `json:"preferred_emergency_hospital"`
 	EmergencyHospitalPhone     *string    `json:"emergency_hospital_phone"`
-	EmergencyContacts          datatypes.JSON `json:"emergency_contacts" gorm:"type:jsonb"`
+	EmergencyContacts          datatypes.JSON `json:"emergency_contacts" gorm:"type:jsonb" swaggertype:"object"`
 	Room                       Room       `json:"-" gorm:"foreignKey:RoomID;references:ID"`
 	ProfileImage               *string    `json:"profile_image"`
 

@@ -21,6 +21,8 @@ import (
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/models"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/repositories"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	medicine_models "github.com/aikidoaikido115/New-Acis-BE/modules/medicine/models"
+	medicine_usecase "github.com/aikidoaikido115/New-Acis-BE/modules/medicine/usecases"
 	user_constants "github.com/aikidoaikido115/New-Acis-BE/modules/user/constants"
 	user_repo "github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
 	"github.com/aikidoaikido115/New-Acis-BE/pkg/utils"
@@ -43,6 +45,8 @@ type EmrUsecase interface {
 	// Dashboard operations
 	GetNumberOfResidentsDashboard(userID string) (models.NumberOfResidentsDashboardResponse, error)
 	GetResidentGenderStatsDashboard(userID string) (models.ResidentGenderStatsDashboardResponse, error)
+	GetVitalSignStatsDashboard(userID string) (models.VitalSignDashboardSummary, error)
+	GetDrugPlanTimeOfDayStatsDashboard(userID string) ([]models.DrugPlanTimeOfDayDashboardSummary, error)
 	GetResidentAllergyStatsDashboard(userID string) (models.ResidentAllergyStatsDashboardResponse, error)
 	GetResidentDrugAllergyStatsDashboard(userID string) (models.ResidentDrugAllergyStatsDashboardResponse, error)
 
@@ -133,6 +137,7 @@ type EmrUseCaseImpl struct {
 	emrrepo      repositories.EmrRepository
 	auditlogrepo audit_repo.AuditLogRepository
 	userrepo     user_repo.UserRepository
+	drugUsecase  medicine_usecase.DrugUsecase
 	supa         configs.Supabase
 }
 
@@ -140,11 +145,13 @@ func NewEmrUseCase(
 	emrrepo repositories.EmrRepository,
 	auditlogrepo audit_repo.AuditLogRepository,
 	userrepo user_repo.UserRepository,
+	drugUsecase medicine_usecase.DrugUsecase,
 	supa configs.Supabase) EmrUsecase {
 	return &EmrUseCaseImpl{
 		emrrepo:      emrrepo,
 		auditlogrepo: auditlogrepo,
 		userrepo:     userrepo,
+		drugUsecase:  drugUsecase,
 		supa:         supa,
 	}
 }
@@ -583,17 +590,17 @@ func (uc *EmrUseCaseImpl) GetResidentOverview(req models.ResidentQueryParams, us
 		}
 
 		response = append(response, &models.ResidentOverviewResponse{
-			ResidentID:   r.ID,
-			FirstName:    r.FirstName,
-			LastName:     r.LastName,
-			Nickname:     r.Nickname,
-			RoomNumber:   r.Room.RoomNumber,
-			IntakeLabels: labelNames,
-			Gender:       r.Gender,
-			Status:       r.Status,
-			CheckInDate:  r.CheckInDate,
+			ResidentID:           r.ID,
+			FirstName:            r.FirstName,
+			LastName:             r.LastName,
+			Nickname:             r.Nickname,
+			RoomNumber:           r.Room.RoomNumber,
+			IntakeLabels:         labelNames,
+			Gender:               r.Gender,
+			Status:               r.Status,
+			CheckInDate:          r.CheckInDate,
 			ExpectedCheckOutDate: r.ExpectedCheckOutDate,
-			Floor:        floor,
+			Floor:                floor,
 		})
 	}
 	totalPages := 0
@@ -694,7 +701,7 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 			if len(*idCard) != 13 {
 				return nil, errors.New("ID card number must be 13 characters long")
 			}
-				if resident.IdCardNumber == nil || *idCard != *resident.IdCardNumber {
+			if resident.IdCardNumber == nil || *idCard != *resident.IdCardNumber {
 				idCardExists, err := uc.emrrepo.IdCardNumberExists(*idCard)
 				if err != nil {
 					return nil, errors.New("failed to verify ID card number existence: " + err.Error())
@@ -940,6 +947,119 @@ func (uc *EmrUseCaseImpl) GetResidentGenderStatsDashboard(userID string) (models
 	}
 
 	return response, nil
+}
+
+func (uc *EmrUseCaseImpl) GetVitalSignStatsDashboard(userID string) (models.VitalSignDashboardSummary, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return models.VitalSignDashboardSummary{}, err
+	}
+
+	vitalSummary, err := uc.buildVitalSignDashboardSummary()
+	if err != nil {
+		return models.VitalSignDashboardSummary{}, err
+	}
+
+	return vitalSummary, nil
+}
+
+func (uc *EmrUseCaseImpl) GetDrugPlanTimeOfDayStatsDashboard(userID string) ([]models.DrugPlanTimeOfDayDashboardSummary, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	drugSummary, err := uc.drugUsecase.GetDrugPlansTodayTimeOfDayResidentSummary(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapDrugPlanTimeOfDaySummary(drugSummary), nil
+}
+
+func (uc *EmrUseCaseImpl) buildVitalSignDashboardSummary() (models.VitalSignDashboardSummary, error) {
+	// Current snapshot: latest vital sign per resident for today.
+	latestVitalSigns, err := uc.emrrepo.GetVitalSignsToday(true)
+	if err != nil {
+		return models.VitalSignDashboardSummary{}, errors.New("failed to get vital signs summary: " + err.Error())
+	}
+
+	var currentNormalResidents int64
+	var currentAbnormalResidents int64
+	for _, vitalSign := range latestVitalSigns {
+		if vitalSign == nil || vitalSign.ResidentID == "" {
+			continue
+		}
+		_, abnormalList, _ := buildVitalSignFieldStatuses(vitalSign)
+		if len(abnormalList) > 0 {
+			currentAbnormalResidents++
+		} else {
+			currentNormalResidents++
+		}
+	}
+	currentTotalResidents := currentNormalResidents + currentAbnormalResidents
+
+	// Daily risk flag: any abnormal at any time today.
+	allVitalSignsToday, err := uc.emrrepo.GetVitalSignsToday(false)
+	if err != nil {
+		return models.VitalSignDashboardSummary{}, errors.New("failed to get vital signs summary: " + err.Error())
+	}
+
+	// residentAbnormalMap[resident_id] = true if any record in the day is abnormal.
+	residentAbnormalMap := make(map[string]bool)
+	for _, vitalSign := range allVitalSignsToday {
+		if vitalSign == nil || vitalSign.ResidentID == "" {
+			continue
+		}
+		_, abnormalList, _ := buildVitalSignFieldStatuses(vitalSign)
+		if len(abnormalList) > 0 {
+			residentAbnormalMap[vitalSign.ResidentID] = true
+			continue
+		}
+
+		// Keep resident as normal only when no abnormal has been found so far.
+		if _, exists := residentAbnormalMap[vitalSign.ResidentID]; !exists {
+			residentAbnormalMap[vitalSign.ResidentID] = false
+		}
+	}
+
+	var abnormalResidents int64
+	for _, isAbnormal := range residentAbnormalMap {
+		if isAbnormal {
+			abnormalResidents++
+		}
+	}
+	normalResidents := int64(len(residentAbnormalMap)) - abnormalResidents
+
+	return models.VitalSignDashboardSummary{
+		CurrentNormalResidents:   currentNormalResidents,
+		CurrentAbnormalResidents: currentAbnormalResidents,
+		CurrentTotalResidents:    currentTotalResidents,
+
+		HadAbnormalTodayResidents:   abnormalResidents,
+		HadNormalOnlyTodayResidents: normalResidents,
+		HadTotalResidents:           int64(len(residentAbnormalMap)),
+	}, nil
+}
+
+func mapDrugPlanTimeOfDaySummary(items []*medicine_models.DrugPlanTimeOfDaySummary) []models.DrugPlanTimeOfDayDashboardSummary {
+	if len(items) == 0 {
+		return []models.DrugPlanTimeOfDayDashboardSummary{}
+	}
+
+	result := make([]models.DrugPlanTimeOfDayDashboardSummary, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		result = append(result, models.DrugPlanTimeOfDayDashboardSummary{
+			TimeOfDay:        item.TimeOfDay,
+			TotalResidents:   item.TotalResidents,
+			GivenResidents:   item.GivenResidents,
+			WaitingResidents: item.WaitingResidents,
+			Status:           item.Status,
+		})
+	}
+
+	return result
 }
 
 func (uc *EmrUseCaseImpl) GetResidentAllergyStatsDashboard(userID string) (models.ResidentAllergyStatsDashboardResponse, error) {

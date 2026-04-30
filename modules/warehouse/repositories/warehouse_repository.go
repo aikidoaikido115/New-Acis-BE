@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	"github.com/aikidoaikido115/New-Acis-BE/modules/warehouse/constants"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/warehouse/models"
 	"gorm.io/gorm"
 )
@@ -26,6 +27,10 @@ type WarehouseRepository interface {
 	GetTransactionsByIDs(ids []string) ([]*entities.WarehouseTransaction, error)
 	UpdateTransaction(transaction *entities.WarehouseTransaction) (*entities.WarehouseTransaction, error)
 	NextTransactionCode(datePrefix string) (string, error)
+
+	GetWarehouseItemsCount() (int64, error)
+	GetLowStockItemsCount(threshold int) (int64, error)
+	GetPendingTransactionsCountByType(transactionType string) (int64, error)
 }
 
 type GormWarehouseRepository struct {
@@ -206,4 +211,30 @@ func (r *GormWarehouseRepository) NextTransactionCode(datePrefix string) (string
 	}
 
 	return fmt.Sprintf("%s-%03d", datePrefix, seq+1), nil
+}
+
+func (r *GormWarehouseRepository) GetWarehouseItemsCount() (int64, error) {
+	var count int64
+	if err := r.db.Model(&entities.WarehouseItem{}).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *GormWarehouseRepository) GetLowStockItemsCount(threshold int) (int64, error) {
+	var count int64
+	if err := r.db.Model(&entities.WarehouseItem{}).Where("quantity <= ?", threshold).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *GormWarehouseRepository) GetPendingTransactionsCountByType(transactionType string) (int64, error) {
+	var count int64
+	if err := r.db.Model(&entities.WarehouseTransaction{}).
+		Where("approval_status = ? AND type = ?", constants.ApprovalStatusPending, transactionType).
+		Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
 }

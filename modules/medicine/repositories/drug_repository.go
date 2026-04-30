@@ -52,6 +52,7 @@ type DrugRepository interface {
 
 	// DrugPlan Operations
 	CreateDrugPlan(drugPlan *entities.DrugPlan) (*entities.DrugPlan, error)
+	CreateDrugPlanIfNotExistsForDate(drugPlan *entities.DrugPlan, date time.Time) (bool, error)
 	GetDrugPlanByID(id string) (*entities.DrugPlan, error)
 	GetAllDrugPlans() ([]*entities.DrugPlan, error)
 	GetDrugPlansToday() ([]*entities.DrugPlan, error)
@@ -60,6 +61,7 @@ type DrugRepository interface {
 	GetDrugPlansTodayCustom(timeOfDay *string, search *string, takeType *string, floor *int16, labelIDs []string, page int, pageSize int) ([]*entities.DrugPlan, int64, error)
 	GetDrugAdministrationHistory(req models.DrugAdministrationHistoryQueryParams, page int, pageSize int) ([]models.DrugAdministrationHistoryItem, int64, error)
 	GetDrugPlansTodayResidentSummary() (*models.DrugPlanResidentSummaryResponse, error)
+	GetDrugPlansTodayTimeOfDayResidentSummary() ([]*models.DrugPlanTimeOfDaySummary, error)
 	HasDrugPlanForPersonalDrugOnDate(pdID string, date time.Time) (bool, error)
 	DeleteDrugPlansByPdID(pdID string) error
 	UpdateDrugPlan(drugPlan *entities.DrugPlan) (*entities.DrugPlan, error)
@@ -428,6 +430,30 @@ func (r *GormDrugRepository) CreateDrugPlan(drugPlan *entities.DrugPlan) (*entit
 	return r.GetDrugPlanByID(drugPlan.ID)
 }
 
+func (r *GormDrugRepository) CreateDrugPlanIfNotExistsForDate(drugPlan *entities.DrugPlan, date time.Time) (bool, error) {
+	_ = date
+
+	result := r.db.Exec(`
+		INSERT INTO drug_plans
+			(id, pd_id, is_taken, taken_at, given_by_staff_id, is_omitted, omitted_reason, notes, created_at, updated_at)
+		VALUES
+			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (pd_id, ((created_at AT TIME ZONE 'Asia/Bangkok')::date)) DO NOTHING
+	`,
+		drugPlan.ID,
+		drugPlan.PdID,
+		drugPlan.IsTaken,
+		drugPlan.TakenAt,
+		drugPlan.GivenByStaffID,
+		drugPlan.IsOmitted,
+		drugPlan.OmittedReason,
+		drugPlan.Notes,
+		drugPlan.CreatedAt,
+		drugPlan.UpdatedAt,
+	)
+	return result.RowsAffected > 0, result.Error
+}
+
 func (r *GormDrugRepository) GetDrugPlanByID(id string) (*entities.DrugPlan, error) {
 	var drugPlan entities.DrugPlan
 	if err := r.db.
@@ -683,6 +709,50 @@ func (r *GormDrugRepository) GetDrugPlansTodayResidentSummary() (*models.DrugPla
 	}
 
 	return &summary, nil
+}
+
+func (r *GormDrugRepository) GetDrugPlansTodayTimeOfDayResidentSummary() ([]*models.DrugPlanTimeOfDaySummary, error) {
+	var summaries []*models.DrugPlanTimeOfDaySummary
+
+	err := r.db.Raw(`
+		SELECT
+			s.time_of_day AS time_of_day,
+			COUNT(*) AS total_residents,
+			COUNT(*) FILTER (WHERE s.waiting_count = 0 AND s.taken_count > 0) AS given_residents,
+			COUNT(*) FILTER (WHERE s.waiting_count > 0) AS waiting_residents
+		FROM (
+			SELECT
+				pd.resident_id,
+				CASE
+					WHEN LOWER(TRIM(pd.time_of_day)) IN ('เช้า', 'morning') THEN 'เช้า'
+					WHEN LOWER(TRIM(pd.time_of_day)) IN ('กลางวัน', 'noon', 'midday', 'lunch') THEN 'กลางวัน'
+					WHEN LOWER(TRIM(pd.time_of_day)) IN ('เย็น', 'evening', 'dinner') THEN 'เย็น'
+					WHEN LOWER(TRIM(pd.time_of_day)) IN ('ก่อนนอน', 'bedtime', 'before_bed', 'night', 'hs') THEN 'ก่อนนอน'
+					ELSE NULL
+				END AS time_of_day,
+				SUM(CASE WHEN dp.is_taken = TRUE THEN 1 ELSE 0 END) AS taken_count,
+				SUM(CASE WHEN dp.is_taken = FALSE THEN 1 ELSE 0 END) AS waiting_count
+			FROM drug_plans dp
+			JOIN personal_drugs pd ON dp.pd_id = pd.id
+			WHERE dp.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'
+				AND dp.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'
+			GROUP BY pd.resident_id, time_of_day
+		) s
+		WHERE s.time_of_day IS NOT NULL
+		GROUP BY s.time_of_day
+		ORDER BY CASE s.time_of_day
+			WHEN 'เช้า' THEN 1
+			WHEN 'กลางวัน' THEN 2
+			WHEN 'เย็น' THEN 3
+			WHEN 'ก่อนนอน' THEN 4
+			ELSE 5
+		END
+	`).Scan(&summaries).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return summaries, nil
 }
 
 func (r *GormDrugRepository) HasDrugPlanForPersonalDrugOnDate(pdID string, date time.Time) (bool, error) {
