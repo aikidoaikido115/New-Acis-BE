@@ -133,11 +133,9 @@ func SetupUserRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.
 
 	adminGroup := app.Group("/api/admin")
 	adminGroup.Get("/users", middlewares.JWTMiddleware(jwt), userController.GetAllUsersHandler)
-	adminGroup.Get("/users/relatives", middlewares.JWTMiddleware(jwt), userController.GetRelativeUsersHandler)
 	adminGroup.Patch("/users/:user_id/approval", middlewares.JWTMiddleware(jwt), userController.UpdateUserApprovalHandler)
 	adminGroup.Patch("/users/staffs/:staff_id/role", middlewares.JWTMiddleware(jwt), userController.UpdateStaffRoleByIDHandler)
 	adminGroup.Delete("/users/staffs/:staff_id", middlewares.JWTMiddleware(jwt), userController.DeleteStaffByIDHandler)
-	adminGroup.Delete("/users/relatives/:user_id", middlewares.JWTMiddleware(jwt), userController.DeleteRelativeByUserIDHandler)
 }
 
 func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.Supabase) {
@@ -145,7 +143,9 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	userRepository := userRepository.NewGormUserRepository(db)
 
 	emrRepository := emrRepository.NewGormEmrRepository(db)
-	emrUsecase := emrUsecase.NewEmrUseCase(emrRepository, auditLogRepository, userRepository, supa, jwt)
+	drugRepository := medicineRepository.NewGormDrugRepository(db)
+	drugUsecase := medicineUsecase.NewDrugUseCase(drugRepository, auditLogRepository, userRepository)
+	emrUsecase := emrUsecase.NewEmrUseCase(emrRepository, auditLogRepository, userRepository, drugUsecase, supa)
 	emrController := emrController.NewEmrController(emrUsecase)
 
 	residentGroup := app.Group("/api/emr/residents")
@@ -165,6 +165,8 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	dashboardGroup := app.Group("/api/emr/dashboard")
 	dashboardGroup.Get("/residents", middlewares.JWTMiddleware(jwt), emrController.GetNumberOfResidentsDashboardHandler)
 	dashboardGroup.Get("/resident-gender-stats", middlewares.JWTMiddleware(jwt), emrController.GetResidentGenderStatsDashboardHandler)
+	dashboardGroup.Get("/vital-sign-stats", middlewares.JWTMiddleware(jwt), emrController.GetVitalSignStatsDashboardHandler)
+	dashboardGroup.Get("/drug-plan-time-of-day-stats", middlewares.JWTMiddleware(jwt), emrController.GetDrugPlanTimeOfDayStatsDashboardHandler)
 	dashboardGroup.Get("/resident-allergy-stats", middlewares.JWTMiddleware(jwt), emrController.GetResidentAllergyStatsDashboardHandler)
 	dashboardGroup.Get("/resident-drug-allergy-stats", middlewares.JWTMiddleware(jwt), emrController.GetResidentDrugAllergyStatsDashboardHandler)
 
@@ -222,17 +224,6 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	relativeNoteGroup.Get("/resident/all", middlewares.JWTMiddleware(jwt), emrController.GetRelativeNotesByResidentHandler)
 	relativeNoteGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateRelativeNoteByIDHandler)
 	relativeNoteGroup.Delete("/:id", middlewares.JWTMiddleware(jwt), emrController.DeleteRelativeNoteByIDHandler)
-
-	relativePortalStaffGroup := app.Group("/api/emr/relatives")
-	relativePortalStaffGroup.Get("/magic-link", middlewares.JWTMiddleware(jwt), emrController.GetRelativeMagicLinkHandler)
-	relativePortalStaffGroup.Post("/magic-link/issue", middlewares.JWTMiddleware(jwt), emrController.IssueRelativeMagicLinkHandler)
-
-	relativePortalAuthGroup := app.Group("/api/relative/auth")
-	relativePortalAuthGroup.Post("/login", emrController.RelativePortalLoginHandler)
-
-	relativePortalGroup := app.Group("/api/relative")
-	relativePortalGroup.Get("/dashboard", middlewares.JWTMiddleware(jwt), emrController.GetRelativeDashboardHandler)
-	relativePortalGroup.Get("/patient-info", middlewares.JWTMiddleware(jwt), emrController.GetRelativePatientInfoHandler)
 
 	doctorOrderGroup := app.Group("/api/emr/doctor-orders")
 	doctorOrderGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateDoctorOrderHandler)
@@ -363,6 +354,9 @@ func SetupWarehouseRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	warehouseTransactionGroup.Get("/:id", middlewares.JWTMiddleware(jwt), warehouseController.GetWarehouseTransactionByIDHandler)
 	warehouseTransactionGroup.Patch("/approve", middlewares.JWTMiddleware(jwt), warehouseController.ApproveTransactionsHandler)
 	warehouseTransactionGroup.Patch("/reject", middlewares.JWTMiddleware(jwt), warehouseController.RejectTransactionsHandler)
+
+	warehouseDashboardGroup := app.Group("/api/warehouse/dashboard")
+	warehouseDashboardGroup.Get("/summary", middlewares.JWTMiddleware(jwt), warehouseController.GetWarehouseDashboardSummaryHandler)
 }
 
 func SetupSupportRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
