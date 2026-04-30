@@ -3730,7 +3730,7 @@ func (uc *EmrUseCaseImpl) GetRelativeDashboard(userID string, dateInput string) 
 		selectedDate = parsed
 	}
 
-	notes, err := uc.emrrepo.GetRelativeNotesByResidentID(relative.ResidentID)
+	notes, err := uc.emrrepo.GetRelativeNotesByResidentIDOnDate(relative.ResidentID, selectedDate)
 	if err != nil {
 		return nil, errors.New("failed to get relative notes: " + err.Error())
 	}
