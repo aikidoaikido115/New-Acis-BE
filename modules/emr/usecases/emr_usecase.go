@@ -3498,6 +3498,371 @@ func (uc *EmrUseCaseImpl) DeleteRelativeNoteByID(noteID string, userID string) e
 	return nil
 }
 
+func (uc *EmrUseCaseImpl) IssueRelativeMagicLink(residentID string, userID string) (*models.RelativeMagicLinkResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	resident, err := uc.emrrepo.GetResidentByID(residentID)
+	if err != nil {
+		return nil, errors.New("resident not found: " + err.Error())
+	}
+
+	relative, err := uc.ensureRelativeAccountForResident(resident)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	expiredAt := now.Add(30 * 24 * time.Hour)
+	tokenText := uuid.New().String()
+
+	createdToken, err := uc.emrrepo.CreateRelativeMagicLinkToken(&entities.RelativeMagicLinkToken{
+		ID:              uuid.New().String(),
+		RelativeID:      relative.ID,
+		ResidentID:      resident.ID,
+		Token:           tokenText,
+		ExpiresAt:       expiredAt,
+		LastAccessedAt:  nil,
+		CreatedByUserID: userID,
+	})
+	if err != nil {
+		return nil, errors.New("failed to issue magic link token: " + err.Error())
+	}
+
+	return &models.RelativeMagicLinkResponse{
+		ResidentID: resident.ID,
+		RelativeID: relative.ID,
+		Token:      createdToken.Token,
+		MagicLink:  uc.buildRelativeMagicLink(resident.ID, createdToken.Token),
+		ExpiresAt:  createdToken.ExpiresAt.Format(time.RFC3339),
+	}, nil
+}
+
+func (uc *EmrUseCaseImpl) GetRelativeMagicLink(residentID string, userID string) (*models.RelativeMagicLinkResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	resident, err := uc.emrrepo.GetResidentByID(residentID)
+	if err != nil {
+		return nil, errors.New("resident not found: " + err.Error())
+	}
+
+	relative, err := uc.ensureRelativeAccountForResident(resident)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := uc.emrrepo.GetLatestValidRelativeMagicLinkTokenByResidentID(residentID, time.Now())
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return uc.IssueRelativeMagicLink(residentID, userID)
+		}
+		return nil, errors.New("failed to get magic link token: " + err.Error())
+	}
+
+	return &models.RelativeMagicLinkResponse{
+		ResidentID: resident.ID,
+		RelativeID: relative.ID,
+		Token:      token.Token,
+		MagicLink:  uc.buildRelativeMagicLink(resident.ID, token.Token),
+		ExpiresAt:  token.ExpiresAt.Format(time.RFC3339),
+	}, nil
+}
+
+func (uc *EmrUseCaseImpl) RelativePortalLogin(req models.RelativePortalLoginRequest) (*models.RelativePortalLoginResponse, error) {
+	password := strings.TrimSpace(req.Password)
+	if password == "" {
+		return nil, errors.New("password is required")
+	}
+	if len(password) != 8 {
+		return nil, errors.New("password must be in DDMMYYYY format")
+	}
+	for _, ch := range password {
+		if ch < '0' || ch > '9' {
+			return nil, errors.New("password must be in DDMMYYYY format")
+		}
+	}
+
+	var (
+		relative *entities.Relative
+		resident *entities.Resident
+		tokenRec *entities.RelativeMagicLinkToken
+		err      error
+	)
+
+	now := time.Now()
+
+	if strings.TrimSpace(req.Token) != "" {
+		tokenRec, err = uc.emrrepo.GetRelativeMagicLinkTokenByToken(strings.TrimSpace(req.Token))
+		if err != nil {
+			return nil, errors.New("invalid magic link")
+		}
+		if !tokenRec.ExpiresAt.After(now) {
+			return nil, errors.New("magic link expired")
+		}
+
+		relative, err = uc.emrrepo.GetRelativeByID(tokenRec.RelativeID)
+		if err != nil {
+			return nil, errors.New("relative account not found")
+		}
+		resident, err = uc.emrrepo.GetResidentByID(tokenRec.ResidentID)
+		if err != nil {
+			return nil, errors.New("resident not found")
+		}
+		if strings.TrimSpace(req.ResidentID) != "" && strings.TrimSpace(req.ResidentID) != resident.ID {
+			return nil, errors.New("resident_id does not match magic link")
+		}
+	} else {
+		residentID := strings.TrimSpace(req.ResidentID)
+		if residentID == "" {
+			return nil, errors.New("resident_id is required")
+		}
+		resident, err = uc.emrrepo.GetResidentByID(residentID)
+		if err != nil {
+			return nil, errors.New("resident not found")
+		}
+		relative, err = uc.emrrepo.GetRelativeByResidentID(residentID)
+		if err != nil {
+			return nil, errors.New("relative account not found")
+		}
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(relative.RelativePassword), []byte(password)); err != nil {
+		return nil, errors.New("invalid resident birthday password")
+	}
+
+	user, err := uc.userrepo.GetUserByID(relative.UserID)
+	if err != nil {
+		return nil, errors.New("relative user not found")
+	}
+
+	expiryDuration := 30 * time.Minute
+	if req.Remember {
+		expiryDuration = 48 * time.Hour
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": user.ID,
+		"exp":     now.Add(expiryDuration).Unix(),
+		"iat":     now.Unix(),
+		"jti":     uuid.New().String(),
+	})
+
+	tokenString, err := token.SignedString([]byte(uc.jwtSecret))
+	if err != nil {
+		return nil, errors.New("failed to generate token: " + err.Error())
+	}
+
+	if tokenRec != nil {
+		_ = uc.emrrepo.TouchRelativeMagicLinkTokenLastAccessed(tokenRec.ID, now)
+	}
+
+	return &models.RelativePortalLoginResponse{
+		Token:      tokenString,
+		UserID:     user.ID,
+		Username:   user.Username,
+		Email:      user.Email,
+		RoleName:   "relative",
+		ResidentID: resident.ID,
+	}, nil
+}
+
+func (uc *EmrUseCaseImpl) GetRelativeDashboard(userID string, dateInput string) (*models.RelativeDashboardResponse, error) {
+	if err := uc.ensureRelative(userID); err != nil {
+		return nil, err
+	}
+
+	relative, err := uc.emrrepo.GetRelativeByUserID(userID)
+	if err != nil {
+		return nil, errors.New("relative profile not found")
+	}
+
+	resident, err := uc.emrrepo.GetResidentByID(relative.ResidentID)
+	if err != nil {
+		return nil, errors.New("resident not found")
+	}
+
+	loc, _ := time.LoadLocation("Asia/Bangkok")
+	selectedDate := time.Now().In(loc)
+	if strings.TrimSpace(dateInput) != "" {
+		parsed, parseErr := time.ParseInLocation("2006-01-02", strings.TrimSpace(dateInput), loc)
+		if parseErr != nil {
+			return nil, errors.New("date must be in YYYY-MM-DD format")
+		}
+		selectedDate = parsed
+	}
+
+	notes, err := uc.emrrepo.GetRelativeNotesByResidentID(relative.ResidentID)
+	if err != nil {
+		return nil, errors.New("failed to get relative notes: " + err.Error())
+	}
+
+	resultNotes := make([]models.RelativeDashboardNote, 0)
+	var lastUpdated *time.Time
+	for _, note := range notes {
+		if note == nil {
+			continue
+		}
+		noteTime := note.CreatedAt.In(loc)
+		if noteTime.Year() != selectedDate.Year() || noteTime.Month() != selectedDate.Month() || noteTime.Day() != selectedDate.Day() {
+			continue
+		}
+		if !note.SendNote {
+			continue
+		}
+
+		resultNotes = append(resultNotes, models.RelativeDashboardNote{
+			ID:        note.ID,
+			Content:   note.Content,
+			CreatedAt: note.CreatedAt.Format(time.RFC3339),
+		})
+
+		if lastUpdated == nil || note.CreatedAt.After(*lastUpdated) {
+			t := note.CreatedAt
+			lastUpdated = &t
+		}
+	}
+
+	var lastUpdatedText *string
+	if lastUpdated != nil {
+		text := lastUpdated.Format(time.RFC3339)
+		lastUpdatedText = &text
+	}
+
+	return &models.RelativeDashboardResponse{
+		ResidentID:    resident.ID,
+		ResidentName:  strings.TrimSpace(resident.FirstName + " " + resident.LastName),
+		Date:          selectedDate.Format("2006-01-02"),
+		LastUpdatedAt: lastUpdatedText,
+		Notes:         resultNotes,
+	}, nil
+}
+
+func (uc *EmrUseCaseImpl) GetRelativePatientInfo(userID string) (*models.RelativePatientInfoResponse, error) {
+	if err := uc.ensureRelative(userID); err != nil {
+		return nil, err
+	}
+
+	relative, err := uc.emrrepo.GetRelativeByUserID(userID)
+	if err != nil {
+		return nil, errors.New("relative profile not found")
+	}
+
+	resident, err := uc.emrrepo.GetResidentByID(relative.ResidentID)
+	if err != nil {
+		return nil, errors.New("resident not found")
+	}
+
+	foodAllergyRows, err := uc.emrrepo.GetResidentAllergiesByResidentID(relative.ResidentID)
+	if err != nil {
+		return nil, errors.New("failed to get food allergies: " + err.Error())
+	}
+	drugAllergyRows, err := uc.emrrepo.GetResidentDrugAllergiesByResidentID(relative.ResidentID)
+	if err != nil {
+		return nil, errors.New("failed to get drug allergies: " + err.Error())
+	}
+
+	foodAllergies := make([]string, 0, len(foodAllergyRows))
+	for _, item := range foodAllergyRows {
+		if item == nil {
+			continue
+		}
+		if item.Allergy.AllergyName != "" {
+			foodAllergies = append(foodAllergies, item.Allergy.AllergyName)
+		}
+	}
+
+	drugAllergies := make([]string, 0, len(drugAllergyRows))
+	for _, item := range drugAllergyRows {
+		if item == nil {
+			continue
+		}
+		if item.DrugAllergy.AllergyName != "" {
+			drugAllergies = append(drugAllergies, item.DrugAllergy.AllergyName)
+		}
+	}
+
+	personalDrugs, err := uc.emrrepo.GetPersonalDrugsByResidentID(relative.ResidentID)
+	if err != nil {
+		return nil, errors.New("failed to get medications: " + err.Error())
+	}
+
+	medications := make([]models.RelativePatientMedication, 0, len(personalDrugs))
+	for _, pd := range personalDrugs {
+		if pd == nil {
+			continue
+		}
+
+		dose := strings.TrimSpace(strings.TrimSpace(pd.Amount) + " " + strings.TrimSpace(pd.AmountUnit))
+		if dose == "" {
+			dose = strings.TrimSpace(pd.DrugMaster.Dose)
+		}
+
+		frequency := strings.TrimSpace(fmt.Sprintf("%d ครั้ง/วัน", pd.Frequency))
+		if pd.TimeOfDay != "" {
+			frequency = strings.TrimSpace(frequency + " (" + pd.TimeOfDay + ")")
+		}
+
+		notes := strings.TrimSpace(pd.Timing)
+		if pd.Description != "" {
+			if notes != "" {
+				notes = notes + " - " + strings.TrimSpace(pd.Description)
+			} else {
+				notes = strings.TrimSpace(pd.Description)
+			}
+		}
+
+		medications = append(medications, models.RelativePatientMedication{
+			Name:      strings.TrimSpace(pd.DrugMaster.Name),
+			Dose:      dose,
+			Frequency: frequency,
+			Notes:     notes,
+		})
+	}
+
+	emergencyContacts := make([]models.EmergencyContact, 0)
+	if len(resident.EmergencyContacts) > 0 {
+		_ = json.Unmarshal(resident.EmergencyContacts, &emergencyContacts)
+	}
+
+	now := time.Now()
+	age := now.Year() - resident.DateOfBirth.Year()
+	if now.Month() < resident.DateOfBirth.Month() || (now.Month() == resident.DateOfBirth.Month() && now.Day() < resident.DateOfBirth.Day()) {
+		age--
+	}
+
+	idCardNumber := ""
+	if resident.IdCardNumber != nil {
+		idCardNumber = *resident.IdCardNumber
+	}
+
+	return &models.RelativePatientInfoResponse{
+		ResidentID:                resident.ID,
+		FirstName:                 resident.FirstName,
+		LastName:                  resident.LastName,
+		Nickname:                  resident.Nickname,
+		Gender:                    resident.Gender,
+		DateOfBirth:               resident.DateOfBirth.Format("2006-01-02"),
+		Age:                       age,
+		IdCardNumber:              idCardNumber,
+		PurposeOfStay:             resident.PurposeOfStay,
+		CheckInDate:               resident.CheckInDate.Format("2006-01-02"),
+		Status:                    resident.Status,
+		PreExistingConditions:     splitTextList(resident.PreExistingConditions),
+		PreExistingConditionsNote: resident.PreExistingConditionsNotes,
+		SurgicalHistory:           splitTextList(resident.SugicalHistory),
+		Medications:               medications,
+		ResuscitationStatus:       resident.ResucitationStatus,
+		FoodAllergies:             foodAllergies,
+		DrugAllergies:             drugAllergies,
+		EmergencyHospital:         resident.PreferredEmergencyHospital,
+		EmergencyHospitalPhone:    resident.EmergencyHospitalPhone,
+		EmergencyContacts:         emergencyContacts,
+	}, nil
+}
+
 func (uc *EmrUseCaseImpl) CreateDoctorOrder(order *entities.DoctorOrder, userID string) (*entities.DoctorOrder, error) {
 	if err := uc.ensureMedicalStaff(userID); err != nil {
 		return nil, err
