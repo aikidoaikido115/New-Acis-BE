@@ -1058,6 +1058,10 @@ func (uc *DrugUseCaseImpl) DeletePersonalDrugByID(id string, userID string) erro
 	}
 	oldValue, _ := json.Marshal(current)
 
+	if err := uc.drugRepo.DeleteDrugPlansByPdID(id); err != nil {
+		return errors.New("failed to delete drug plans: " + err.Error())
+	}
+
 	if err := uc.drugRepo.DeletePersonalDrug(id); err != nil {
 		return errors.New("failed to delete personal drug: " + err.Error())
 	}
