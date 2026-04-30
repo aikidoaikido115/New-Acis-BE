@@ -12,6 +12,14 @@ type DrugPlanResidentSummaryResponse struct {
 	WaitingResidents int64 `json:"waiting_residents"`
 }
 
+type DrugPlanTimeOfDaySummary struct {
+	TimeOfDay        string `json:"time_of_day" gorm:"column:time_of_day"`
+	TotalResidents   int64  `json:"total_residents" gorm:"column:total_residents"`
+	GivenResidents   int64  `json:"given_residents" gorm:"column:given_residents"`
+	WaitingResidents int64  `json:"waiting_residents" gorm:"column:waiting_residents"`
+	Status           string `json:"status,omitempty" gorm:"-"`
+}
+
 type DrugPlanGenerationResponse struct {
 	GeneratedCount       int    `json:"generated_count"`
 	SkippedExistingCount int    `json:"skipped_existing_count"`

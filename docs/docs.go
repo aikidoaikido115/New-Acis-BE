@@ -2294,7 +2294,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve residents in a schedule with room and intake labels. Supports filters by search, floor, and intake label IDs.",
+                "description": "Retrieve residents in a schedule with room and intake labels. Supports filters by search, floor, and intake label IDs with pagination.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2334,6 +2334,18 @@ const docTemplate = `{
                         "description": "Filter by intake label IDs (match all provided labels)",
                         "name": "label_ids",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 20, max 100)",
+                        "name": "page_size",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2346,10 +2358,7 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "result": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/definitions/models.ResidentByScheduleResponse"
-                                    }
+                                    "$ref": "#/definitions/models.ResidentsByScheduleListResponse"
                                 },
                                 "status": {
                                     "type": "string"
@@ -4069,6 +4078,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/emr/dashboard/drug-plan-time-of-day-stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve today's drug plan summary by meal/time-of-day for dashboard display",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Get Drug Plan Time-of-Day Stats for Dashboard",
+                "responses": {
+                    "200": {
+                        "description": "Drug plan time-of-day stats retrieved successfully",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/models.DrugPlanTimeOfDayDashboardSummary"
+                                    }
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/emr/dashboard/resident-allergy-stats": {
             "get": {
                 "security": [
@@ -4309,6 +4381,66 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/emr/dashboard/vital-sign-stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve today's vital sign summary (normal/abnormal) for dashboard display",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Get Vital Sign Stats for Dashboard",
+                "responses": {
+                    "200": {
+                        "description": "Vital sign stats retrieved successfully",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "$ref": "#/definitions/models.VitalSignDashboardSummary"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/emr/doctor-orders": {
             "post": {
                 "security": [
@@ -4423,7 +4555,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve all doctor orders for overview screen",
+                "description": "Retrieve doctor orders for overview screen on a selected date",
                 "consumes": [
                     "application/json"
                 ],
@@ -4434,6 +4566,15 @@ const docTemplate = `{
                     "DoctorOrder"
                 ],
                 "summary": "Get Doctor Orders Overview",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Selected date (YYYY-MM-DD)",
+                        "name": "date",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Doctor orders overview retrieved successfully",
@@ -4504,7 +4645,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve all doctor orders for a specific resident",
+                "description": "Retrieve doctor orders for a specific resident on a selected date",
                 "consumes": [
                     "application/json"
                 ],
@@ -4520,6 +4661,13 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Resident ID",
                         "name": "resident_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Selected date (YYYY-MM-DD)",
+                        "name": "date",
                         "in": "query",
                         "required": true
                     }
@@ -6151,7 +6299,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve today's drug plans with optional filters by time_of_day, take_type, and resident name search",
+                "description": "Retrieve today's drug plans with optional filters by time_of_day, take_type, floor, intake labels, and resident name search",
                 "consumes": [
                     "application/json"
                 ],
@@ -6183,6 +6331,18 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Search by resident first_name, last_name, nickname",
                         "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Floor filter",
+                        "name": "floor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by intake label IDs (comma-separated or repeated)",
+                        "name": "label_ids",
                         "in": "query"
                     },
                     {
@@ -12362,6 +12522,12 @@ const docTemplate = `{
                         "in": "formData"
                     },
                     {
+                        "type": "string",
+                        "description": "Phone",
+                        "name": "phone",
+                        "in": "formData"
+                    },
+                    {
                         "type": "file",
                         "description": "Profile Image",
                         "name": "profile_image",
@@ -12650,6 +12816,81 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized - Missing user ID",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/warehouse/dashboard/summary": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get warehouse dashboard summary including low stock items and pending approval requests",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Get Warehouse Dashboard Summary",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "$ref": "#/definitions/models.WarehouseDashboardSummaryResponse"
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "type": "object",
                             "properties": {
@@ -13998,6 +14239,9 @@ const docTemplate = `{
                 "date_of_birth": {
                     "type": "string"
                 },
+                "emergency_contacts": {
+                    "type": "object"
+                },
                 "emergency_hospital_phone": {
                     "type": "string"
                 },
@@ -14026,6 +14270,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "preferred_emergency_hospital": {
+                    "type": "string"
+                },
+                "profile_image": {
                     "type": "string"
                 },
                 "purpose_of_stay": {
@@ -14210,6 +14457,9 @@ const docTemplate = `{
                 "nickname": {
                     "type": "string"
                 },
+                "phone": {
+                    "type": "string"
+                },
                 "profile_image": {
                     "type": "string"
                 },
@@ -14271,6 +14521,23 @@ const docTemplate = `{
                 },
                 "vital_sign_id": {
                     "type": "string"
+                }
+            }
+        },
+        "models.ActivityPagination": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total_items": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
                 }
             }
         },
@@ -14922,6 +15189,26 @@ const docTemplate = `{
                 }
             }
         },
+        "models.DrugPlanTimeOfDayDashboardSummary": {
+            "type": "object",
+            "properties": {
+                "given_residents": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "time_of_day": {
+                    "type": "string"
+                },
+                "total_residents": {
+                    "type": "integer"
+                },
+                "waiting_residents": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.LaboratoryValueFieldStatus": {
             "type": "object",
             "properties": {
@@ -15255,7 +15542,19 @@ const docTemplate = `{
         "models.ResidentOverviewResponse": {
             "type": "object",
             "properties": {
+                "check_in_date": {
+                    "type": "string"
+                },
+                "expected_check_out_date": {
+                    "type": "string"
+                },
                 "first_name": {
+                    "type": "string"
+                },
+                "floor": {
+                    "type": "integer"
+                },
+                "gender": {
                     "type": "string"
                 },
                 "intake_labels": {
@@ -15275,6 +15574,23 @@ const docTemplate = `{
                 },
                 "room_number": {
                     "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ResidentsByScheduleListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ResidentByScheduleResponse"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/models.ActivityPagination"
                 }
             }
         },
@@ -15548,6 +15864,29 @@ const docTemplate = `{
                 }
             }
         },
+        "models.VitalSignDashboardSummary": {
+            "type": "object",
+            "properties": {
+                "current_abnormal_residents": {
+                    "type": "integer"
+                },
+                "current_normal_residents": {
+                    "type": "integer"
+                },
+                "current_total_residents": {
+                    "type": "integer"
+                },
+                "had_abnormal_today_residents": {
+                    "type": "integer"
+                },
+                "had_normal_only_today_residents": {
+                    "type": "integer"
+                },
+                "had_total_residents": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.VitalSignFieldStatus": {
             "type": "object",
             "properties": {
@@ -15635,6 +15974,26 @@ const docTemplate = `{
                 },
                 "pagination": {
                     "$ref": "#/definitions/models.OverviewPagination"
+                }
+            }
+        },
+        "models.WarehouseDashboardSummaryResponse": {
+            "type": "object",
+            "properties": {
+                "low_stock_items_count": {
+                    "type": "integer"
+                },
+                "low_stock_threshold": {
+                    "type": "integer"
+                },
+                "pending_restock_requests_count": {
+                    "type": "integer"
+                },
+                "pending_withdraw_requests_count": {
+                    "type": "integer"
+                },
+                "total_items_count": {
+                    "type": "integer"
                 }
             }
         },
