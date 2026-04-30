@@ -856,6 +856,82 @@ func (c *EmrController) GetResidentGenderStatsDashboardHandler(ctx *fiber.Ctx) e
 	})
 }
 
+// GetVitalSignStatsDashboard godoc
+// @Summary Get Vital Sign Stats for Dashboard
+// @Description Retrieve today's vital sign summary (normal/abnormal) for dashboard display
+// @Tags Dashboard
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.VitalSignDashboardSummary} "Vital sign stats retrieved successfully"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/dashboard/vital-sign-stats [get]
+func (c *EmrController) GetVitalSignStatsDashboardHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	response, err := c.emrUsecase.GetVitalSignStatsDashboard(userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "vital sign stats retrieved successfully",
+		"result":      response,
+	})
+}
+
+// GetDrugPlanTimeOfDayStatsDashboard godoc
+// @Summary Get Drug Plan Time-of-Day Stats for Dashboard
+// @Description Retrieve today's drug plan summary by meal/time-of-day for dashboard display
+// @Tags Dashboard
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=[]models.DrugPlanTimeOfDayDashboardSummary} "Drug plan time-of-day stats retrieved successfully"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/dashboard/drug-plan-time-of-day-stats [get]
+func (c *EmrController) GetDrugPlanTimeOfDayStatsDashboardHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	response, err := c.emrUsecase.GetDrugPlanTimeOfDayStatsDashboard(userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "drug plan time-of-day stats retrieved successfully",
+		"result":      response,
+	})
+}
+
 // GetResidentAllergyStatsDashboard godoc
 // @Summary Get Resident Allergy Stats for Dashboard
 // @Description Retrieve allergy summary for dashboard including allergic count, non-allergic count, and grouped allergy details

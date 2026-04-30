@@ -459,3 +459,41 @@ func (c *WarehouseController) RejectTransactionsHandler(ctx *fiber.Ctx) error {
 		"result":      result,
 	})
 }
+
+// @Summary Get Warehouse Dashboard Summary
+// @Description Get warehouse dashboard summary including low stock items and pending approval requests
+// @Tags Dashboard
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.WarehouseDashboardSummaryResponse}
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/warehouse/dashboard/summary [get]
+func (c *WarehouseController) GetWarehouseDashboardSummaryHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.warehouseUsecase.GetWarehouseDashboardSummary(userID)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "warehouse dashboard summary retrieved successfully",
+		"result":      result,
+	})
+}
