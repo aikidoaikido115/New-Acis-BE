@@ -21,24 +21,6 @@ type ResidentGenderStatsDashboardResponse struct {
 	FemalePercentage float32 `json:"female_percentage"`
 }
 
-type VitalSignDashboardSummary struct {
-	CurrentNormalResidents   int64 `json:"current_normal_residents"`
-	CurrentAbnormalResidents int64 `json:"current_abnormal_residents"`
-	CurrentTotalResidents    int64 `json:"current_total_residents"`
-
-	HadAbnormalTodayResidents   int64 `json:"had_abnormal_today_residents"`
-	HadNormalOnlyTodayResidents int64 `json:"had_normal_only_today_residents"`
-	HadTotalResidents           int64 `json:"had_total_residents"`
-}
-
-type DrugPlanTimeOfDayDashboardSummary struct {
-	TimeOfDay        string `json:"time_of_day"`
-	TotalResidents   int64  `json:"total_residents"`
-	GivenResidents   int64  `json:"given_residents"`
-	WaitingResidents int64  `json:"waiting_residents"`
-	Status           string `json:"status"`
-}
-
 type UrineOutputSumResponse struct {
 	ResidentID  string  `json:"resident_id"`
 	TotalAmount float64 `json:"total_amount"`
@@ -51,17 +33,17 @@ type UrineOutputSummaryByResidentResponse struct {
 }
 
 type ResidentOverviewResponse struct {
-	ResidentID           string     `json:"resident_id"`
-	FirstName            string     `json:"first_name"`
-	LastName             string     `json:"last_name"`
-	Nickname             *string    `json:"nickname"`
-	RoomNumber           string     `json:"room_number"`
-	IntakeLabels         []string   `json:"intake_labels"`
-	Gender               string     `json:"gender"`
-	Status               string     `json:"status"`
-	CheckInDate          *time.Time `json:"check_in_date"`
+	ResidentID          string     `json:"resident_id"`
+	FirstName           string     `json:"first_name"`
+	LastName            string     `json:"last_name"`
+	Nickname            *string    `json:"nickname"`
+	RoomNumber          string     `json:"room_number"`
+	IntakeLabels        []string   `json:"intake_labels"`
+	Gender              string     `json:"gender"`
+	Status              string     `json:"status"`
+	CheckInDate         *time.Time `json:"check_in_date"`
 	ExpectedCheckOutDate *time.Time `json:"expected_check_out_date"`
-	Floor                *int16     `json:"floor"`
+	Floor               *int16     `json:"floor"`
 }
 
 type OverviewPagination struct {

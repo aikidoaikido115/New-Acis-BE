@@ -33,7 +33,6 @@ type WarehouseUsecase interface {
 	GetWarehouseTransactionByID(id string, userID string) (*models.WarehouseTransactionResponse, error)
 	ApproveTransactions(req models.ApproveTransactionsRequest, userID string) ([]*models.WarehouseTransactionResponse, error)
 	RejectTransactions(req models.RejectTransactionsRequest, userID string) ([]*models.WarehouseTransactionResponse, error)
-	GetWarehouseDashboardSummary(userID string) (*models.WarehouseDashboardSummaryResponse, error)
 }
 
 type WarehouseUseCaseImpl struct {
@@ -639,42 +638,6 @@ func (uc *WarehouseUseCaseImpl) RejectTransactions(req models.RejectTransactions
 	}
 
 	return response, nil
-}
-
-func (uc *WarehouseUseCaseImpl) GetWarehouseDashboardSummary(userID string) (*models.WarehouseDashboardSummaryResponse, error) {
-	if err := uc.ensureMedicalStaff(userID); err != nil {
-		return nil, err
-	}
-
-	const lowStockThreshold = 5
-
-	totalItemsCount, err := uc.warehouseRepo.GetWarehouseItemsCount()
-	if err != nil {
-		return nil, errors.New("failed to get total warehouse items count: " + err.Error())
-	}
-
-	lowStockItemsCount, err := uc.warehouseRepo.GetLowStockItemsCount(lowStockThreshold)
-	if err != nil {
-		return nil, errors.New("failed to get low stock items count: " + err.Error())
-	}
-
-	pendingWithdrawCount, err := uc.warehouseRepo.GetPendingTransactionsCountByType(constants.TransactionTypeWithdraw)
-	if err != nil {
-		return nil, errors.New("failed to get pending withdraw requests count: " + err.Error())
-	}
-
-	pendingRestockCount, err := uc.warehouseRepo.GetPendingTransactionsCountByType(constants.TransactionTypeRestock)
-	if err != nil {
-		return nil, errors.New("failed to get pending restock requests count: " + err.Error())
-	}
-
-	return &models.WarehouseDashboardSummaryResponse{
-		LowStockItemsCount:           int(lowStockItemsCount),
-		TotalItemsCount:              int(totalItemsCount),
-		PendingWithdrawRequestsCount: int(pendingWithdrawCount),
-		PendingRestockRequestsCount:  int(pendingRestockCount),
-		LowStockThreshold:            lowStockThreshold,
-	}, nil
 }
 
 func (uc *WarehouseUseCaseImpl) createTransactionRecord(item *entities.WarehouseItem, txType string, quantity int, operator *entities.User) (*entities.WarehouseTransaction, error) {

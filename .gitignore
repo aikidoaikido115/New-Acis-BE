@@ -49,7 +49,3 @@ temp/
 # OS files
 Thumbs.db
 .DS_Store
-
-# Go cache
-.gocache/
-

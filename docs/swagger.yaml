@@ -230,8 +230,6 @@ definitions:
         type: string
       date_of_birth:
         type: string
-      emergency_contacts:
-        type: object
       emergency_hospital_phone:
         type: string
       expected_check_out_date:
@@ -251,8 +249,6 @@ definitions:
       pre_existing_conditions_notes:
         type: string
       preferred_emergency_hospital:
-        type: string
-      profile_image:
         type: string
       purpose_of_stay:
         type: string
@@ -374,8 +370,6 @@ definitions:
         type: string
       nickname:
         type: string
-      phone:
-        type: string
       profile_image:
         type: string
       role:
@@ -417,17 +411,6 @@ definitions:
         type: string
       vital_sign_id:
         type: string
-    type: object
-  models.ActivityPagination:
-    properties:
-      page:
-        type: integer
-      page_size:
-        type: integer
-      total_items:
-        type: integer
-      total_pages:
-        type: integer
     type: object
   models.ActivityScheduleWithActivitySyncResponse:
     properties:
@@ -862,19 +845,6 @@ definitions:
       waiting_residents:
         type: integer
     type: object
-  models.DrugPlanTimeOfDayDashboardSummary:
-    properties:
-      given_residents:
-        type: integer
-      status:
-        type: string
-      time_of_day:
-        type: string
-      total_residents:
-        type: integer
-      waiting_residents:
-        type: integer
-    type: object
   models.LaboratoryValueFieldStatus:
     properties:
       is_abnormal:
@@ -1093,15 +1063,7 @@ definitions:
     type: object
   models.ResidentOverviewResponse:
     properties:
-      check_in_date:
-        type: string
-      expected_check_out_date:
-        type: string
       first_name:
-        type: string
-      floor:
-        type: integer
-      gender:
         type: string
       intake_labels:
         items:
@@ -1115,17 +1077,6 @@ definitions:
         type: string
       room_number:
         type: string
-      status:
-        type: string
-    type: object
-  models.ResidentsByScheduleListResponse:
-    properties:
-      items:
-        items:
-          $ref: '#/definitions/models.ResidentByScheduleResponse'
-        type: array
-      pagination:
-        $ref: '#/definitions/models.ActivityPagination'
     type: object
   models.TakeDrugPlanByIDRequest:
     properties:
@@ -1303,21 +1254,6 @@ definitions:
       unit:
         type: string
     type: object
-  models.VitalSignDashboardSummary:
-    properties:
-      current_abnormal_residents:
-        type: integer
-      current_normal_residents:
-        type: integer
-      current_total_residents:
-        type: integer
-      had_abnormal_today_residents:
-        type: integer
-      had_normal_only_today_residents:
-        type: integer
-      had_total_residents:
-        type: integer
-    type: object
   models.VitalSignFieldStatus:
     properties:
       is_abnormal:
@@ -1376,19 +1312,6 @@ definitions:
         type: array
       pagination:
         $ref: '#/definitions/models.OverviewPagination'
-    type: object
-  models.WarehouseDashboardSummaryResponse:
-    properties:
-      low_stock_items_count:
-        type: integer
-      low_stock_threshold:
-        type: integer
-      pending_restock_requests_count:
-        type: integer
-      pending_withdraw_requests_count:
-        type: integer
-      total_items_count:
-        type: integer
     type: object
   models.WarehouseTransactionResponse:
     properties:
@@ -2598,7 +2521,7 @@ paths:
       consumes:
       - application/json
       description: Retrieve residents in a schedule with room and intake labels. Supports
-        filters by search, floor, and intake label IDs with pagination.
+        filters by search, floor, and intake label IDs.
       parameters:
       - description: Activity Schedule ID
         in: path
@@ -2620,14 +2543,6 @@ paths:
           type: string
         name: label_ids
         type: array
-      - description: Page number (default 1)
-        in: query
-        name: page
-        type: integer
-      - description: Page size (default 20, max 100)
-        in: query
-        name: page_size
-        type: integer
       produces:
       - application/json
       responses:
@@ -2638,7 +2553,9 @@ paths:
               message:
                 type: string
               result:
-                $ref: '#/definitions/models.ResidentsByScheduleListResponse'
+                items:
+                  $ref: '#/definitions/models.ResidentByScheduleResponse'
+                type: array
               status:
                 type: string
               status_code:
@@ -4082,47 +3999,6 @@ paths:
       summary: Get All Resident Allergies
       tags:
       - Allergy
-  /api/emr/dashboard/drug-plan-time-of-day-stats:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve today's drug plan summary by meal/time-of-day for dashboard
-        display
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Drug plan time-of-day stats retrieved successfully
-          schema:
-            properties:
-              message:
-                type: string
-              result:
-                items:
-                  $ref: '#/definitions/models.DrugPlanTimeOfDayDashboardSummary'
-                type: array
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            properties:
-              message:
-                type: string
-              result: {}
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get Drug Plan Time-of-Day Stats for Dashboard
-      tags:
-      - Dashboard
   /api/emr/dashboard/resident-allergy-stats:
     get:
       consumes:
@@ -4277,45 +4153,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Number of Residents for Dashboard
-      tags:
-      - Dashboard
-  /api/emr/dashboard/vital-sign-stats:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve today's vital sign summary (normal/abnormal) for dashboard
-        display
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Vital sign stats retrieved successfully
-          schema:
-            properties:
-              message:
-                type: string
-              result:
-                $ref: '#/definitions/models.VitalSignDashboardSummary'
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            properties:
-              message:
-                type: string
-              result: {}
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get Vital Sign Stats for Dashboard
       tags:
       - Dashboard
   /api/emr/doctor-orders:
@@ -4519,13 +4356,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve doctor orders for overview screen on a selected date
-      parameters:
-      - description: Selected date (YYYY-MM-DD)
-        in: query
-        name: date
-        required: true
-        type: string
+      description: Retrieve all doctor orders for overview screen
       produces:
       - application/json
       responses:
@@ -4577,16 +4408,11 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve doctor orders for a specific resident on a selected date
+      description: Retrieve all doctor orders for a specific resident
       parameters:
       - description: Resident ID
         in: query
         name: resident_id
-        required: true
-        type: string
-      - description: Selected date (YYYY-MM-DD)
-        in: query
-        name: date
         required: true
         type: string
       produces:
@@ -5858,7 +5684,7 @@ paths:
       consumes:
       - application/json
       description: Retrieve today's drug plans with optional filters by time_of_day,
-        take_type, floor, intake labels, and resident name search
+        take_type, and resident name search
       parameters:
       - description: Time of day filter
         in: query
@@ -5874,14 +5700,6 @@ paths:
       - description: Search by resident first_name, last_name, nickname
         in: query
         name: search
-        type: string
-      - description: Floor filter
-        in: query
-        name: floor
-        type: integer
-      - description: Filter by intake label IDs (comma-separated or repeated)
-        in: query
-        name: label_ids
         type: string
       - description: Page number (default 1)
         in: query
@@ -9604,10 +9422,6 @@ paths:
         in: formData
         name: gender
         type: string
-      - description: Phone
-        in: formData
-        name: phone
-        type: string
       - description: Profile Image
         in: formData
         name: profile_image
@@ -9828,55 +9642,6 @@ paths:
       summary: Upload Staff Files
       tags:
       - User
-  /api/warehouse/dashboard/summary:
-    get:
-      description: Get warehouse dashboard summary including low stock items and pending
-        approval requests
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              message:
-                type: string
-              result:
-                $ref: '#/definitions/models.WarehouseDashboardSummaryResponse'
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            properties:
-              message:
-                type: string
-              result: {}
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            properties:
-              message:
-                type: string
-              result: {}
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get Warehouse Dashboard Summary
-      tags:
-      - Dashboard
   /api/warehouse/items:
     get:
       description: Get warehouse items with optional search and category filters

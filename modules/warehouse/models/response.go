@@ -16,11 +16,3 @@ type WarehouseTransactionResponse struct {
 	RejectedAt      *string `json:"rejectedAt,omitempty"`
 	RejectionReason *string `json:"rejectionReason,omitempty"`
 }
-
-type WarehouseDashboardSummaryResponse struct {
-	LowStockItemsCount           int `json:"low_stock_items_count"`
-	TotalItemsCount              int `json:"total_items_count"`
-	PendingWithdrawRequestsCount int `json:"pending_withdraw_requests_count"`
-	PendingRestockRequestsCount  int `json:"pending_restock_requests_count"`
-	LowStockThreshold            int `json:"low_stock_threshold"`
-}

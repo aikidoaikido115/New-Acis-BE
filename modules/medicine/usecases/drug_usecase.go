@@ -49,7 +49,6 @@ type DrugUsecase interface {
 	TakeDrugPlansByResidentIDToday(residentID string, req models.TakeDrugPlansByResidentRequest, userID string) ([]*entities.DrugPlan, error)
 	OmitDrugPlansByResidentIDToday(residentID string, req models.OmitDrugPlansByResidentRequest, userID string) ([]*entities.DrugPlan, error)
 	DeleteDrugPlanByID(id string, userID string) error
-	GetDrugPlansTodayTimeOfDayResidentSummary(userID string) ([]*models.DrugPlanTimeOfDaySummary, error)
 }
 
 type DrugUseCaseImpl struct {
@@ -494,9 +493,18 @@ func (uc *DrugUseCaseImpl) ensureTodayDrugPlansWithResult(residentID *string) (*
 	skippedCount := 0
 
 	for _, personalDrug := range personalDrugs {
+		exists, existsErr := uc.drugRepo.HasDrugPlanForPersonalDrugOnDate(personalDrug.ID, today)
+		if existsErr != nil {
+			return nil, errors.New("failed to check existing daily drug plan: " + existsErr.Error())
+		}
+		if exists {
+			skippedCount++
+			continue
+		}
+
 		initialIsOmitted := false
 		now := time.Now()
-		created, createErr := uc.drugRepo.CreateDrugPlanIfNotExistsForDate(&entities.DrugPlan{
+		_, createErr := uc.drugRepo.CreateDrugPlan(&entities.DrugPlan{
 			ID:             uuid.New().String(),
 			PdID:           personalDrug.ID,
 			IsTaken:        false,
@@ -507,15 +515,12 @@ func (uc *DrugUseCaseImpl) ensureTodayDrugPlansWithResult(residentID *string) (*
 			Notes:          nil,
 			CreatedAt:      now,
 			UpdatedAt:      now,
-		}, today)
+		})
 		if createErr != nil {
 			return nil, errors.New("failed to create lazy daily drug plan: " + createErr.Error())
 		}
-		if created {
-			generatedCount++
-		} else {
-			skippedCount++
-		}
+
+		generatedCount++
 	}
 
 	response := &models.DrugPlanGenerationResponse{
@@ -1139,63 +1144,6 @@ func (uc *DrugUseCaseImpl) GetDrugPlansTodayResidentSummary(userID string) (*mod
 	}
 
 	return result, nil
-}
-
-func (uc *DrugUseCaseImpl) GetDrugPlansTodayTimeOfDayResidentSummary(userID string) ([]*models.DrugPlanTimeOfDaySummary, error) {
-	if err := uc.ensureMedicalStaff(userID); err != nil {
-		return nil, err
-	}
-
-	if err := uc.ensureTodayDrugPlans(nil); err != nil {
-		return nil, err
-	}
-
-	result, err := uc.drugRepo.GetDrugPlansTodayTimeOfDayResidentSummary()
-	if err != nil {
-		return nil, errors.New("failed to get drug plans time-of-day summary: " + err.Error())
-	}
-
-	order := []string{"เช้า", "กลางวัน", "เย็น", "ก่อนนอน"}
-	byTimeOfDay := make(map[string]*models.DrugPlanTimeOfDaySummary, len(result))
-	for _, item := range result {
-		if item == nil {
-			continue
-		}
-		item.TimeOfDay = normalizeTimeOfDaySummaryToken(item.TimeOfDay)
-		byTimeOfDay[item.TimeOfDay] = item
-	}
-
-	ordered := make([]*models.DrugPlanTimeOfDaySummary, 0, len(order))
-	for _, timeOfDay := range order {
-		item := byTimeOfDay[timeOfDay]
-		if item == nil {
-			item = &models.DrugPlanTimeOfDaySummary{TimeOfDay: timeOfDay}
-		}
-		if item.TotalResidents > 0 && item.WaitingResidents == 0 && item.GivenResidents == item.TotalResidents {
-			item.Status = "full"
-		} else {
-			item.Status = "waiting"
-		}
-		ordered = append(ordered, item)
-	}
-
-	return ordered, nil
-}
-
-func normalizeTimeOfDaySummaryToken(value string) string {
-	v := normalizeEnumInput(value)
-	switch v {
-	case "morning", "เช้า":
-		return "เช้า"
-	case "noon", "midday", "lunch", "กลางวัน":
-		return "กลางวัน"
-	case "evening", "dinner", "เย็น":
-		return "เย็น"
-	case "bedtime", "before_bed", "night", "hs", "ก่อนนอน":
-		return "ก่อนนอน"
-	default:
-		return strings.TrimSpace(value)
-	}
 }
 
 func (uc *DrugUseCaseImpl) GetDrugPlansToday(userID string) ([]*entities.DrugPlan, error) {
