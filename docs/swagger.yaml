@@ -147,6 +147,8 @@ definitions:
         type: string
       created_at:
         type: string
+      created_by_staff_id:
+        type: string
       is_allergy:
         type: boolean
       main_amount:
@@ -157,6 +159,8 @@ definitions:
         description: breakfast, lunch, dinner
         type: string
       menu_id:
+        type: string
+      staff_name:
         type: string
     type: object
   entities.Menu:
@@ -935,6 +939,43 @@ definitions:
         type: array
       pagination:
         $ref: '#/definitions/models.OverviewPagination'
+    type: object
+  models.MealHistoryItem:
+    properties:
+      backup_amount:
+        type: integer
+      backup_menu_name:
+        type: string
+      date:
+        type: string
+      main_amount:
+        type: integer
+      meal_type:
+        type: string
+      menu_name:
+        type: string
+      staff_name:
+        type: string
+    type: object
+  models.MealHistoryPagination:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total_items:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  models.MealHistoryResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/models.MealHistoryItem'
+        type: array
+      pagination:
+        $ref: '#/definitions/models.MealHistoryPagination'
     type: object
   models.OmitDrugPlanByIDRequest:
     properties:
@@ -8719,6 +8760,149 @@ paths:
       summary: Get Meal Plan by ID
       tags:
       - Meal
+  /api/meals/meal-plans/date:
+    get:
+      consumes:
+      - application/json
+      description: Get all meal plans for a specific date. Provide `date` query parameter
+        in YYYY-MM-DD.
+      parameters:
+      - description: Date in YYYY-MM-DD
+        in: query
+        name: date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                items:
+                  $ref: '#/definitions/entities.MealPlan'
+                type: array
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Meal Plans By Date
+      tags:
+      - Meal
+  /api/meals/meal-plans/history:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve meal history with optional filters by date, meal_type,
+        and search with pagination.
+      parameters:
+      - description: Date filter (YYYY-MM-DD)
+        in: query
+        name: date
+        type: string
+      - description: Meal type filter (เช้า, กลางวัน, เย็น, breakfast, lunch, dinner)
+        in: query
+        name: meal_type
+        type: string
+      - description: Search by menu name, backup menu name, staff id, or staff name
+        in: query
+        name: search
+        type: string
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 10)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              result:
+                $ref: '#/definitions/models.MealHistoryResponse'
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              message:
+                type: string
+              result: {}
+              status:
+                type: string
+              status_code:
+                type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Meal History
+      tags:
+      - Meal
   /api/meals/meal-plans/manual:
     post:
       consumes:
@@ -8787,59 +8971,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Create Meal Plan Manual
-      tags:
-      - Meal
-  /api/meals/meal-plans/today:
-    get:
-      consumes:
-      - application/json
-      description: Get all meal plans created today. Only users with Kitchen Staff,
-        Super User, or Admin role can manage meals.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              message:
-                type: string
-              result:
-                items:
-                  $ref: '#/definitions/entities.MealPlan'
-                type: array
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            properties:
-              message:
-                type: string
-              result: {}
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            properties:
-              message:
-                type: string
-              result: {}
-              status:
-                type: string
-              status_code:
-                type: integer
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get Today's Meal Plans
       tags:
       - Meal
   /api/meals/menus:

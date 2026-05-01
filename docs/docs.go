@@ -11075,14 +11075,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/meals/meal-plans/manual": {
-            "post": {
+        "/api/meals/meal-plans/date": {
+            "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a new meal plan in manual mode (AI allergy check is skipped). Only users with Kitchen Staff, Super User, or Admin role can manage meals.",
+                "description": "Get all meal plans for a specific date. Provide ` + "`" + `date` + "`" + ` query parameter in YYYY-MM-DD.",
                 "consumes": [
                     "application/json"
                 ],
@@ -11092,21 +11092,19 @@ const docTemplate = `{
                 "tags": [
                     "Meal"
                 ],
-                "summary": "Create Meal Plan Manual",
+                "summary": "Get Meal Plans By Date",
                 "parameters": [
                     {
-                        "description": "Meal plan information",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.CreateMealPlanRequest"
-                        }
+                        "type": "string",
+                        "description": "Date in YYYY-MM-DD",
+                        "name": "date",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "type": "object",
                             "properties": {
@@ -11114,7 +11112,120 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "result": {
-                                    "$ref": "#/definitions/entities.MealPlan"
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/entities.MealPlan"
+                                    }
+                                },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/meals/meal-plans/history": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve meal history with optional filters by date, meal_type, and search with pagination.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Meal"
+                ],
+                "summary": "Get Meal History",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Date filter (YYYY-MM-DD)",
+                        "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Meal type filter (เช้า, กลางวัน, เย็น, breakfast, lunch, dinner)",
+                        "name": "meal_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by menu name, backup menu name, staff id, or staff name",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 10)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {
+                                    "$ref": "#/definitions/models.MealHistoryResponse"
                                 },
                                 "status": {
                                     "type": "string"
@@ -11182,14 +11293,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/meals/meal-plans/today": {
-            "get": {
+        "/api/meals/meal-plans/manual": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get all meal plans created today. Only users with Kitchen Staff, Super User, or Admin role can manage meals.",
+                "description": "Create a new meal plan in manual mode (AI allergy check is skipped). Only users with Kitchen Staff, Super User, or Admin role can manage meals.",
                 "consumes": [
                     "application/json"
                 ],
@@ -11199,10 +11310,21 @@ const docTemplate = `{
                 "tags": [
                     "Meal"
                 ],
-                "summary": "Get Today's Meal Plans",
+                "summary": "Create Meal Plan Manual",
+                "parameters": [
+                    {
+                        "description": "Meal plan information",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateMealPlanRequest"
+                        }
+                    }
+                ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Created",
                         "schema": {
                             "type": "object",
                             "properties": {
@@ -11210,11 +11332,26 @@ const docTemplate = `{
                                     "type": "string"
                                 },
                                 "result": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/definitions/entities.MealPlan"
-                                    }
+                                    "$ref": "#/definitions/entities.MealPlan"
                                 },
+                                "status": {
+                                    "type": "string"
+                                },
+                                "status_code": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "result": {},
                                 "status": {
                                     "type": "string"
                                 },
@@ -14116,6 +14253,9 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "created_by_staff_id": {
+                    "type": "string"
+                },
                 "is_allergy": {
                     "type": "boolean"
                 },
@@ -14130,6 +14270,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "menu_id": {
+                    "type": "string"
+                },
+                "staff_name": {
                     "type": "string"
                 }
             }
@@ -15299,6 +15442,63 @@ const docTemplate = `{
                 },
                 "pagination": {
                     "$ref": "#/definitions/models.OverviewPagination"
+                }
+            }
+        },
+        "models.MealHistoryItem": {
+            "type": "object",
+            "properties": {
+                "backup_amount": {
+                    "type": "integer"
+                },
+                "backup_menu_name": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "main_amount": {
+                    "type": "integer"
+                },
+                "meal_type": {
+                    "type": "string"
+                },
+                "menu_name": {
+                    "type": "string"
+                },
+                "staff_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.MealHistoryPagination": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total_items": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.MealHistoryResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.MealHistoryItem"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/models.MealHistoryPagination"
                 }
             }
         },
