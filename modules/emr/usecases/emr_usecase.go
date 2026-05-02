@@ -190,8 +190,8 @@ func (uc *EmrUseCaseImpl) ensureMedicalStaff(userID string) error {
 		return errors.New("failed to get user role: " + err.Error())
 	}
 
-	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
-		return errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can access EMR")
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin && userRole.Name != user_constants.RoleKitchenStaff {
+		return errors.New("only users with 'Medical Staff', 'Kitchen Staff', 'Super User', or 'Admin' role can access EMR")
 	}
 
 	return nil

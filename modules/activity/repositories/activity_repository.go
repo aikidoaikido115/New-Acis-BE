@@ -245,7 +245,8 @@ func (r *GormActivityRepository) GetResidentsByScheduleIDCustom(asID string, par
 		query := r.db.Model(&entities.Participation{}).
 			Joins("JOIN residents ON residents.id = participations.resident_id").
 			Joins("JOIN rooms ON rooms.id = residents.room_id").
-			Where("participations.as_id = ?", asID)
+			Where("participations.as_id = ?", asID).
+			Where("residents.status = ?", "active")
 
 		if params.Search != nil && *params.Search != "" {
 			like := "%" + *params.Search + "%"
@@ -277,6 +278,11 @@ func (r *GormActivityRepository) GetResidentsByScheduleIDCustom(asID string, par
 	var total int64
 	if err := r.db.Table("(?) AS filtered_participations", countSubQuery).Count(&total).Error; err != nil {
 		return nil, 0, err
+	}
+
+	// Return empty slice with 0 total if no participations found
+	if total == 0 {
+		return []*entities.Participation{}, 0, nil
 	}
 
 	dataQuery := buildQuery().

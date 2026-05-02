@@ -81,10 +81,6 @@ func (uc *MealUseCaseImpl) CreateMenu(menu *entities.Menu, userID string) (*enti
 	if menu.MenuName == "" {
 		return nil, errors.New("menu_name is required")
 	}
-
-	if menu.Description == "" {
-		return nil, errors.New("description is required")
-	}
 	if err := validateMenuDescriptionFormat(menu.Description); err != nil {
 		return nil, err
 	}
@@ -199,16 +195,17 @@ func (uc *MealUseCaseImpl) CreateMealPlan(mealPlan *entities.MealPlan, userID st
 		return nil, nil, errors.New("menu does not exist")
 	}
 
-	if mealPlan.BackUpMenuID == nil || strings.TrimSpace(*mealPlan.BackUpMenuID) == "" {
-		return nil, nil, errors.New("backup_menu_id is required")
+	var backupMenu *entities.Menu
+	// Only validate backup menu if provided
+	if mealPlan.BackUpMenuID != nil && strings.TrimSpace(*mealPlan.BackUpMenuID) != "" {
+		backupMenuID := strings.TrimSpace(*mealPlan.BackUpMenuID)
+		var err error
+		backupMenu, err = uc.repo.GetMenuByID(backupMenuID)
+		if err != nil {
+			return nil, nil, errors.New("backup menu does not exist")
+		}
+		mealPlan.BackUpMenuID = &backupMenuID
 	}
-
-	backupMenuID := strings.TrimSpace(*mealPlan.BackUpMenuID)
-	backupMenu, err := uc.repo.GetMenuByID(backupMenuID)
-	if err != nil {
-		return nil, nil, errors.New("backup menu does not exist")
-	}
-	mealPlan.BackUpMenuID = &backupMenuID
 
 	allergyStats, err := uc.emrrepo.GetResidentAllergyStatsDashboard()
 	if err != nil {
@@ -234,43 +231,57 @@ func (uc *MealUseCaseImpl) CreateMealPlan(mealPlan *entities.MealPlan, userID st
 			return nil, nil, err
 		}
 
-		backupResult, backupPassed, err := uc.checkMenuAllergy(backupMenu, allergyDetails)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		summary := &models.AllergyCheckSummary{
-			MainMenuPassed:   mainPassed,
-			BackupMenuPassed: backupPassed,
-			MainMenuResult:   mainResult,
-			BackupMenuResult: backupResult,
-		}
-
-		switch {
-		case mainPassed && backupPassed:
-			// Both passed. Save meal plan.
-		case !mainPassed && backupPassed:
-			// Main failed but backup passed. Save with warning.
-			warningSummary = summary
-		case mainPassed && !backupPassed:
-			allergyErr := models.NewAllergyCheckError(
-				"backup menu is not safe for allergy group: "+backupResult.Reason,
-				backupResult.Status,
-				summary,
-			)
-			return nil, nil, allergyErr
-		default:
-			status := meal_constants.AllergyCheckStatusAllergyWarn
-			if mainResult.Status == meal_constants.AllergyCheckStatusManualReview || backupResult.Status == meal_constants.AllergyCheckStatusManualReview {
-				status = meal_constants.AllergyCheckStatusManualReview
+		// If backup menu is provided, check it as well
+		if backupMenu != nil {
+			backupResult, backupPassed, err := uc.checkMenuAllergy(backupMenu, allergyDetails)
+			if err != nil {
+				return nil, nil, err
 			}
 
-			allergyErr := models.NewAllergyCheckError(
-				"both main and backup menus are not safe for allergy group",
-				status,
-				summary,
-			)
-			return nil, nil, allergyErr
+			summary := &models.AllergyCheckSummary{
+				MainMenuPassed:   mainPassed,
+				BackupMenuPassed: backupPassed,
+				MainMenuResult:   mainResult,
+				BackupMenuResult: backupResult,
+			}
+
+			switch {
+			case mainPassed && backupPassed:
+				// Both passed. Save meal plan.
+			case !mainPassed && backupPassed:
+				// Main failed but backup passed. Save with warning.
+				warningSummary = summary
+			case mainPassed && !backupPassed:
+				allergyErr := models.NewAllergyCheckError(
+					"backup menu is not safe for allergy group: "+backupResult.Reason,
+					backupResult.Status,
+					summary,
+				)
+				return nil, nil, allergyErr
+			default:
+				status := meal_constants.AllergyCheckStatusAllergyWarn
+				if mainResult.Status == meal_constants.AllergyCheckStatusManualReview || backupResult.Status == meal_constants.AllergyCheckStatusManualReview {
+					status = meal_constants.AllergyCheckStatusManualReview
+				}
+
+				allergyErr := models.NewAllergyCheckError(
+					"both main and backup menus are not safe for allergy group",
+					status,
+					summary,
+				)
+				return nil, nil, allergyErr
+			}
+		} else {
+			// No backup menu provided, only check main menu
+			if !mainPassed {
+				summary := &models.AllergyCheckSummary{
+					MainMenuPassed:   mainPassed,
+					BackupMenuPassed: true,
+					MainMenuResult:   mainResult,
+					BackupMenuResult: nil,
+				}
+				warningSummary = summary
+			}
 		}
 	}
 
@@ -587,15 +598,15 @@ func (uc *MealUseCaseImpl) validateMealPlan(mealPlan *entities.MealPlan) error {
 	if mealPlan.BackUpMenuID != nil {
 		backupID := strings.TrimSpace(*mealPlan.BackUpMenuID)
 		if backupID == "" {
-			return errors.New("backup_menu_id cannot be empty")
-		}
-		if backupID == mealPlan.MenuID {
+			// Empty backup menu ID is treated as no backup menu (optional)
+			mealPlan.BackUpMenuID = nil
+		} else if backupID == mealPlan.MenuID {
 			return errors.New("backup_menu_id must be different from menu_id")
-		}
-		if _, err := uc.repo.GetMenuByID(backupID); err != nil {
+		} else if _, err := uc.repo.GetMenuByID(backupID); err != nil {
 			return errors.New("backup menu does not exist")
+		} else {
+			mealPlan.BackUpMenuID = &backupID
 		}
-		mealPlan.BackUpMenuID = &backupID
 	}
 
 	return nil
