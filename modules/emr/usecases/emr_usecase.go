@@ -1471,76 +1471,80 @@ func (uc *EmrUseCaseImpl) GetResidentLabelsByResidentID(residentID string, userI
 }
 
 func (uc *EmrUseCaseImpl) CreateAllergyByResidentID(residentID string, allergies []models.AllergyRequest, userID string) ([]*entities.ResidentAllergies, error) {
-	if err := uc.ensureMedicalStaff(userID); err != nil {
-		return nil, err
-	}
+    if err := uc.ensureMedicalStaff(userID); err != nil {
+        return nil, err
+    }
 
-	resident, err := uc.emrrepo.GetResidentByID(residentID)
-	if err != nil {
-		return nil, errors.New("resident not found: " + err.Error())
-	}
+    resident, err := uc.emrrepo.GetResidentByID(residentID)
+    if err != nil {
+        return nil, errors.New("resident not found: " + err.Error())
+    }
 
-	if len(allergies) == 0 {
-		return nil, errors.New("allergies cannot be empty")
-	}
+    if err := uc.emrrepo.DeleteResidentAllergiesByResidentID(resident.ID); err != nil {
+        return nil, errors.New("failed to delete old food allergies: " + err.Error())
+    }
 
-	for _, allergy := range allergies {
-		if len(strings.TrimSpace(allergy.AllergyName)) == 0 {
-			return nil, errors.New("allergy name cannot be empty or whitespace")
-		}
+    if len(allergies) == 0 {
+        return []*entities.ResidentAllergies{}, nil 
+    }
 
-		allergyID, err := uc.getOrCreateAllergyID(allergy.AllergyName)
-		if err != nil {
-			return nil, errors.New("failed to get or create allergy: " + err.Error())
-		}
+    for _, allergy := range allergies {
+        if len(strings.TrimSpace(allergy.AllergyName)) == 0 {
+            continue
+        }
 
-		residentAllergyExists, err := uc.emrrepo.ResidentAllergyExists(resident.ID, allergyID)
-		if err != nil {
-			return nil, errors.New("failed to verify resident allergy existence: " + err.Error())
-		}
-		if residentAllergyExists {
-			continue
-		}
+        allergyID, err := uc.getOrCreateAllergyID(allergy.AllergyName)
+        if err != nil {
+            return nil, errors.New("failed to get or create food allergy: " + err.Error())
+        }
 
-		residentAllergy := &entities.ResidentAllergies{
-			ResidentID: resident.ID,
-			AllergyID:  allergyID,
-			NoteText:   allergy.NoteText,
-			NotedAt:    time.Now(),
-		}
-		createdAllergy, err := uc.emrrepo.CreateAllergyByResidentID(residentAllergy)
-		if err != nil {
-			return nil, errors.New("failed to create resident allergy: " + err.Error())
-		}
+        residentAllergyExists, err := uc.emrrepo.ResidentAllergyExists(resident.ID, allergyID)
+        if err != nil {
+            return nil, errors.New("failed to verify resident food allergy existence: " + err.Error())
+        }
+        if residentAllergyExists {
+            continue
+        }
 
-		newAllergyData, _ := json.Marshal(map[string]interface{}{
-			"resident_id":  createdAllergy.ResidentID,
-			"allergy_id":   createdAllergy.AllergyID,
-			"allergy_name": allergy.AllergyName,
-			"note_text":    allergy.NoteText,
-			"noted_at":     createdAllergy.NotedAt,
-		})
-		auditLog := &entities.AuditLogs{
-			ID:        uuid.New().String(),
-			TableName: "resident_allergies",
-			RecordID:  createdAllergy.ResidentID + "-" + createdAllergy.AllergyID,
-			UserID:    userID,
-			Action:    audit_constants.AuditActionInsert,
-			OldValue:  "",
-			NewValue:  string(newAllergyData),
-		}
-		_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
-		if err != nil {
-			log.Printf("[ERROR] Failed to create audit log for resident allergy %s-%s: %v", createdAllergy.ResidentID, createdAllergy.AllergyID, err)
-		}
-	}
+        residentAllergy := &entities.ResidentAllergies{
+            ResidentID: resident.ID,
+            AllergyID:  allergyID,
+            NoteText:   allergy.NoteText,
+            NotedAt:    time.Now(),
+        }
+        createdAllergy, err := uc.emrrepo.CreateAllergyByResidentID(residentAllergy)
+        if err != nil {
+            return nil, errors.New("failed to create resident food allergy: " + err.Error())
+        }
 
-	residentAllergies, err := uc.emrrepo.GetResidentAllergiesByResidentID(resident.ID)
-	if err != nil {
-		return nil, errors.New("failed to get resident allergies: " + err.Error())
-	}
+        newAllergyData, _ := json.Marshal(map[string]interface{}{
+            "resident_id":  createdAllergy.ResidentID,
+            "allergy_id":   createdAllergy.AllergyID,
+            "allergy_name": allergy.AllergyName,
+            "note_text":    allergy.NoteText,
+            "noted_at":     createdAllergy.NotedAt,
+        })
+        auditLog := &entities.AuditLogs{
+            ID:        uuid.New().String(),
+            TableName: "resident_allergies",
+            RecordID:  createdAllergy.ResidentID + "-" + createdAllergy.AllergyID,
+            UserID:    userID,
+            Action:    audit_constants.AuditActionInsert,
+            OldValue:  "",
+            NewValue:  string(newAllergyData),
+        }
+        _, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+        if err != nil {
+            log.Printf("[ERROR] Failed to create audit log for resident food allergy %s-%s: %v", createdAllergy.ResidentID, createdAllergy.AllergyID, err)
+        }
+    }
 
-	return residentAllergies, nil
+    residentAllergies, err := uc.emrrepo.GetResidentAllergiesByResidentID(resident.ID)
+    if err != nil {
+        return nil, errors.New("failed to get resident food allergies: " + err.Error())
+    }
+
+    return residentAllergies, nil
 }
 
 func (uc *EmrUseCaseImpl) GetResidentAllergiesByResidentID(residentID string, userID string) ([]*entities.ResidentAllergies, error) {
@@ -1568,76 +1572,80 @@ func (uc *EmrUseCaseImpl) GetAllResidentAllergies(userID string) ([]*models.Resi
 }
 
 func (uc *EmrUseCaseImpl) CreateDrugAllergyByResidentID(residentID string, drugAllergies []models.DrugAllergyRequest, userID string) ([]*entities.ResidentDA, error) {
-	if err := uc.ensureMedicalStaff(userID); err != nil {
-		return nil, err
-	}
+    if err := uc.ensureMedicalStaff(userID); err != nil {
+        return nil, err
+    }
 
-	resident, err := uc.emrrepo.GetResidentByID(residentID)
-	if err != nil {
-		return nil, errors.New("resident not found: " + err.Error())
-	}
+    resident, err := uc.emrrepo.GetResidentByID(residentID)
+    if err != nil {
+        return nil, errors.New("resident not found: " + err.Error())
+    }
 
-	if len(drugAllergies) == 0 {
-		return nil, errors.New("drug allergies cannot be empty")
-	}
+    if err := uc.emrrepo.DeleteResidentDrugAllergiesByResidentID(resident.ID); err != nil {
+        return nil, errors.New("failed to delete old drug allergies: " + err.Error())
+    }
 
-	for _, drugAllergy := range drugAllergies {
-		if len(strings.TrimSpace(drugAllergy.AllergyName)) == 0 {
-			return nil, errors.New("drug allergy name cannot be empty or whitespace")
-		}
+    if len(drugAllergies) == 0 {
+        return []*entities.ResidentDA{}, nil 
+    }
 
-		drugAllergyID, err := uc.getOrCreateDrugAllergyID(drugAllergy.AllergyName)
-		if err != nil {
-			return nil, errors.New("failed to get or create drug allergy: " + err.Error())
-		}
+    for _, drugAllergy := range drugAllergies {
+        if len(strings.TrimSpace(drugAllergy.AllergyName)) == 0 {
+            continue
+        }
 
-		residentDrugAllergyExists, err := uc.emrrepo.ResidentDrugAllergyExists(resident.ID, drugAllergyID)
-		if err != nil {
-			return nil, errors.New("failed to verify resident drug allergy existence: " + err.Error())
-		}
-		if residentDrugAllergyExists {
-			continue
-		}
+        drugAllergyID, err := uc.getOrCreateDrugAllergyID(drugAllergy.AllergyName)
+        if err != nil {
+            return nil, errors.New("failed to get or create drug allergy: " + err.Error())
+        }
 
-		residentDA := &entities.ResidentDA{
-			ResidentID:    resident.ID,
-			DrugAllergyID: drugAllergyID,
-			NoteText:      drugAllergy.NoteText,
-			NotedAt:       time.Now(),
-		}
-		createdDrugAllergy, err := uc.emrrepo.CreateDrugAllergyByResidentID(residentDA)
-		if err != nil {
-			return nil, errors.New("failed to create resident drug allergy: " + err.Error())
-		}
+        residentDrugAllergyExists, err := uc.emrrepo.ResidentDrugAllergyExists(resident.ID, drugAllergyID)
+        if err != nil {
+            return nil, errors.New("failed to verify resident drug allergy existence: " + err.Error())
+        }
+        if residentDrugAllergyExists {
+            continue
+        }
 
-		newDrugAllergyData, _ := json.Marshal(map[string]interface{}{
-			"resident_id":     createdDrugAllergy.ResidentID,
-			"drug_allergy_id": createdDrugAllergy.DrugAllergyID,
-			"allergy_name":    drugAllergy.AllergyName,
-			"note_text":       drugAllergy.NoteText,
-			"noted_at":        createdDrugAllergy.NotedAt,
-		})
-		auditLog := &entities.AuditLogs{
-			ID:        uuid.New().String(),
-			TableName: "resident_das",
-			RecordID:  createdDrugAllergy.ResidentID + "-" + createdDrugAllergy.DrugAllergyID,
-			UserID:    userID,
-			Action:    audit_constants.AuditActionInsert,
-			OldValue:  "",
-			NewValue:  string(newDrugAllergyData),
-		}
-		_, err = uc.auditlogrepo.CreateAuditLog(auditLog)
-		if err != nil {
-			log.Printf("[ERROR] Failed to create audit log for resident drug allergy %s-%s: %v", createdDrugAllergy.ResidentID, createdDrugAllergy.DrugAllergyID, err)
-		}
-	}
+        residentDA := &entities.ResidentDA{
+            ResidentID:    resident.ID,
+            DrugAllergyID: drugAllergyID,
+            NoteText:      drugAllergy.NoteText,
+            NotedAt:       time.Now(),
+        }
+        createdDrugAllergy, err := uc.emrrepo.CreateDrugAllergyByResidentID(residentDA)
+        if err != nil {
+            return nil, errors.New("failed to create resident drug allergy: " + err.Error())
+        }
 
-	residentDrugAllergies, err := uc.emrrepo.GetResidentDrugAllergiesByResidentID(resident.ID)
-	if err != nil {
-		return nil, errors.New("failed to get resident drug allergies: " + err.Error())
-	}
+        newDrugAllergyData, _ := json.Marshal(map[string]interface{}{
+            "resident_id":     createdDrugAllergy.ResidentID,
+            "drug_allergy_id": createdDrugAllergy.DrugAllergyID,
+            "allergy_name":    drugAllergy.AllergyName,
+            "note_text":       drugAllergy.NoteText,
+            "noted_at":        createdDrugAllergy.NotedAt,
+        })
+        auditLog := &entities.AuditLogs{
+            ID:        uuid.New().String(),
+            TableName: "resident_das",
+            RecordID:  createdDrugAllergy.ResidentID + "-" + createdDrugAllergy.DrugAllergyID,
+            UserID:    userID,
+            Action:    audit_constants.AuditActionInsert,
+            OldValue:  "",
+            NewValue:  string(newDrugAllergyData),
+        }
+        _, err = uc.auditlogrepo.CreateAuditLog(auditLog)
+        if err != nil {
+            log.Printf("[ERROR] Failed to create audit log for resident drug allergy %s-%s: %v", createdDrugAllergy.ResidentID, createdDrugAllergy.DrugAllergyID, err)
+        }
+    }
 
-	return residentDrugAllergies, nil
+    residentDrugAllergies, err := uc.emrrepo.GetResidentDrugAllergiesByResidentID(resident.ID)
+    if err != nil {
+        return nil, errors.New("failed to get resident drug allergies: " + err.Error())
+    }
+
+    return residentDrugAllergies, nil
 }
 
 func (uc *EmrUseCaseImpl) GetResidentDrugAllergiesByResidentID(residentID string, userID string) ([]*entities.ResidentDA, error) {
