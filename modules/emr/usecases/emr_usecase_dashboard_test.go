@@ -182,25 +182,17 @@ func TestGetNumberOfResidentsDashboard_Success(t *testing.T) {
 	assert.Equal(t, 1, emrRepo.getNumberOfResidentsCalls)
 }
 
-func (uc *EmrUseCaseImpl) GetNumberOfResidentsDashboard(userID string) (emrModels.NumberOfResidentsDashboardResponse, error) {
-    user, err := uc.userrepo.GetUserByID(userID)
-    if err != nil {
-        return emrModels.NumberOfResidentsDashboardResponse{}, err
-    }
+func TestGetNumberOfResidentsDashboard_KitchenStaff_Success(t *testing.T) {
+    uc, userRepo, emrRepo, _ := newDashboardUsecase(userConstants.RoleKitchenStaff)
 
-    role, err := uc.userrepo.GetRoleByID(user.RoleID)
-    if err != nil {
-        return emrModels.NumberOfResidentsDashboardResponse{}, err
-    }
+    result, err := uc.GetNumberOfResidentsDashboard("user-1")
 
-    if role.Name != user_constants.RoleMedicalStaff && 
-       role.Name != user_constants.RoleKitchenStaff &&
-       role.Name != user_constants.RoleSuperUser && 
-       role.Name != user_constants.RoleAdmin {
-        return emrModels.NumberOfResidentsDashboardResponse{}, errors.New("only users with 'Medical Staff', 'Kitchen Staff', 'Super User', or 'Admin' role can access this data")
-    }
-
-    return uc.repo.GetNumberOfResidentsDashboard()
+    assert.NoError(t, err)
+    assert.Equal(t, 1, userRepo.getUserCalls)
+    assert.Equal(t, 1, userRepo.getRoleCalls)
+    assert.Equal(t, 1, emrRepo.getNumberOfResidentsCalls)
+    
+    assert.NotNil(t, result)
 }
 
 func TestGetNumberOfResidentsDashboard_RepoError(t *testing.T) {
