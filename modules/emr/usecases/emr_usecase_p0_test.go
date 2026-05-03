@@ -307,14 +307,6 @@ func newEmrCoreUsecase(roleName string) (*emrUsecases.EmrUseCaseImpl, *fakeEmrCo
 	return uc, emrRepo, userRepo, auditRepo
 }
 
-func strPtr(v string) *string {
-	return &v
-}
-
-func i16Ptr(v int16) *int16 {
-	return &v
-}
-
 func f64Ptr(v float64) *float64 {
 	return &v
 }
