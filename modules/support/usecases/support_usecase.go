@@ -54,12 +54,10 @@ func (uc *SupportUseCaseImpl) CreateSupportTicket(ticket *entities.SupportTicket
 		return nil, errors.New("name is required")
 	}
 
-	if ticket.Email == "" {
-		return nil, errors.New("email is required")
-	}
-
-	if _, err := mail.ParseAddress(ticket.Email); err != nil {
-		return nil, errors.New("email format is invalid")
+	if ticket.Email != "" {
+		if _, err := mail.ParseAddress(ticket.Email); err != nil {
+			return nil, errors.New("email format is invalid")
+		}
 	}
 
 	if ticket.Subject == "" {
