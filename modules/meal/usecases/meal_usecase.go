@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"math"
 	"strings"
+	"time"
 
 	audit_constants "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/constants"
 	audit_repo "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
@@ -35,7 +37,8 @@ type MealUsecase interface {
 	CreateMealPlan(mealPlan *entities.MealPlan, userID string, humanInTheLoop bool) (*entities.MealPlan, *models.AllergyCheckSummary, error)
 	GetMealPlanByID(id string, userID string) (*entities.MealPlan, error)
 	GetAllMealPlans(userID string) ([]*entities.MealPlan, error)
-	GetMealPlansToday(userID string) ([]*entities.MealPlan, error)
+	GetMealPlansByDate(userID string, date string) ([]*entities.MealPlan, error)
+	GetMealHistory(userID string, query models.MealHistoryQueryParams) (*models.MealHistoryResponse, error)
 	UpdateMealPlan(mealPlanID string, mealPlan *entities.MealPlan, userID string) (*entities.MealPlan, error)
 }
 
@@ -288,6 +291,22 @@ func (uc *MealUseCaseImpl) CreateMealPlan(mealPlan *entities.MealPlan, userID st
 	}
 
 	mealPlan.ID = uuid.New().String()
+	staff, err := uc.userrepo.GetStaffByUserID(userID)
+	if err != nil {
+		return nil, nil, errors.New("failed to get staff profile: " + err.Error())
+	}
+	mealPlan.CreatedByStaffID = staff.ID
+	mealPlan.StaffName = strings.TrimSpace(strings.TrimSpace(staff.User.FirstName) + " " + strings.TrimSpace(staff.User.LastName))
+	if mealPlan.StaffName == "" {
+		mealPlan.StaffName = strings.TrimSpace(staff.User.Nickname)
+	}
+	if mealPlan.StaffName == "" {
+		mealPlan.StaffName = strings.TrimSpace(staff.User.Username)
+	}
+	if mealPlan.StaffName == "" {
+		mealPlan.StaffName = staff.ID
+	}
+
 	createdMealPlan, err := uc.repo.CreateMealPlan(mealPlan)
 	if err != nil {
 		return nil, nil, err
@@ -353,12 +372,92 @@ func (uc *MealUseCaseImpl) GetAllMealPlans(userID string) ([]*entities.MealPlan,
 	return uc.repo.GetAllMealPlans()
 }
 
-func (uc *MealUseCaseImpl) GetMealPlansToday(userID string) ([]*entities.MealPlan, error) {
+func (uc *MealUseCaseImpl) GetMealPlansByDate(userID string, date string) ([]*entities.MealPlan, error) {
 	if err := uc.ensureKitchenStaff(userID); err != nil {
 		return nil, err
 	}
 
-	return uc.repo.GetMealPlansToday()
+	date = strings.TrimSpace(date)
+	if date == "" {
+		return nil, errors.New("date query parameter is required (format: YYYY-MM-DD)")
+	}
+
+	return uc.repo.GetMealPlansByDate(date)
+}
+
+func (uc *MealUseCaseImpl) GetMealHistory(userID string, query models.MealHistoryQueryParams) (*models.MealHistoryResponse, error) {
+	if err := uc.ensureKitchenStaff(userID); err != nil {
+		return nil, err
+	}
+
+	page := 1
+	pageSize := 10
+	if query.Page != nil && *query.Page > 0 {
+		page = *query.Page
+	}
+	if query.PageSize != nil && *query.PageSize > 0 {
+		pageSize = *query.PageSize
+	}
+
+	if query.Page != nil && *query.Page <= 0 {
+		return nil, errors.New("page must be greater than 0")
+	}
+	if query.PageSize != nil && *query.PageSize <= 0 {
+		return nil, errors.New("page_size must be greater than 0")
+	}
+
+	var normalizedMealType *string
+	if query.MealType != nil {
+		v := strings.ToLower(strings.TrimSpace(*query.MealType))
+		switch v {
+		case "":
+			normalizedMealType = nil
+		case "เช้า":
+			m := "breakfast"
+			normalizedMealType = &m
+		case "กลางวัน":
+			m := "lunch"
+			normalizedMealType = &m
+		case "เย็น":
+			m := "dinner"
+			normalizedMealType = &m
+		case "breakfast", "lunch", "dinner":
+			normalizedMealType = &v
+		default:
+			return nil, errors.New("meal_type must be one of เช้า, กลางวัน, เย็น, breakfast, lunch, dinner")
+		}
+	}
+
+	var normalizedDate *string
+	if query.Date != nil {
+		d := strings.TrimSpace(*query.Date)
+		if d != "" {
+			if _, err := time.Parse("2006-01-02", d); err != nil {
+				return nil, errors.New("date must be in YYYY-MM-DD format")
+			}
+			normalizedDate = &d
+		}
+	}
+
+	items, total, err := uc.repo.GetMealHistory(normalizedDate, normalizedMealType, query.Search, page, pageSize)
+	if err != nil {
+		return nil, errors.New("failed to get meal history: " + err.Error())
+	}
+
+	totalPages := 0
+	if total > 0 {
+		totalPages = int(math.Ceil(float64(total) / float64(pageSize)))
+	}
+
+	return &models.MealHistoryResponse{
+		Items: items,
+		Pagination: models.MealHistoryPagination{
+			Page:       page,
+			PageSize:   pageSize,
+			TotalItems: int(total),
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (uc *MealUseCaseImpl) UpdateMealPlan(mealPlanID string, mealPlan *entities.MealPlan, userID string) (*entities.MealPlan, error) {

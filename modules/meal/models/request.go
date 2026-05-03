@@ -26,3 +26,11 @@ type UpdateMealPlanRequest struct {
 	BackUpAmount *int16  `json:"backup_amount"`
 	MealType     *string `json:"meal_type"`
 }
+
+type MealHistoryQueryParams struct {
+	Date     *string `json:"date" form:"date" query:"date"`
+	MealType *string `json:"meal_type" form:"meal_type" query:"meal_type"`
+	Search   *string `json:"search" form:"search" query:"search"`
+	Page     *int    `json:"page" form:"page" query:"page"`
+	PageSize *int    `json:"page_size" form:"page_size" query:"page_size"`
+}

@@ -266,7 +266,8 @@ func SetupMealRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	mealPlanGroup.Post("/", middlewares.JWTMiddleware(jwt), mealController.CreateMealPlanHandler)
 	mealPlanGroup.Post("/manual", middlewares.JWTMiddleware(jwt), mealController.CreateMealPlanManualHandler)
 	mealPlanGroup.Get("/", middlewares.JWTMiddleware(jwt), mealController.GetAllMealPlansHandler)
-	mealPlanGroup.Get("/today", middlewares.JWTMiddleware(jwt), mealController.GetMealPlansTodayHandler)
+	mealPlanGroup.Get("/history", middlewares.JWTMiddleware(jwt), mealController.GetMealHistoryHandler)
+	mealPlanGroup.Get("/date", middlewares.JWTMiddleware(jwt), mealController.GetMealPlansTodayHandler)
 	mealPlanGroup.Get("/:id", middlewares.JWTMiddleware(jwt), mealController.GetMealPlanByIDHandler)
 	// mealPlanGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), mealController.UpdateMealPlanHandler)
 }

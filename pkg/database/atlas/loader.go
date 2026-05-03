@@ -45,6 +45,8 @@ func main() {
 		&entities.Participation{},
 		&entities.WarehouseItem{},
 		&entities.WarehouseTransaction{},
+		&entities.DoctorOrder{},
+		&entities.SupportTicket{},
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to load gorm schema: %v\n", err)

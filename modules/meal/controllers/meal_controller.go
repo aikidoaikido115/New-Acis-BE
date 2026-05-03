@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"strings"
+
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/meal/models"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/meal/usecases"
@@ -442,8 +444,8 @@ func (c *MealController) GetAllMealPlansHandler(ctx *fiber.Ctx) error {
 }
 
 // GetMealPlansTodayHandler godoc
-// @Summary Get Today's Meal Plans
-// @Description Get all meal plans created today. Only users with Kitchen Staff, Super User, or Admin role can manage meals.
+// @Summary Get Meal Plans By Date
+// @Description Get all meal plans for a specific date. Provide `date` query parameter in YYYY-MM-DD.
 // @Tags Meal
 // @Accept json
 // @Produce json
@@ -451,7 +453,8 @@ func (c *MealController) GetAllMealPlansHandler(ctx *fiber.Ctx) error {
 // @Success 200 {object} object{status=string,status_code=int,message=string,result=[]entities.MealPlan}
 // @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
 // @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
-// @Router /api/meals/meal-plans/today [get]
+// @Param date query string true "Date in YYYY-MM-DD"
+// @Router /api/meals/meal-plans/date [get]
 func (c *MealController) GetMealPlansTodayHandler(ctx *fiber.Ctx) error {
 	userID, ok := ctx.Locals("user_id").(string)
 	if !ok || userID == "" {
@@ -463,7 +466,17 @@ func (c *MealController) GetMealPlansTodayHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	mealPlans, err := c.mealUsecase.GetMealPlansToday(userID)
+	date := ctx.Query("date")
+	if strings.TrimSpace(date) == "" {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     "date query parameter is required (format: YYYY-MM-DD)",
+			"result":      nil,
+		})
+	}
+
+	mealPlans, err := c.mealUsecase.GetMealPlansByDate(userID, date)
 	if err != nil {
 		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
 			"status":      fiber.ErrInternalServerError.Message,
@@ -478,6 +491,62 @@ func (c *MealController) GetMealPlansTodayHandler(ctx *fiber.Ctx) error {
 		"status_code": fiber.StatusOK,
 		"message":     "today's meal plans retrieved successfully",
 		"result":      mealPlans,
+	})
+}
+
+// GetMealHistoryHandler godoc
+// @Summary Get Meal History
+// @Description Retrieve meal history with optional filters by date, meal_type, and search with pagination.
+// @Tags Meal
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param date query string false "Date filter (YYYY-MM-DD)"
+// @Param meal_type query string false "Meal type filter (เช้า, กลางวัน, เย็น, breakfast, lunch, dinner)"
+// @Param search query string false "Search by menu name, backup menu name, staff id, or staff name"
+// @Param page query int false "Page number (default 1)"
+// @Param page_size query int false "Page size (default 10)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.MealHistoryResponse}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/meals/meal-plans/history [get]
+func (c *MealController) GetMealHistoryHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	var query models.MealHistoryQueryParams
+	if err := ctx.QueryParser(&query); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	result, err := c.mealUsecase.GetMealHistory(userID, query)
+	if err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "meal history retrieved successfully",
+		"result":      result,
 	})
 }
 
