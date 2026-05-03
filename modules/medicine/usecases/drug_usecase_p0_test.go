@@ -142,9 +142,9 @@ func newDrugPlanUsecase() (*medicineUsecases.DrugUseCaseImpl, *fakeDrugPlanRepo,
 	return uc, drugRepo, userRepo, auditRepo
 }
 
-func strPtr(v string) *string {
-	return &v
-}
+// func strPtr(v string) *string {
+// 	return &v
+// }
 
 func TestTakeDrugPlanByID_Success(t *testing.T) {
 	uc, drugRepo, userRepo, auditRepo := newDrugPlanUsecase()
