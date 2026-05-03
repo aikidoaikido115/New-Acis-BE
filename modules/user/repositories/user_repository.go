@@ -364,8 +364,14 @@ func (r *GormUserRepository) DeleteRelativeAndUserByUserID(userID string) error 
 		if err := tx.Exec("DELETE FROM relative_magic_link_tokens WHERE relative_id = ?", relative.ID).Error; err != nil {
 			return err
 		}
-		if err := tx.Exec("DELETE FROM daily_updates WHERE relative_id = ?", relative.ID).Error; err != nil {
+		// Also remove any magic link tokens created by this user (if any)
+		if err := tx.Exec("DELETE FROM relative_magic_link_tokens WHERE created_by_user_id = ?", userID).Error; err != nil {
 			return err
+		}
+		if tx.Migrator().HasTable(&entities.DailyUpdate{}) {
+			if err := tx.Exec("DELETE FROM daily_updates WHERE relative_id = ?", relative.ID).Error; err != nil {
+				return err
+			}
 		}
 		if err := tx.Exec("DELETE FROM support_tickets WHERE created_by_user_id = ?", userID).Error; err != nil {
 			return err
@@ -374,6 +380,10 @@ func (r *GormUserRepository) DeleteRelativeAndUserByUserID(userID string) error 
 			return err
 		}
 		if err := tx.Exec("DELETE FROM temp_tokens WHERE user_id = ?", userID).Error; err != nil {
+			return err
+		}
+		// Cleanup audit logs referencing this user to avoid FK issues in some DBs
+		if err := tx.Exec("DELETE FROM audit_logs WHERE user_id = ?", userID).Error; err != nil {
 			return err
 		}
 

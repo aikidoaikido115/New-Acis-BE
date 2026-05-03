@@ -548,7 +548,7 @@ func (u *UserUseCaseImpl) ensureAdmin(userID string) error {
 		return errors.New("failed to get user: " + err.Error())
 	}
 
-	if user.Role.Name != user_constants.RoleAdmin {
+	if user.Role.Name != user_constants.RoleAdmin && user.Role.Name != user_constants.RoleSuperUser {
 		return ErrAdminOnly
 	}
 
