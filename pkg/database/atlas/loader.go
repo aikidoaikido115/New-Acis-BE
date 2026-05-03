@@ -38,6 +38,8 @@ func main() {
 		&entities.NurseNote{},
 		&entities.WoundCareNote{},
 		&entities.RelativeNote{},
+		&entities.Relative{},
+		&entities.RelativeMagicLinkToken{},
 		&entities.Activity{},
 		&entities.ActivitySchedule{},
 		&entities.Participation{},

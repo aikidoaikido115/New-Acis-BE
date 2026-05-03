@@ -40,11 +40,14 @@ type UserUsecase interface {
 
 	GetUserByID(id string) (*entities.User, error)
 	GetAllUsers(userID string) ([]*entities.User, error)
+	GetRelativeUsers(adminUserID string) ([]repositories.AdminRelativeUser, error)
+	GetStaffIDMapByUserIDs(userIDs []string, adminUserID string) (map[string]string, error)
 	GetUsersByFirstAndLastName(firstName string, lastName string) ([]*entities.User, error)
 	UpdateUserByID(id string, user *entities.User, file multipart.File) (*entities.User, error)
 	UpdateUserApprovalByID(targetUserID string, isApprove bool, adminUserID string) (*entities.User, error)
 	UpdateStaffRoleByID(staffID string, roleName string, userID string) (*entities.User, error)
 	DeleteStaffByID(staffID string, userID string) error
+	DeleteRelativeByUserID(targetUserID string, adminUserID string) error
 
 	ForgotPassword(email string) error
 	VerifyOTP(email, otpCode string) error
@@ -349,6 +352,26 @@ func (u *UserUseCaseImpl) GetAllUsers(userID string) ([]*entities.User, error) {
 	return users, nil
 }
 
+func (u *UserUseCaseImpl) GetRelativeUsers(adminUserID string) ([]repositories.AdminRelativeUser, error) {
+	if err := u.ensureAdmin(adminUserID); err != nil {
+		return nil, err
+	}
+
+	users, err := u.userrepo.GetRelativeUsersWithResident()
+	if err != nil {
+		return nil, errors.New("failed to retrieve relative users: " + err.Error())
+	}
+
+	return users, nil
+}
+
+func (u *UserUseCaseImpl) GetStaffIDMapByUserIDs(userIDs []string, adminUserID string) (map[string]string, error) {
+	if err := u.ensureAdmin(adminUserID); err != nil {
+		return nil, err
+	}
+	return u.userrepo.GetStaffIDMapByUserIDs(userIDs)
+}
+
 func (u *UserUseCaseImpl) GetUsersByFirstAndLastName(firstName string, lastName string) ([]*entities.User, error) {
 	users, err := u.userrepo.GetUsersByFirstAndLastName(firstName, lastName)
 	if err != nil {
@@ -476,6 +499,44 @@ func (u *UserUseCaseImpl) DeleteStaffByID(staffID string, userID string) error {
 	return nil
 }
 
+func (u *UserUseCaseImpl) DeleteRelativeByUserID(targetUserID string, adminUserID string) error {
+	if err := u.ensureAdmin(adminUserID); err != nil {
+		return err
+	}
+
+	targetUserID = strings.TrimSpace(targetUserID)
+	if targetUserID == "" {
+		return errors.New("user id is required")
+	}
+
+	relativeUser, err := u.userrepo.GetRelativeUserByUserID(targetUserID)
+	if err != nil {
+		return errors.New("relative user not found: " + err.Error())
+	}
+
+	oldRelativeData, _ := json.Marshal(relativeUser)
+
+	if err := u.userrepo.DeleteRelativeAndUserByUserID(targetUserID); err != nil {
+		return errors.New("failed to delete relative user: " + err.Error())
+	}
+
+	auditLog := &entities.AuditLogs{
+		ID:        uuid.New().String(),
+		TableName: "users",
+		RecordID:  relativeUser.UserID,
+		UserID:    adminUserID,
+		Action:    audit_constants.AuditActionDelete,
+		OldValue:  string(oldRelativeData),
+		NewValue:  "",
+	}
+
+	if _, err := u.auditlogrepo.CreateAuditLog(auditLog); err != nil {
+		log.Printf("[ERROR] Failed to create audit log for relative user deletion %s: %v", targetUserID, err)
+	}
+
+	return nil
+}
+
 func (u *UserUseCaseImpl) ensureAdmin(userID string) error {
 	userID = strings.TrimSpace(userID)
 	if userID == "" {
@@ -537,8 +598,8 @@ func (u *UserUseCaseImpl) UpdateUserByID(id string, user *entities.User, file mu
 	if user.Nickname != "" {
 		existingUser.Nickname = user.Nickname
 	}
-	
-    if user.Phone != "" {
+
+	if user.Phone != "" {
 		existingUser.Phone = user.Phone
 	}
 

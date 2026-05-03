@@ -7,6 +7,7 @@ import (
 	"errors"
 	"mime/multipart"
 	"strings"
+	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/user/models"
@@ -683,10 +684,115 @@ func (c *UserController) GetAllUsersHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
+	userIDs := make([]string, 0, len(users))
+	for _, user := range users {
+		if user != nil && user.ID != "" {
+			userIDs = append(userIDs, user.ID)
+		}
+	}
+
+	staffIDMap, err := c.userusecase.GetStaffIDMapByUserIDs(userIDs, userID)
+	if err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.StatusInternalServerError,
+			"message":     "failed to load staff mapping: " + err.Error(),
+			"result":      nil,
+		})
+	}
+
+	type adminUserResponse struct {
+		UserID    string        `json:"user_id"`
+		StaffID   string        `json:"staff_id,omitempty"`
+		Username  string        `json:"username"`
+		Email     string        `json:"email"`
+		FirstName string        `json:"first_name"`
+		LastName  string        `json:"last_name"`
+		Nickname  string        `json:"nickname"`
+		IsApprove bool          `json:"is_approve"`
+		CreatedAt time.Time     `json:"created_at"`
+		Role      entities.Role `json:"role"`
+	}
+
+	response := make([]adminUserResponse, 0, len(users))
+	for _, user := range users {
+		if user == nil {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(user.Role.Name), "Relative") {
+			continue
+		}
+
+		item := adminUserResponse{
+			UserID:    user.ID,
+			Username:  user.Username,
+			Email:     user.Email,
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+			Nickname:  user.Nickname,
+			IsApprove: user.IsApprove,
+			CreatedAt: user.CreatedAt,
+			Role:      user.Role,
+		}
+		if staffID, ok := staffIDMap[user.ID]; ok {
+			item.StaffID = staffID
+		}
+		response = append(response, item)
+	}
+
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":      "Success",
 		"status_code": fiber.StatusOK,
 		"message":     "Users retrieved successfully",
+		"result":      response,
+	})
+}
+
+// GetRelativeUsersHandler godoc
+// @Summary Get relative users
+// @Description Get users with relative role and their resident names. Admin only.
+// @Tags User
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=array} "Relative users retrieved successfully"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 403 {object} object{status=string,status_code=int,message=string,result=any} "Forbidden - Admin only"
+// @Router /api/admin/users/relatives [get]
+func (c *UserController) GetRelativeUsersHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.StatusUnauthorized,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	users, err := c.userusecase.GetRelativeUsers(userID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "admin") {
+			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"status":      fiber.ErrForbidden.Message,
+				"status_code": fiber.StatusForbidden,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
+
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.StatusInternalServerError,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "Relative users retrieved successfully",
 		"result":      users,
 	})
 }
@@ -824,6 +930,74 @@ func (c *UserController) DeleteStaffByIDHandler(ctx *fiber.Ctx) error {
 		"status":      "Success",
 		"status_code": fiber.StatusOK,
 		"message":     "Staff deleted successfully",
+		"result":      nil,
+	})
+}
+
+// DeleteRelativeByUserIDHandler godoc
+// @Summary Delete relative user
+// @Description Delete a relative user account and linked relative profile. Admin only.
+// @Tags User
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param user_id path string true "User ID"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=any} "Relative user deleted successfully"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 403 {object} object{status=string,status_code=int,message=string,result=any} "Forbidden - Admin only"
+// @Router /api/admin/users/relatives/{user_id} [delete]
+func (c *UserController) DeleteRelativeByUserIDHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.StatusUnauthorized,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	targetUserID := strings.TrimSpace(ctx.Params("user_id"))
+	if targetUserID == "" {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.StatusBadRequest,
+			"message":     "user_id is required",
+			"result":      nil,
+		})
+	}
+
+	if err := c.userusecase.DeleteRelativeByUserID(targetUserID, userID); err != nil {
+		lowerErr := strings.ToLower(err.Error())
+		if strings.Contains(lowerErr, "admin") {
+			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"status":      fiber.ErrForbidden.Message,
+				"status_code": fiber.StatusForbidden,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
+		if strings.Contains(lowerErr, "not found") {
+			return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"status":      fiber.ErrNotFound.Message,
+				"status_code": fiber.StatusNotFound,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
+
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.StatusInternalServerError,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "Relative user deleted successfully",
 		"result":      nil,
 	})
 }

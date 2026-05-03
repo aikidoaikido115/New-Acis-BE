@@ -1,10 +1,22 @@
 package repositories
 
 import (
+	"strings"
+	"time"
+
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	user_constants "github.com/aikidoaikido115/New-Acis-BE/modules/user/constants"
 
 	"gorm.io/gorm"
 )
+
+type AdminRelativeUser struct {
+	UserID       string    `json:"user_id"`
+	RelativeID   string    `json:"relative_id"`
+	Username     string    `json:"username"`
+	ResidentName string    `json:"resident_name"`
+	CreatedAt    time.Time `json:"created_at"`
+}
 
 type GormUserRepository struct {
 	db *gorm.DB
@@ -34,9 +46,13 @@ type UserRepository interface {
 	UsernameExists(username string) (bool, error)
 	EmailExists(email string) (bool, error)
 	GetAllUsers() ([]*entities.User, error)
+	GetRelativeUsersWithResident() ([]AdminRelativeUser, error)
+	GetRelativeUserByUserID(userID string) (*AdminRelativeUser, error)
+	GetStaffIDMapByUserIDs(userIDs []string) (map[string]string, error)
 	UpdateUserByID(user *entities.User) error
 	UpdateUserApprovalByID(userID string, isApprove bool) error
 	DeleteStaffAndUserByStaffID(staffID string) error
+	DeleteRelativeAndUserByUserID(userID string) error
 	CreateOTP(otp *entities.OTP) error
 	GetOTPByUserID(userID string) (*entities.OTP, error)
 	DeleteOTP(userID string) error
@@ -193,6 +209,81 @@ func (r *GormUserRepository) GetAllUsers() ([]*entities.User, error) {
 	return users, nil
 }
 
+func (r *GormUserRepository) GetRelativeUsersWithResident() ([]AdminRelativeUser, error) {
+	var rows []AdminRelativeUser
+
+	residentNameExpr := strings.Join([]string{
+		"COALESCE(NULLIF(TRIM(CONCAT(COALESCE(residents.first_name, ''), ' ', COALESCE(residents.last_name, ''))), ''),",
+		"NULLIF(TRIM(COALESCE(residents.nickname, '')), ''),",
+		"users.username)",
+	}, " ")
+
+	if err := r.db.
+		Table("relatives").
+		Select("users.id AS user_id, relatives.id AS relative_id, users.username, "+residentNameExpr+" AS resident_name, users.created_at").
+		Joins("JOIN users ON users.id = relatives.user_id").
+		Joins("JOIN residents ON residents.id = relatives.resident_id").
+		Joins("JOIN roles ON roles.id = users.role_id").
+		Where("LOWER(TRIM(roles.name)) = LOWER(TRIM(?))", user_constants.RoleRelative).
+		Order("users.created_at DESC").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	return rows, nil
+}
+
+func (r *GormUserRepository) GetRelativeUserByUserID(userID string) (*AdminRelativeUser, error) {
+	residentNameExpr := strings.Join([]string{
+		"COALESCE(NULLIF(TRIM(CONCAT(COALESCE(residents.first_name, ''), ' ', COALESCE(residents.last_name, ''))), ''),",
+		"NULLIF(TRIM(COALESCE(residents.nickname, '')), ''),",
+		"users.username)",
+	}, " ")
+
+	var row AdminRelativeUser
+	err := r.db.
+		Table("relatives").
+		Select("users.id AS user_id, relatives.id AS relative_id, users.username, "+residentNameExpr+" AS resident_name, users.created_at").
+		Joins("JOIN users ON users.id = relatives.user_id").
+		Joins("JOIN residents ON residents.id = relatives.resident_id").
+		Joins("JOIN roles ON roles.id = users.role_id").
+		Where("users.id = ?", userID).
+		Where("LOWER(TRIM(roles.name)) = LOWER(TRIM(?))", user_constants.RoleRelative).
+		Take(&row).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &row, nil
+}
+
+func (r *GormUserRepository) GetStaffIDMapByUserIDs(userIDs []string) (map[string]string, error) {
+	result := map[string]string{}
+	if len(userIDs) == 0 {
+		return result, nil
+	}
+
+	type staffRow struct {
+		UserID  string
+		StaffID string
+	}
+
+	var rows []staffRow
+	if err := r.db.
+		Table("staffs").
+		Select("user_id, id as staff_id").
+		Where("user_id IN ?", userIDs).
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	for _, row := range rows {
+		result[row.UserID] = row.StaffID
+	}
+
+	return result, nil
+}
+
 func (r *GormUserRepository) UpdateUserByID(user *entities.User) error {
 	return r.db.Save(user).Error
 }
@@ -255,6 +346,40 @@ func (r *GormUserRepository) DeleteStaffAndUserByStaffID(staffID string) error {
 			return err
 		}
 		if err := tx.Delete(&entities.User{}, "id = ?", staff.UserID).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (r *GormUserRepository) DeleteRelativeAndUserByUserID(userID string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var relative entities.Relative
+		if err := tx.First(&relative, "user_id = ?", userID).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Exec("DELETE FROM relative_magic_link_tokens WHERE relative_id = ?", relative.ID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM daily_updates WHERE relative_id = ?", relative.ID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM support_tickets WHERE created_by_user_id = ?", userID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM otps WHERE user_id = ?", userID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM temp_tokens WHERE user_id = ?", userID).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Delete(&entities.Relative{}, "id = ?", relative.ID).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&entities.User{}, "id = ?", userID).Error; err != nil {
 			return err
 		}
 

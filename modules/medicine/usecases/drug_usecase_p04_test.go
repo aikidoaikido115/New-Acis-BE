@@ -86,6 +86,18 @@ func (f *fakeDrugPlanP04UserRepo) UpdateUserApprovalByID(userID string, isApprov
 func (f *fakeDrugPlanP04UserRepo) DeleteStaffAndUserByStaffID(staffID string) error {
 	return errors.New("not used")
 }
+func (f *fakeDrugPlanP04UserRepo) DeleteRelativeAndUserByUserID(userID string) error {
+	return errors.New("not used")
+}
+func (f *fakeDrugPlanP04UserRepo) GetRelativeUserByUserID(userID string) (*user_repository.AdminRelativeUser, error) {
+	return nil, errors.New("not used")
+}
+func (f *fakeDrugPlanP04UserRepo) GetRelativeUsersWithResident() ([]user_repository.AdminRelativeUser, error) {
+	return nil, errors.New("not used")
+}
+func (f *fakeDrugPlanP04UserRepo) GetStaffIDMapByUserIDs(userIDs []string) (map[string]string, error) {
+	return map[string]string{}, nil
+}
 func (f *fakeDrugPlanP04UserRepo) CreateOTP(otp *entities.OTP) error { return errors.New("not used") }
 func (f *fakeDrugPlanP04UserRepo) GetOTPByUserID(userID string) (*entities.OTP, error) {
 	return nil, errors.New("not used")

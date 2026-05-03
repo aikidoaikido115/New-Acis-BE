@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/configs"
+	user_repository "github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
 	audit_repository "github.com/aikidoaikido115/New-Acis-BE/modules/audit_logs/repositories"
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 	"github.com/golang-jwt/jwt/v5"
@@ -87,6 +88,18 @@ func (f *fakeUserP04Repo) UpdateUserApprovalByID(userID string, isApprove bool) 
 }
 func (f *fakeUserP04Repo) DeleteStaffAndUserByStaffID(staffID string) error {
 	return errors.New("not used")
+}
+func (f *fakeUserP04Repo) DeleteRelativeAndUserByUserID(userID string) error {
+	return errors.New("not used")
+}
+func (f *fakeUserP04Repo) GetRelativeUserByUserID(userID string) (*user_repository.AdminRelativeUser, error) {
+	return nil, errors.New("not used")
+}
+func (f *fakeUserP04Repo) GetRelativeUsersWithResident() ([]user_repository.AdminRelativeUser, error) {
+	return nil, errors.New("not used")
+}
+func (f *fakeUserP04Repo) GetStaffIDMapByUserIDs(userIDs []string) (map[string]string, error) {
+	return map[string]string{}, nil
 }
 func (f *fakeUserP04Repo) CreateOTP(otp *entities.OTP) error {
 	f.createdOTPs = append(f.createdOTPs, otp)
