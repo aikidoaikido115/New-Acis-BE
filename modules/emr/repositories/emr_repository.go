@@ -363,6 +363,7 @@ func (r *GormEmrRepository) GetNumberOfResidentsDashboard() (models.NumberOfResi
 	err := r.db.Model(&entities.Resident{}).
 		Joins("LEFT JOIN resident_labels ON residents.id = resident_labels.resident_id").
 		Joins("LEFT JOIN intake_labels ON resident_labels.label_id = intake_labels.id").
+		Where("residents.status = ?", "active").
 		Select(`
             COUNT(DISTINCT CASE WHEN intake_labels.label_name = ? THEN residents.id END) as independent_residents,
             COUNT(DISTINCT CASE WHEN intake_labels.label_name = ? THEN residents.id END) as partial_assist_residents,
@@ -396,27 +397,53 @@ func (r *GormEmrRepository) GetNumberOfResidentGender() (models.ResidentGenderSt
 func (r *GormEmrRepository) GetResidentAllergyStatsDashboard() (models.ResidentAllergyStatsDashboardResponse, error) {
 	var response models.ResidentAllergyStatsDashboardResponse
 
+	// Count allergic active residents (those with at least one allergy)
 	if err := r.db.Model(&entities.ResidentAllergies{}).
-		Distinct("resident_id").
+		Joins("JOIN residents ON resident_allergies.resident_id = residents.id").
+		Where("residents.status = ?", "active").
+		Distinct("resident_allergies.resident_id").
 		Count(&response.TotalAllergic).Error; err != nil {
 		return models.ResidentAllergyStatsDashboardResponse{}, err
 	}
 
+	// Count non-allergic active residents (those with no allergies)
 	if err := r.db.Model(&entities.Resident{}).
 		Joins("LEFT JOIN resident_allergies ON residents.id = resident_allergies.resident_id").
-		Where("resident_allergies.resident_id IS NULL").
+		Where("residents.status = ? AND resident_allergies.resident_id IS NULL", "active").
 		Distinct("residents.id").
 		Count(&response.TotalNotAllergic).Error; err != nil {
 		return models.ResidentAllergyStatsDashboardResponse{}, err
 	}
 
+	// Get allergy details for active residents grouped by allergy combination per resident
+	// First, get all allergies per active resident, then group by combination
+	var allergyGroupings []struct {
+		AllergyNames string
+		ResidentCount int64
+	}
+	
 	if err := r.db.Model(&entities.ResidentAllergies{}).
+		Joins("JOIN residents ON resident_allergies.resident_id = residents.id").
 		Joins("JOIN allergies ON resident_allergies.allergy_id = allergies.id").
-		Select("allergies.id as allergy_id, allergies.allergy_name as allergy_name, COUNT(DISTINCT resident_allergies.resident_id) as resident_count").
-		Group("allergies.id, allergies.allergy_name").
-		Order("resident_count DESC").
-		Scan(&response.AllergyDetails).Error; err != nil {
+		Where("residents.status = ?", "active").
+		Select("STRING_AGG(DISTINCT allergies.allergy_name, ' + ' ORDER BY allergies.allergy_name) as allergy_names, COUNT(DISTINCT resident_allergies.resident_id) as resident_count").
+		Group("resident_allergies.resident_id").
+		Scan(&allergyGroupings).Error; err != nil {
 		return models.ResidentAllergyStatsDashboardResponse{}, err
+	}
+
+	// Transform results into the response format
+	allergyCountMap := make(map[string]int64)
+	for _, group := range allergyGroupings {
+		allergyCountMap[group.AllergyNames] += group.ResidentCount
+	}
+
+	for allergyCombo, count := range allergyCountMap {
+		response.AllergyDetails = append(response.AllergyDetails, models.AllergyStatisticDashboardResponse{
+			AllergyID:     "",
+			AllergyName:   allergyCombo,
+			ResidentCount: count,
+		})
 	}
 
 	return response, nil

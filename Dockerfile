@@ -9,6 +9,4 @@ RUN go mod download
 COPY . .
 
 RUN go build -o main .
-
-# รัน migration และ start server
 CMD ["sh", "-c", "atlas migrate apply --env dev && ./main"]
