@@ -119,6 +119,14 @@ func (f *fakeDrugPlanRepo) GetDrugPlansByResidentIDToday(residentID string) ([]*
 	return f.plansToday, nil
 }
 
+func (f *fakeDrugPlanRepo) GetExpiredAsNeededPersonalDrugs(date time.Time, residentID *string) ([]*entities.PersonalDrug, error) {
+	return []*entities.PersonalDrug{}, nil
+}
+
+func (f *fakeDrugPlanRepo) GetActivePersonalDrugsForDate(date time.Time, residentID *string) ([]*entities.PersonalDrug, error) {
+	return []*entities.PersonalDrug{}, nil
+}
+
 type fakeDrugPlanAuditRepo struct {
 	*auditRepositories.GormAuditLogRepository
 	createAuditLogCalls int

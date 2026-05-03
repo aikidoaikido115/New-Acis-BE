@@ -150,6 +150,7 @@ func newDashboardUsecase(roleName string) (*emrUsecases.EmrUseCaseImpl, *fakeDas
 		userRepo,
 		drugUsecase,
 		configs.Supabase{},
+		configs.JWT{},
 	).(*emrUsecases.EmrUseCaseImpl)
 
 	return uc, userRepo, emrRepo, drugUsecase
