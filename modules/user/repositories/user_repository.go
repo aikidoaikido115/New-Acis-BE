@@ -11,11 +11,12 @@ import (
 )
 
 type AdminRelativeUser struct {
-	UserID       string    `json:"user_id"`
-	RelativeID   string    `json:"relative_id"`
-	Username     string    `json:"username"`
-	ResidentName string    `json:"resident_name"`
-	CreatedAt    time.Time `json:"created_at"`
+	UserID         string    `json:"user_id"`
+	RelativeID     string    `json:"relative_id"`
+	Username       string    `json:"username"`
+	ResidentName   string    `json:"resident_name"`
+	ResidentStatus string    `json:"resident_status"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 type GormUserRepository struct {
@@ -220,7 +221,7 @@ func (r *GormUserRepository) GetRelativeUsersWithResident() ([]AdminRelativeUser
 
 	if err := r.db.
 		Table("relatives").
-		Select("users.id AS user_id, relatives.id AS relative_id, users.username, "+residentNameExpr+" AS resident_name, users.created_at").
+		Select("users.id AS user_id, relatives.id AS relative_id, users.username, "+residentNameExpr+" AS resident_name, residents.status AS resident_status, users.created_at").
 		Joins("JOIN users ON users.id = relatives.user_id").
 		Joins("JOIN residents ON residents.id = relatives.resident_id").
 		Joins("JOIN roles ON roles.id = users.role_id").
@@ -243,7 +244,7 @@ func (r *GormUserRepository) GetRelativeUserByUserID(userID string) (*AdminRelat
 	var row AdminRelativeUser
 	err := r.db.
 		Table("relatives").
-		Select("users.id AS user_id, relatives.id AS relative_id, users.username, "+residentNameExpr+" AS resident_name, users.created_at").
+		Select("users.id AS user_id, relatives.id AS relative_id, users.username, "+residentNameExpr+" AS resident_name, residents.status AS resident_status, users.created_at").
 		Joins("JOIN users ON users.id = relatives.user_id").
 		Joins("JOIN residents ON residents.id = relatives.resident_id").
 		Joins("JOIN roles ON roles.id = users.role_id").
