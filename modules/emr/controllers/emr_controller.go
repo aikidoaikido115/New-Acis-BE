@@ -16,6 +16,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/datatypes"
+
+	"github.com/google/uuid"
 )
 
 type EmrController struct {
@@ -1045,6 +1047,61 @@ func (c *EmrController) GetAllIntakeLabelsHandler(ctx *fiber.Ctx) error {
 		"status_code": fiber.StatusOK,
 		"message":     "intake labels retrieved successfully",
 		"result":      labels,
+	})
+}
+
+// CreateIntakeLabelMaster godoc
+// @Summary Create Intake Label Master
+// @Description Create a new intake label master entry
+// @Tags Intake
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body object{label_name=string} true "Label name"
+// @Success 201 {object} object{status=string,status_code=int,message=string,result=object} "Intake label created successfully"
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any} "Bad Request - Missing required fields"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/intake-labels/master [post]
+func (c *EmrController) CreateIntakeLabelMasterHandler(ctx *fiber.Ctx) error {
+	var req models.IntakeLabelRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	newLabel, err := c.emrUsecase.CreateIntakeLabel(&entities.IntakeLabels{
+		ID:        uuid.New().String(),
+		LabelName: req.LabelName,
+	})
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusCreated,
+		"message":     "intake label created successfully",
+		"result":      newLabel,
 	})
 }
 

@@ -176,6 +176,7 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	labelGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetResidentLabelsByResidentIDHandler)
 	labelGroup.Get("/all", middlewares.JWTMiddleware(jwt), emrController.GetAllIntakeLabelsHandler)
 	labelGroup.Post("/", middlewares.JWTMiddleware(jwt), emrController.CreateIntakeLabelByResidentIDHandler)
+	labelGroup.Post("/master", middlewares.JWTMiddleware(jwt), emrController.CreateIntakeLabelMasterHandler)
 
 	allergyGroup := app.Group("/api/emr/allergies")
 	allergyGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetResidentAllergiesByResidentIDHandler)
