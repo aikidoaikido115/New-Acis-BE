@@ -623,7 +623,9 @@ func (uc *DrugUseCaseImpl) resolveMedicalStaffIDByName(firstName string, lastNam
 		}
 
 		if roleName != user_constants.RoleMedicalStaff {
-			continue
+			if roleName != user_constants.RoleSuperUser && roleName != user_constants.RoleAdmin {
+				continue
+			}
 		}
 
 		staff, staffErr := uc.userRepo.GetStaffByUserID(user.ID)

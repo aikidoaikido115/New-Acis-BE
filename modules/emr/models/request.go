@@ -225,7 +225,7 @@ type UpdateWoundCareNoteRequest struct {
 
 type CreateRelativeNoteRequest struct {
 	ResidentID string `json:"resident_id" binding:"required"`
-	Relation   string `json:"relation" binding:"required"`
+	Relation   string `json:"relation"`
 	Content    string `json:"content" binding:"required"`
 	SendNote   bool   `json:"send_note"`
 }
