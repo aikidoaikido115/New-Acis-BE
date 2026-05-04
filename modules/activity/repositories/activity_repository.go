@@ -241,11 +241,9 @@ func (r *GormActivityRepository) GetAllParticipations() ([]*entities.Participati
 func (r *GormActivityRepository) GetResidentsByScheduleIDCustom(asID string, params activityModels.ResidentsByScheduleQueryParams) ([]*entities.Participation, int64, error) {
 	var participations []*entities.Participation
 
-	buildQuery := func() *gorm.DB {
-		query := r.db.Model(&entities.Participation{}).
-			Joins("JOIN residents ON residents.id = participations.resident_id").
-			Joins("JOIN rooms ON rooms.id = residents.room_id").
-			Where("participations.as_id = ?", asID).
+	buildResidentQuery := func() *gorm.DB {
+		query := r.db.Model(&entities.Resident{}).
+			Joins("LEFT JOIN rooms ON rooms.id = residents.room_id").
 			Where("residents.status = ?", "active")
 
 		if params.Search != nil && *params.Search != "" {
@@ -268,26 +266,25 @@ func (r *GormActivityRepository) GetResidentsByScheduleIDCustom(asID string, par
 				Group("resident_labels.resident_id").
 				Having("COUNT(DISTINCT resident_labels.label_id) = ?", len(params.LabelIDs))
 
-			query = query.Where("participations.resident_id IN (?)", residentIDsSubQuery)
+			query = query.Where("residents.id IN (?)", residentIDsSubQuery)
 		}
 
 		return query
 	}
 
-	countSubQuery := buildQuery().Select("1")
+	countSubQuery := buildResidentQuery().Select("residents.id")
 	var total int64
-	if err := r.db.Table("(?) AS filtered_participations", countSubQuery).Count(&total).Error; err != nil {
+	if err := r.db.Table("(?) AS filtered_residents", countSubQuery).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// Return empty slice with 0 total if no participations found
 	if total == 0 {
 		return []*entities.Participation{}, 0, nil
 	}
 
-	dataQuery := buildQuery().
-		Preload("Resident.Room").
-		Preload("Resident.ResidentLabels.IntakeLabel").
+	dataQuery := buildResidentQuery().
+		Preload("Room").
+		Preload("ResidentLabels.IntakeLabel").
 		Order("rooms.floor ASC").
 		Order("rooms.room_number ASC").
 		Order("residents.first_name ASC")
@@ -299,8 +296,47 @@ func (r *GormActivityRepository) GetResidentsByScheduleIDCustom(asID string, par
 		dataQuery = dataQuery.Offset(params.Offset)
 	}
 
-	if err := dataQuery.Find(&participations).Error; err != nil {
+	var residents []*entities.Resident
+	if err := dataQuery.Find(&residents).Error; err != nil {
 		return nil, 0, err
+	}
+
+	if len(residents) == 0 {
+		return []*entities.Participation{}, 0, nil
+	}
+
+	residentIDs := make([]string, 0, len(residents))
+	for _, resident := range residents {
+		residentIDs = append(residentIDs, resident.ID)
+	}
+
+	participationMap := make(map[string]*entities.Participation, len(residentIDs))
+	if len(residentIDs) > 0 {
+		existingParticipations, err := r.GetParticipationsByASIDAndResidentIDs(asID, residentIDs)
+		if err != nil {
+			return nil, 0, err
+		}
+		for _, participation := range existingParticipations {
+			participationMap[participation.ResidentID] = participation
+		}
+	}
+
+	participations = make([]*entities.Participation, 0, len(residents))
+	for _, resident := range residents {
+		isParticipating := false
+		imgURLs := []entities.ImageURL{}
+		if existing := participationMap[resident.ID]; existing != nil {
+			isParticipating = existing.IsParticipating
+			imgURLs = existing.ImgURLs
+		}
+
+		participations = append(participations, &entities.Participation{
+			ResidentID:      resident.ID,
+			ASID:            asID,
+			IsParticipating: isParticipating,
+			ImgURLs:         imgURLs,
+			Resident:        *resident,
+		})
 	}
 
 	return participations, total, nil
