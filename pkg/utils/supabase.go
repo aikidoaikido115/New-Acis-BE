@@ -11,8 +11,8 @@ import (
 	storage_go "github.com/supabase-community/storage-go"
 )
 
-// UploadImageFromFile - รับ multipart.File โดยตรง ไม่ต้องสร้างโฟลเดอร์
-func UploadImageFromFile(file multipart.File, fileName string, dir string, config configs.Supabase) (string, error) {
+// UploadFile - รับ multipart.File โดยตรง
+func UploadFile2Supa(file multipart.File, fileName string, dir string, config configs.Supabase) (string, error) {
 	log.Printf("=== SUPABASE CONFIG CHECK ===")
 	log.Printf("URL: '%s' (len=%d)", config.URL, len(config.URL))
 	log.Printf("Bucket: '%s' (len=%d)", config.Bucket, len(config.Bucket))
@@ -58,8 +58,8 @@ func UploadImageFromFile(file multipart.File, fileName string, dir string, confi
 	return url, nil
 }
 
-// UploadImageFromBytes - รับ byte array โดยตรง
-func UploadImageFromBytes(data []byte, fileName string, dir string, config configs.Supabase) (string, error) {
+// UploadFileFromBytes - รับ byte array โดยตรง
+func UploadFileFromBytes(data []byte, fileName string, dir string, config configs.Supabase) (string, error) {
 	log.Printf("Supabase Config - URL: %s, Bucket: %s", config.URL, config.Bucket)
 	log.Printf("Supabase Config - ServiceKey: %s", config.ServiceKey)
 	if config.URL == "" || config.ServiceKey == "" || config.Bucket == "" {
@@ -106,6 +106,8 @@ func getContentType(fileName string) string {
 		return "image/gif"
 	case contains(fileName, ".webp"):
 		return "image/webp"
+	case contains(fileName, ".pdf"):
+		return "application/pdf"
 	default:
 		return "image/jpeg"
 	}

@@ -5,7 +5,8 @@ import (
 	"log"
 
 	"github.com/aikidoaikido115/New-Acis-BE/configs"
-	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	// "github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+	"github.com/aikidoaikido115/New-Acis-BE/pkg/database/seed"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -13,7 +14,7 @@ import (
 
 var db *gorm.DB
 
-func InitDB(config configs.PostgreSQL) {
+func InitDB(config configs.PostgreSQL, seedAdmin configs.SeedAdmin) {
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 		config.Host,
@@ -30,15 +31,23 @@ func InitDB(config configs.PostgreSQL) {
 		log.Fatalf("Database connection failed: %v", err)
 	}
 
-	if err := db.AutoMigrate(
-		&entities.User{},
-		&entities.OTP{},
-		&entities.TempToken{},
-	); err != nil {
-		log.Fatalf("Database migration failed: %v", err)
-	}
+	// Run migrations
+	// if err := db.AutoMigrate(
+	// 	&entities.Role{},
+	// 	&entities.User{},
+	// 	&entities.Staff{},
+	// 	&entities.StaffsFiles{},
+	// 	&entities.OTP{},
+	// 	&entities.TempToken{},
+	// 	&entities.AuditLogs{},
+	// ); err != nil {
+	// 	log.Fatalf("Database migration failed: %v", err)
+	// }
 
 	log.Printf("Database connected: %s@%s:%s/%s", config.Username, config.Host, config.Port, config.Database)
+
+	// Auto seed database
+	seed.RunAll(db, seedAdmin)
 }
 
 func GetDB() *gorm.DB {
