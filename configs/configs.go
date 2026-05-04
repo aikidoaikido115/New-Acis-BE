@@ -13,7 +13,6 @@ type Configs struct {
 	JWT        JWT
 	Supabase   Supabase
 	Mail       Mail
-	SeedAdmin  SeedAdmin
 }
 
 type Server struct {
@@ -56,16 +55,6 @@ type Mail struct {
 	Key    string
 }
 
-type SeedAdmin struct {
-	Username  string
-	Email     string
-	Password  string
-	RoleName  string
-	FirstName string
-	LastName  string
-	Nickname  string
-}
-
 func LoadConfigs() *Configs {
 	// โหลด .env ตาม environment
 	env := getEnv("GO_ENV", "development")
@@ -97,13 +86,13 @@ func LoadConfigs() *Configs {
 			Port:     getEnv("DB_PORT", "5432"),
 			Username: getEnv("DB_USER", "postgres"),
 			Password: getEnv("DB_PASSWORD", "password"),
-			Database: getEnv("DB_NAME", "test"),
+			Database: getEnv("DB_NAME", "chronocount"),
 			SSLMode:  getEnv("SSL_Mode", "disable"),
 		},
 		Server: Server{
-			Host:    getEnv("SERVER_HOST", "0.0.0.0"),
-			Port:    getEnv("PORT", getEnv("SERVER_PORT", "8080")), // Heroku ใช้ PORT env
-			AppName: "New Acis",
+			Host:    getEnv("SERVER_HOST", ""),
+			Port:    getEnv("SERVER_PORT", "8080"),
+			AppName: "Chronocount",
 			CORS: CORS{
 				AllowOrigins:     getEnv("CORS_ALLOW_ORIGINS", "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000"),
 				AllowMethods:     getEnv("CORS_ALLOW_METHODS", "GET,POST,PUT,DELETE,OPTIONS"),
@@ -124,15 +113,6 @@ func LoadConfigs() *Configs {
 			Port:   os.Getenv("EMAIL_PORT"),
 			Sender: os.Getenv("SENDER_EMAIL"),
 			Key:    os.Getenv("APP_PASSWORD"),
-		},
-		SeedAdmin: SeedAdmin{
-			Username:  getEnv("ADMIN_USERNAME", "admin"),
-			Email:     getEnv("ADMIN_EMAIL", "admin@example.com"),
-			Password:  getEnv("ADMIN_PASSWORD", "password"),
-			RoleName:  getEnv("ROLE_NAME", "Admin"),
-			FirstName: getEnv("FIRST_NAME", "Admin"),
-			LastName:  getEnv("LAST_NAME", "User"),
-			Nickname:  getEnv("NICKNAME", "Admin"),
 		},
 	}
 }
