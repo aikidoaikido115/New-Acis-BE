@@ -148,7 +148,7 @@ func (r *GormActivityRepository) CreateActivityScheduleWithDefaultParticipations
 
 func (r *GormActivityRepository) GetActivityScheduleByID(id string) (*entities.ActivitySchedule, error) {
 	var activitySchedule entities.ActivitySchedule
-	if err := r.db.Preload("Activity").Where("id = ?", id).First(&activitySchedule).Error; err != nil {
+	if err := r.db.Preload("Activity").Preload("Activity.Staff").Where("id = ?", id).First(&activitySchedule).Error; err != nil {
 		return nil, err
 	}
 
@@ -157,7 +157,7 @@ func (r *GormActivityRepository) GetActivityScheduleByID(id string) (*entities.A
 
 func (r *GormActivityRepository) GetAllActivitySchedules() ([]*entities.ActivitySchedule, error) {
 	var activitySchedules []*entities.ActivitySchedule
-	if err := r.db.Preload("Activity").Find(&activitySchedules).Error; err != nil {
+	if err := r.db.Preload("Activity").Preload("Activity.Staff").Find(&activitySchedules).Error; err != nil {
 		return nil, err
 	}
 
@@ -167,7 +167,7 @@ func (r *GormActivityRepository) GetAllActivitySchedules() ([]*entities.Activity
 func (r *GormActivityRepository) GetActivitySchedulesWithActivitySyncByDate(date *time.Time) ([]*entities.ActivitySchedule, error) {
 	var activitySchedules []*entities.ActivitySchedule
 
-	query := r.db.Model(&entities.ActivitySchedule{}).Preload("Activity")
+	query := r.db.Model(&entities.ActivitySchedule{}).Preload("Activity").Preload("Activity.Staff")
 	if date != nil {
 		loc := time.FixedZone("ICT", 7*60*60)
 		dayStart := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc)
@@ -209,7 +209,7 @@ func (r *GormActivityRepository) CreateParticipation(participation *entities.Par
 
 func (r *GormActivityRepository) GetParticipationByResidentIDAndASID(residentID, asID string) (*entities.Participation, error) {
 	var participation entities.Participation
-	if err := r.db.Preload("Resident").Preload("ActivitySchedule").
+	if err := r.db.Preload("Resident").Preload("ActivitySchedule").Preload("ActivitySchedule.Activity").
 		Where("resident_id = ? AND as_id = ?", residentID, asID).
 		First(&participation).Error; err != nil {
 		return nil, err
@@ -220,7 +220,7 @@ func (r *GormActivityRepository) GetParticipationByResidentIDAndASID(residentID,
 
 func (r *GormActivityRepository) GetParticipationsByASIDAndResidentIDs(asID string, residentIDs []string) ([]*entities.Participation, error) {
 	var participations []*entities.Participation
-	if err := r.db.Preload("Resident").Preload("ActivitySchedule").
+	if err := r.db.Preload("Resident").Preload("ActivitySchedule").Preload("ActivitySchedule.Activity").
 		Where("as_id = ? AND resident_id IN ?", asID, residentIDs).
 		Find(&participations).Error; err != nil {
 		return nil, err
@@ -231,7 +231,7 @@ func (r *GormActivityRepository) GetParticipationsByASIDAndResidentIDs(asID stri
 
 func (r *GormActivityRepository) GetAllParticipations() ([]*entities.Participation, error) {
 	var participations []*entities.Participation
-	if err := r.db.Preload("Resident").Preload("ActivitySchedule").Find(&participations).Error; err != nil {
+	if err := r.db.Preload("Resident").Preload("ActivitySchedule").Preload("ActivitySchedule.Activity").Find(&participations).Error; err != nil {
 		return nil, err
 	}
 
