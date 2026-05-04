@@ -22,27 +22,10 @@ services:
     ports:
       - "8000:8000"
     restart: on-failure
-    env_file:
-      - .env.dev
     environment:
       - DB_HOST=postgres
-      - ALLERGEN_FILTER_AI_API_URL=${ALLERGEN_FILTER_AI_API_URL:-http://model:7111}
     depends_on:
       - postgres
-      - model
-  model:
-    image: aikidoaikido115/new-acis-ai:1.0.3
-    container_name: new_acis_ai
-    restart: unless-stopped
-    env_file:
-      - .env.dev
-    environment:
-      API_HOST: 0.0.0.0
-      API_PORT: 7111
-    ports:
-      - "7111:7111"
-    expose:
-      - "7111"
 volumes:
   postgres_data:
     driver: local
