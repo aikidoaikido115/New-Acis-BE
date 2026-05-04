@@ -263,6 +263,10 @@ func (r *GormDrugRepository) GetPersonalDrugsByTakeTypeToday(takeType string) ([
 	if err := r.db.
 		Preload("Resident").
 		Preload("DrugMaster").
+		Joins("JOIN residents ON personal_drugs.resident_id = residents.id").
+		Where("residents.status = ?", "active").
+		Where("(residents.check_in_date IS NULL OR residents.check_in_date <= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)").
+		Where("(residents.expected_check_out_date IS NULL OR residents.expected_check_out_date >= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)").
 		Where("LOWER(personal_drugs.take_type) = LOWER(?)", takeType).
 		Where("personal_drugs.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
 		Where("personal_drugs.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'").
@@ -281,6 +285,9 @@ func (r *GormDrugRepository) SearchPersonalDrugsTodayByResidentName(search strin
 		Preload("Resident").
 		Preload("DrugMaster").
 		Joins("JOIN residents ON personal_drugs.resident_id = residents.id").
+		Where("residents.status = ?", "active").
+		Where("(residents.check_in_date IS NULL OR residents.check_in_date <= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)").
+		Where("(residents.expected_check_out_date IS NULL OR residents.expected_check_out_date >= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)").
 		Where("(residents.first_name ILIKE ? OR residents.last_name ILIKE ? OR residents.nickname ILIKE ?)", like, like, like).
 		Where("personal_drugs.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
 		Where("personal_drugs.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'").
@@ -297,6 +304,10 @@ func (r *GormDrugRepository) GetPersonalDrugsTodayCustom(timeOfDay *string, sear
 
 	applyFilters := func(query *gorm.DB) *gorm.DB {
 		query = query.
+			Joins("JOIN residents ON personal_drugs.resident_id = residents.id").
+			Where("residents.status = ?", "active").
+			Where("(residents.check_in_date IS NULL OR residents.check_in_date <= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)").
+			Where("(residents.expected_check_out_date IS NULL OR residents.expected_check_out_date >= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)").
 			Where("personal_drugs.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
 			Where("personal_drugs.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
 
@@ -310,9 +321,7 @@ func (r *GormDrugRepository) GetPersonalDrugsTodayCustom(timeOfDay *string, sear
 
 		if search != nil && *search != "" {
 			like := "%" + *search + "%"
-			query = query.
-				Joins("JOIN residents ON personal_drugs.resident_id = residents.id").
-				Where("(residents.first_name ILIKE ? OR residents.last_name ILIKE ? OR residents.nickname ILIKE ?)", like, like, like)
+			query = query.Where("(residents.first_name ILIKE ? OR residents.last_name ILIKE ? OR residents.nickname ILIKE ?)", like, like, like)
 		}
 
 		return query
@@ -354,6 +363,10 @@ func (r *GormDrugRepository) GetActivePersonalDrugsForDate(date time.Time, resid
 	query := r.db.
 		Preload("Resident").
 		Preload("DrugMaster").
+		Joins("JOIN residents ON personal_drugs.resident_id = residents.id").
+		Where("residents.status = ?", "active").
+		Where("(residents.check_in_date IS NULL OR residents.check_in_date <= ?::date)", dayDate).
+		Where("(residents.expected_check_out_date IS NULL OR residents.expected_check_out_date >= ?::date)", dayDate).
 		Where("personal_drugs.created_at < ?", dayEnd).
 		Where("(LOWER(personal_drugs.take_type) = 'regular' OR (LOWER(personal_drugs.take_type) = 'as_needed' AND personal_drugs.start_date IS NOT NULL AND personal_drugs.end_date IS NOT NULL AND personal_drugs.start_date <= ?::date AND personal_drugs.end_date >= ?::date))", dayDate, dayDate)
 
@@ -538,10 +551,13 @@ func (r *GormDrugRepository) GetDrugPlansTodayCustom(timeOfDay *string, search *
 	applyFilters := func(query *gorm.DB) *gorm.DB {
 		query = query.
 			Joins("JOIN personal_drugs ON drug_plans.pd_id = personal_drugs.id").
+			Joins("JOIN residents ON personal_drugs.resident_id = residents.id").
+			Where("residents.status = ?", "active").
+			Where("(residents.check_in_date IS NULL OR residents.check_in_date <= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)").
+			Where("(residents.expected_check_out_date IS NULL OR residents.expected_check_out_date >= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)").
 			Where("drug_plans.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
 			Where("drug_plans.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
 
-		needResidentsJoin := false
 		needRoomsJoin := false
 		needLabelsJoin := false
 
@@ -555,26 +571,19 @@ func (r *GormDrugRepository) GetDrugPlansTodayCustom(timeOfDay *string, search *
 
 		if search != nil && *search != "" {
 			like := "%" + *search + "%"
-			needResidentsJoin = true
 			query = query.Where("(residents.first_name ILIKE ? OR residents.last_name ILIKE ? OR residents.nickname ILIKE ?)", like, like, like)
 		}
 
 		if floor != nil {
-			needResidentsJoin = true
 			needRoomsJoin = true
 			query = query.Where("rooms.floor = ?", *floor)
 		}
 
 		if len(labelIDs) > 0 {
-			needResidentsJoin = true
 			needLabelsJoin = true
 			query = query.Where("resident_labels.label_id IN ?", labelIDs).
 				Group("drug_plans.id").
 				Having("COUNT(DISTINCT resident_labels.label_id) = ?", len(labelIDs))
-		}
-
-		if needResidentsJoin {
-			query = query.Joins("JOIN residents ON personal_drugs.resident_id = residents.id")
 		}
 		if needRoomsJoin {
 			query = query.Joins("JOIN rooms ON residents.room_id = rooms.id")
@@ -622,11 +631,17 @@ func (r *GormDrugRepository) GetDrugAdministrationHistory(req models.DrugAdminis
 
 	if req.Date != nil && *req.Date != "" {
 		query = query.Where("DATE(dp.created_at AT TIME ZONE 'Asia/Bangkok') = ?::date", *req.Date)
+		query = query.Where("(r.check_in_date IS NULL OR r.check_in_date <= ?::date)", *req.Date)
+		query = query.Where("(r.expected_check_out_date IS NULL OR r.expected_check_out_date >= ?::date)", *req.Date)
 	} else {
 		query = query.
 			Where("dp.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'").
 			Where("dp.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'")
+		query = query.Where("(r.check_in_date IS NULL OR r.check_in_date <= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)")
+		query = query.Where("(r.expected_check_out_date IS NULL OR r.expected_check_out_date >= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)")
 	}
+
+	query = query.Where("r.status = 'active'")
 
 	if req.TimeOfDay != nil && *req.TimeOfDay != "" {
 		query = query.Where("pd.time_of_day ILIKE ?", "%"+*req.TimeOfDay+"%")
@@ -699,8 +714,12 @@ func (r *GormDrugRepository) GetDrugPlansTodayResidentSummary() (*models.DrugPla
 				SUM(CASE WHEN dp.is_taken = TRUE THEN 1 ELSE 0 END) AS taken_count
 			FROM drug_plans dp
 			JOIN personal_drugs pd ON dp.pd_id = pd.id
+			JOIN residents r ON pd.resident_id = r.id
 			WHERE dp.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'
 				AND dp.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'
+				AND r.status = 'active'
+				AND (r.check_in_date IS NULL OR r.check_in_date <= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)
+				AND (r.expected_check_out_date IS NULL OR r.expected_check_out_date >= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)
 			GROUP BY pd.resident_id
 		) s
 	`).Scan(&summary).Error
@@ -734,8 +753,12 @@ func (r *GormDrugRepository) GetDrugPlansTodayTimeOfDayResidentSummary() ([]*mod
 				SUM(CASE WHEN dp.is_taken = FALSE THEN 1 ELSE 0 END) AS waiting_count
 			FROM drug_plans dp
 			JOIN personal_drugs pd ON dp.pd_id = pd.id
+			JOIN residents r ON pd.resident_id = r.id
 			WHERE dp.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok'
 				AND dp.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' + INTERVAL '1 day'
+				AND r.status = 'active'
+				AND (r.check_in_date IS NULL OR r.check_in_date <= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)
+				AND (r.expected_check_out_date IS NULL OR r.expected_check_out_date >= (NOW() AT TIME ZONE 'Asia/Bangkok')::date)
 			GROUP BY pd.resident_id, time_of_day
 		) s
 		WHERE s.time_of_day IS NOT NULL
