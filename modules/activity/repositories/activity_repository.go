@@ -274,7 +274,7 @@ func (r *GormActivityRepository) GetResidentsByScheduleIDCustom(asID string, par
 		return query
 	}
 
-	countSubQuery := buildQuery().Select("participations.id")
+	countSubQuery := buildQuery().Select("1")
 	var total int64
 	if err := r.db.Table("(?) AS filtered_participations", countSubQuery).Count(&total).Error; err != nil {
 		return nil, 0, err
