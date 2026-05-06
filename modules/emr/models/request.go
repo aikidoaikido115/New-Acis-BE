@@ -17,12 +17,12 @@ type CreateResidentRequest struct {
 	Status                     string             `json:"status" binding:"required"`
 	PreExistingConditions      *string            `json:"pre_existing_conditions"`
 	PreExistingConditionsNotes *string            `json:"pre_existing_conditions_notes"`
-	ResucitationStatus         *string            `json:"resuscitation_status"`
+	ResucitationStatus         *string            `json:"resuscitation_status" binding:"required"`
 	SugicalHistory             *string            `json:"surgical_history"`
-	PreferredEmergencyHospital *string            `json:"preferred_emergency_hospital"`
-	EmergencyHospitalPhone     *string            `json:"emergency_hospital_phone"`
+	PreferredEmergencyHospital *string            `json:"preferred_emergency_hospital" binding:"required"`
+	EmergencyHospitalPhone     *string            `json:"emergency_hospital_phone" binding:"required"`
 	ProfileImage               *string            `json:"profile_image"`
-	EmergencyContacts          []EmergencyContact `json:"emergency_contacts"`
+	EmergencyContacts          []EmergencyContact `json:"emergency_contacts" binding:"required"`
 }
 
 type EmergencyContact struct {

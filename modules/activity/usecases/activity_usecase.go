@@ -163,6 +163,11 @@ func (uc *ActivityUseCaseImpl) UpdateActivityByID(id string, req activityModels.
 
 	oldValue, _ := json.Marshal(existingActivity)
 
+	staff, staffErr := uc.userRepo.GetStaffByUserID(userID)
+    if staffErr == nil {
+        existingActivity.StaffID = staff.ID
+    }
+
 	if req.StaffID != nil {
 		staffID := strings.TrimSpace(*req.StaffID)
 		if staffID == "" {
@@ -203,7 +208,7 @@ func (uc *ActivityUseCaseImpl) UpdateActivityByID(id string, req activityModels.
 	newValue, _ := json.Marshal(updatedActivity)
 	uc.createAuditLog(userID, audit_constants.AuditActionUpdate, "activities", updatedActivity.ID, string(oldValue), string(newValue))
 
-	return updatedActivity, nil
+	return uc.repo.GetActivityByID(id)
 }
 
 func (uc *ActivityUseCaseImpl) DeleteActivityByID(id string) error {
@@ -282,6 +287,13 @@ func (uc *ActivityUseCaseImpl) CreateActivityScheduleWithActivitySync(req activi
 	updateReq := activityModels.UpdateActivityRequest{}
 	needUpdate := false
 
+	staff, staffErr := uc.userRepo.GetStaffByUserID(userID)
+    if staffErr == nil {
+        staffIDStr := staff.ID
+        updateReq.StaffID = &staffIDStr
+        needUpdate = true
+    }
+
 	if existingActivity.ActivityType != activityType {
 		updateReq.ActivityType = &activityType
 		needUpdate = true
@@ -357,6 +369,13 @@ func (uc *ActivityUseCaseImpl) UpdateActivityScheduleWithActivitySyncByID(id str
 
 	activityUpdateReq := activityModels.UpdateActivityRequest{}
 	needUpdateActivity := false
+
+	staff, staffErr := uc.userRepo.GetStaffByUserID(userID)
+    if staffErr == nil {
+        staffIDStr := staff.ID
+        activityUpdateReq.StaffID = &staffIDStr
+        needUpdateActivity = true
+    }
 
 	if req.ActivityName != nil {
 		activityName := strings.TrimSpace(*req.ActivityName)
@@ -684,6 +703,11 @@ func (uc *ActivityUseCaseImpl) CreateParticipation(req activityModels.CreatePart
 		return nil, err
 	}
 
+	existingSchedule, err := uc.repo.GetActivityScheduleByID(asID)
+    if err == nil {
+        _, _ = uc.UpdateActivityByID(existingSchedule.ActivityID, activityModels.UpdateActivityRequest{}, userID)
+    }
+
 	newValue, _ := json.Marshal(createdParticipation)
 	uc.createAuditLog(userID, audit_constants.AuditActionInsert, "participations", residentID+"-"+asID, "", string(newValue))
 
@@ -854,6 +878,11 @@ func (uc *ActivityUseCaseImpl) UpdateParticipationByResidentIDAndASID(residentID
 	if err != nil {
 		return nil, err
 	}
+
+	existingSchedule, err := uc.repo.GetActivityScheduleByID(asID)
+    if err == nil {
+        _, _ = uc.UpdateActivityByID(existingSchedule.ActivityID, activityModels.UpdateActivityRequest{}, userID)
+    }
 
 	newValue, _ := json.Marshal(updatedParticipation)
 	uc.createAuditLog(userID, audit_constants.AuditActionUpdate, "participations", residentID+"-"+asID, string(oldValue), string(newValue))
