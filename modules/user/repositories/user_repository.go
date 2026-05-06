@@ -153,6 +153,10 @@ func (r *GormUserRepository) GetStaffByID(id string) (*entities.Staff, error) {
 }
 
 func (r *GormUserRepository) GetStaffByUserID(userID string) (*entities.Staff, error) {
+	if r.db == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+
 	var staff entities.Staff
 	if err := r.db.Preload("User").First(&staff, "user_id = ?", userID).Error; err != nil {
 		return nil, err
