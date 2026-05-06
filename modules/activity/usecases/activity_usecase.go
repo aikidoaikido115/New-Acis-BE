@@ -705,7 +705,7 @@ func (uc *ActivityUseCaseImpl) CreateParticipation(req activityModels.CreatePart
 
 	existingSchedule, err := uc.repo.GetActivityScheduleByID(asID)
     if err == nil {
-        uc.UpdateActivityByID(existingSchedule.ActivityID, activityModels.UpdateActivityRequest{}, userID)
+        _, _ = uc.UpdateActivityByID(existingSchedule.ActivityID, activityModels.UpdateActivityRequest{}, userID)
     }
 
 	newValue, _ := json.Marshal(createdParticipation)
@@ -881,7 +881,7 @@ func (uc *ActivityUseCaseImpl) UpdateParticipationByResidentIDAndASID(residentID
 
 	existingSchedule, err := uc.repo.GetActivityScheduleByID(asID)
     if err == nil {
-        uc.UpdateActivityByID(existingSchedule.ActivityID, activityModels.UpdateActivityRequest{}, userID)
+        _, _ = uc.UpdateActivityByID(existingSchedule.ActivityID, activityModels.UpdateActivityRequest{}, userID)
     }
 
 	newValue, _ := json.Marshal(updatedParticipation)
