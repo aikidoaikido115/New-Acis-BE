@@ -14,6 +14,7 @@ env "dev" {
   
   migration {
     dir = "file://migrations"
+    revisions_schema = "atlas_schema_revisions"
   }
   
   format {
