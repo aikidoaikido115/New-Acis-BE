@@ -164,9 +164,9 @@ func (uc *ActivityUseCaseImpl) UpdateActivityByID(id string, req activityModels.
 	oldValue, _ := json.Marshal(existingActivity)
 
 	staff, staffErr := uc.userRepo.GetStaffByUserID(userID)
-    if staffErr == nil {
-        existingActivity.StaffID = staff.ID
-    }
+	if staffErr == nil {
+		existingActivity.StaffID = staff.ID
+	}
 
 	if req.StaffID != nil {
 		staffID := strings.TrimSpace(*req.StaffID)
@@ -288,11 +288,11 @@ func (uc *ActivityUseCaseImpl) CreateActivityScheduleWithActivitySync(req activi
 	needUpdate := false
 
 	staff, staffErr := uc.userRepo.GetStaffByUserID(userID)
-    if staffErr == nil {
-        staffIDStr := staff.ID
-        updateReq.StaffID = &staffIDStr
-        needUpdate = true
-    }
+	if staffErr == nil {
+		staffIDStr := staff.ID
+		updateReq.StaffID = &staffIDStr
+		needUpdate = true
+	}
 
 	if existingActivity.ActivityType != activityType {
 		updateReq.ActivityType = &activityType
@@ -371,11 +371,11 @@ func (uc *ActivityUseCaseImpl) UpdateActivityScheduleWithActivitySyncByID(id str
 	needUpdateActivity := false
 
 	staff, staffErr := uc.userRepo.GetStaffByUserID(userID)
-    if staffErr == nil {
-        staffIDStr := staff.ID
-        activityUpdateReq.StaffID = &staffIDStr
-        needUpdateActivity = true
-    }
+	if staffErr == nil {
+		staffIDStr := staff.ID
+		activityUpdateReq.StaffID = &staffIDStr
+		needUpdateActivity = true
+	}
 
 	if req.ActivityName != nil {
 		activityName := strings.TrimSpace(*req.ActivityName)
@@ -634,6 +634,15 @@ func (uc *ActivityUseCaseImpl) UpdateActivityScheduleByID(id string, req activit
 		return nil, errors.New("end_time must be after start_time")
 	}
 
+	staff, staffErr := uc.userRepo.GetStaffByUserID(userID)
+	if staffErr == nil {
+		staffIDStr := staff.ID
+		activityUpdateReq := activityModels.UpdateActivityRequest{StaffID: &staffIDStr}
+		if _, err := uc.UpdateActivityByID(existingActivitySchedule.ActivityID, activityUpdateReq, userID); err != nil {
+			return nil, err
+		}
+	}
+
 	existingActivitySchedule.StartTime = candidateStartTime
 	existingActivitySchedule.EndTime = candidateEndTime
 	existingActivitySchedule.UpdatedAt = time.Now()
@@ -704,9 +713,9 @@ func (uc *ActivityUseCaseImpl) CreateParticipation(req activityModels.CreatePart
 	}
 
 	existingSchedule, err := uc.repo.GetActivityScheduleByID(asID)
-    if err == nil {
-        _, _ = uc.UpdateActivityByID(existingSchedule.ActivityID, activityModels.UpdateActivityRequest{}, userID)
-    }
+	if err == nil {
+		_, _ = uc.UpdateActivityByID(existingSchedule.ActivityID, activityModels.UpdateActivityRequest{}, userID)
+	}
 
 	newValue, _ := json.Marshal(createdParticipation)
 	uc.createAuditLog(userID, audit_constants.AuditActionInsert, "participations", residentID+"-"+asID, "", string(newValue))
@@ -880,9 +889,9 @@ func (uc *ActivityUseCaseImpl) UpdateParticipationByResidentIDAndASID(residentID
 	}
 
 	existingSchedule, err := uc.repo.GetActivityScheduleByID(asID)
-    if err == nil {
-        _, _ = uc.UpdateActivityByID(existingSchedule.ActivityID, activityModels.UpdateActivityRequest{}, userID)
-    }
+	if err == nil {
+		_, _ = uc.UpdateActivityByID(existingSchedule.ActivityID, activityModels.UpdateActivityRequest{}, userID)
+	}
 
 	newValue, _ := json.Marshal(updatedParticipation)
 	uc.createAuditLog(userID, audit_constants.AuditActionUpdate, "participations", residentID+"-"+asID, string(oldValue), string(newValue))
