@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
+)
 
 type CreateResidentRequest struct {
 	RoomID    *string `json:"room_id"`
@@ -288,17 +292,26 @@ type RelativeMagicLinkResponse struct {
 }
 
 type RelativeDashboardResponse struct {
-	ResidentID    string                  `json:"resident_id"`
-	ResidentName  string                  `json:"resident_name"`
-	Date          string                  `json:"date"`
-	LastUpdatedAt *string                 `json:"last_updated_at"`
-	Notes         []RelativeDashboardNote `json:"notes"`
+	ResidentID     string                           `json:"resident_id"`
+	ResidentName   string                           `json:"resident_name"`
+	Date           string                           `json:"date"`
+	LastUpdatedAt  *string                          `json:"last_updated_at"`
+	Notes          []RelativeDashboardNote          `json:"notes"`
+	Participations []RelativeDashboardParticipation `json:"participations"`
 }
 
 type RelativeDashboardNote struct {
 	ID        string `json:"id"`
 	Content   string `json:"content"`
 	CreatedAt string `json:"created_at"`
+}
+
+type RelativeDashboardParticipation struct {
+	ResidentID       string                    `json:"resident_id"`
+	ASID             string                    `json:"as_id"`
+	IsParticipating  bool                      `json:"is_participating"`
+	ImgURLs          []entities.ImageURL       `json:"img_urls"`
+	ActivitySchedule entities.ActivitySchedule `json:"activity_schedule"`
 }
 
 type RelativePatientInfoResponse struct {

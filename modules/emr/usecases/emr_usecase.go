@@ -3862,6 +3862,10 @@ func (uc *EmrUseCaseImpl) GetRelativeDashboard(userID string, dateInput string) 
 	if err != nil {
 		return nil, errors.New("failed to get relative notes: " + err.Error())
 	}
+	participations, err := uc.emrrepo.GetParticipationsByResidentIDOnDate(relative.ResidentID, selectedDate)
+	if err != nil {
+		return nil, errors.New("failed to get participations: " + err.Error())
+	}
 
 	resultNotes := make([]models.RelativeDashboardNote, 0)
 	var lastUpdated *time.Time
@@ -3895,12 +3899,27 @@ func (uc *EmrUseCaseImpl) GetRelativeDashboard(userID string, dateInput string) 
 		lastUpdatedText = &text
 	}
 
+	resultParticipations := make([]models.RelativeDashboardParticipation, 0, len(participations))
+	for _, participation := range participations {
+		if participation == nil {
+			continue
+		}
+		resultParticipations = append(resultParticipations, models.RelativeDashboardParticipation{
+			ResidentID:       participation.ResidentID,
+			ASID:             participation.ASID,
+			IsParticipating:  participation.IsParticipating,
+			ImgURLs:          participation.ImgURLs,
+			ActivitySchedule: participation.ActivitySchedule,
+		})
+	}
+
 	return &models.RelativeDashboardResponse{
-		ResidentID:    resident.ID,
-		ResidentName:  strings.TrimSpace(resident.FirstName + " " + resident.LastName),
-		Date:          selectedDate.Format("2006-01-02"),
-		LastUpdatedAt: lastUpdatedText,
-		Notes:         resultNotes,
+		ResidentID:     resident.ID,
+		ResidentName:   strings.TrimSpace(resident.FirstName + " " + resident.LastName),
+		Date:           selectedDate.Format("2006-01-02"),
+		LastUpdatedAt:  lastUpdatedText,
+		Notes:          resultNotes,
+		Participations: resultParticipations,
 	}, nil
 }
 

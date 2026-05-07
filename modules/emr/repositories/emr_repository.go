@@ -147,6 +147,7 @@ type EmrRepository interface {
 	GetRelativeNoteByID(id string) (*entities.RelativeNote, error)
 	GetRelativeNotesOverviewOnDate(dayDate time.Time) ([]*entities.RelativeNote, error)
 	GetRelativeNotesByResidentIDOnDate(residentID string, dayDate time.Time) ([]*entities.RelativeNote, error)
+	GetParticipationsByResidentIDOnDate(residentID string, dayDate time.Time) ([]*entities.Participation, error)
 	UpdateRelativeNoteByID(note *entities.RelativeNote) (*entities.RelativeNote, error)
 	DeleteRelativeNoteByID(id string) error
 
@@ -418,10 +419,10 @@ func (r *GormEmrRepository) GetResidentAllergyStatsDashboard() (models.ResidentA
 	// Get allergy details for active residents grouped by allergy combination per resident
 	// First, get all allergies per active resident, then group by combination
 	var allergyGroupings []struct {
-		AllergyNames string
+		AllergyNames  string
 		ResidentCount int64
 	}
-	
+
 	if err := r.db.Model(&entities.ResidentAllergies{}).
 		Joins("JOIN residents ON resident_allergies.resident_id = residents.id").
 		Joins("JOIN allergies ON resident_allergies.allergy_id = allergies.id").
@@ -1515,6 +1516,21 @@ func (r *GormEmrRepository) GetRelativeNotesByResidentIDOnDate(residentID string
 		return nil, err
 	}
 	return notes, nil
+}
+
+func (r *GormEmrRepository) GetParticipationsByResidentIDOnDate(residentID string, dayDate time.Time) ([]*entities.Participation, error) {
+	var participations []*entities.Participation
+	if err := r.db.
+		Preload("ActivitySchedule").
+		Preload("ActivitySchedule.Activity").
+		Where("resident_id = ?", residentID).
+		Joins("JOIN activity_schedules ON activity_schedules.id = participations.as_id").
+		Where("DATE(activity_schedules.date AT TIME ZONE 'Asia/Bangkok') = ?", dayDate.Format("2006-01-02")).
+		Order("activity_schedules.start_time ASC").
+		Find(&participations).Error; err != nil {
+		return nil, err
+	}
+	return participations, nil
 }
 
 func (r *GormEmrRepository) UpdateRelativeNoteByID(note *entities.RelativeNote) (*entities.RelativeNote, error) {
