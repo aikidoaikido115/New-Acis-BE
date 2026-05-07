@@ -883,14 +883,14 @@ func (uc *ActivityUseCaseImpl) UpdateParticipationByResidentIDAndASID(residentID
 	}
 
 	if req.ClearImage != nil && *req.ClearImage {
-        existingParticipation.ImgURLs = make([]entities.ImageURL, 0)
-    } else if len(files) > 0 {
-        imgURLs, err := uc.uploadParticipationImages(files)
-        if err != nil {
-            return nil, err
-        }
-        existingParticipation.ImgURLs = imgURLs
-    }
+		existingParticipation.ImgURLs = make([]entities.ImageURL, 0)
+	} else if len(files) > 0 {
+		imgURLs, err := uc.uploadParticipationImages(files)
+		if err != nil {
+			return nil, err
+		}
+		existingParticipation.ImgURLs = imgURLs
+	}
 
 	// Enforce composite key from path even if entity is mutated elsewhere.
 	existingParticipation.ResidentID = residentID
@@ -950,6 +950,33 @@ func (uc *ActivityUseCaseImpl) BulkUpdateParticipationIsParticipatingByResidentI
 	residentIDs := normalizeUniqueResidentIDs(req.ResidentIDs)
 	if len(residentIDs) == 0 {
 		return nil, errors.New("resident_ids is required")
+	}
+
+	staff, staffErr := uc.userRepo.GetStaffByUserID(userID)
+	if staffErr != nil {
+		if errors.Is(staffErr, gorm.ErrRecordNotFound) {
+			return nil, ErrStaffProfileNotFound
+		}
+		return nil, staffErr
+	}
+
+	existingSchedule, err := uc.repo.GetActivityScheduleByID(asID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrActivityScheduleNotFound
+		}
+		return nil, err
+	}
+
+	if existingSchedule.ActivityID == "" {
+		return nil, ErrActivityNotFound
+	}
+
+	if existingSchedule.Activity.StaffID != staff.ID {
+		staffIDStr := staff.ID
+		if _, err := uc.UpdateActivityByID(existingSchedule.ActivityID, activityModels.UpdateActivityRequest{StaffID: &staffIDStr}, userID); err != nil {
+			return nil, err
+		}
 	}
 
 	existingParticipations, err := uc.repo.GetParticipationsByASIDAndResidentIDs(asID, residentIDs)

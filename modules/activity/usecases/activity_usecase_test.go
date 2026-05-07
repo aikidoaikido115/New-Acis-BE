@@ -261,7 +261,7 @@ func TestCreateActivityScheduleWithActivitySync_Success_UpdateExistingActivityWh
 	assert.Equal(t, "as-2", result.ID)
 	assert.Equal(t, "act-1", result.ActivityID)
 
-	assert.Equal(t, 2, activityRepository.updateActivityCallCount)
+	assert.Equal(t, 1, activityRepository.updateActivityCallCount)
 	if assert.NotNil(t, activityRepository.updatedActivity) {
 		assert.Equal(t, "Rehab", activityRepository.updatedActivity.ActivityType)
 		assert.Nil(t, activityRepository.updatedActivity.Description)
@@ -270,7 +270,7 @@ func TestCreateActivityScheduleWithActivitySync_Success_UpdateExistingActivityWh
 		}
 	}
 
-	assert.Equal(t, 3, auditRepository.createAuditLogCallCount)
+	assert.Equal(t, 2, auditRepository.createAuditLogCallCount)
 }
 
 func TestBulkUpdateParticipationIsParticipatingByResidentIDs_Success_DedupResidentIDs(t *testing.T) {
@@ -286,6 +286,16 @@ func TestBulkUpdateParticipationIsParticipatingByResidentIDs_Success_DedupReside
 	}
 
 	activityRepository := newFakeActivityRepo(nil, nil)
+	activityRepository.existingActivity = &entities.Activity{
+		ID:           "act-1",
+		StaffID:      "staff-old",
+		ActivityName: "Morning Exercise",
+		ActivityType: "Wellness",
+	}
+	activityRepository.existingActivitySchedule = &entities.ActivitySchedule{
+		ID:         "as-1",
+		ActivityID: "act-1",
+	}
 	activityRepository.participationsFirstFetch = before
 	activityRepository.participationsSecondFetch = after
 
@@ -306,11 +316,15 @@ func TestBulkUpdateParticipationIsParticipatingByResidentIDs_Success_DedupReside
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
+	assert.Equal(t, 1, activityRepository.updateActivityCallCount)
+	if assert.NotNil(t, activityRepository.updatedActivity) {
+		assert.Equal(t, "staff-1", activityRepository.updatedActivity.StaffID)
+	}
 	assert.Equal(t, 1, activityRepository.updateParticipationsCallCount)
 	assert.Equal(t, "as-1", activityRepository.capturedUpdateASID)
 	assert.Equal(t, []string{"r1", "r2"}, activityRepository.capturedUpdateResidentIDs)
 	assert.True(t, activityRepository.capturedUpdateIsParticipating)
-	assert.Equal(t, 2, auditRepository.createAuditLogCallCount)
+	assert.Equal(t, 3, auditRepository.createAuditLogCallCount)
 }
 
 func TestUpdateActivityScheduleWithActivitySyncByID_Success_UpdateActivityAndSchedule(t *testing.T) {
@@ -370,7 +384,7 @@ func TestUpdateActivityScheduleWithActivitySyncByID_Success_UpdateActivityAndSch
 	assert.True(t, newStartTime.Equal(result.StartTime))
 	assert.True(t, newEndTime.Equal(result.EndTime))
 
-	assert.Equal(t, 1, activityRepository.updateActivityCallCount)
+	assert.Equal(t, 2, activityRepository.updateActivityCallCount)
 	if assert.NotNil(t, activityRepository.updatedActivity) {
 		assert.Equal(t, "Rehab", activityRepository.updatedActivity.ActivityType)
 		if assert.NotNil(t, activityRepository.updatedActivity.Location) {
@@ -388,7 +402,7 @@ func TestUpdateActivityScheduleWithActivitySyncByID_Success_UpdateActivityAndSch
 		assert.True(t, newEndTime.Equal(activityRepository.updatedActivitySchedule.EndTime))
 	}
 
-	assert.Equal(t, 2, auditRepository.createAuditLogCallCount)
+	assert.Equal(t, 3, auditRepository.createAuditLogCallCount)
 }
 
 func TestGetResidentsByScheduleIDCustom_Success_MapAndDedupeIntakeLabels(t *testing.T) {
