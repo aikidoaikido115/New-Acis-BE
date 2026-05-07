@@ -50,7 +50,7 @@ type ActivityRepository interface {
 }
 
 func (r *GormActivityRepository) CreateActivity(activity *entities.Activity) (*entities.Activity, error) {
-	if err := r.db.Create(&activity).Error; err != nil {
+	if err := r.db.Create(activity).Error; err != nil {
 		return nil, err
 	}
 
@@ -58,35 +58,42 @@ func (r *GormActivityRepository) CreateActivity(activity *entities.Activity) (*e
 }
 
 func (r *GormActivityRepository) GetActivityByID(id string) (*entities.Activity, error) {
-    var activity entities.Activity
-    if err := r.db.Preload("Staff").Preload("Staff.User").Where("id = ?", id).First(&activity).Error; err != nil {
-        return nil, err
-    }
-    return &activity, nil
+	var activity entities.Activity
+	if err := r.db.Preload("Staff").Preload("Staff.User").Where("id = ?", id).First(&activity).Error; err != nil {
+		return nil, err
+	}
+	return &activity, nil
 }
 
 func (r *GormActivityRepository) GetActivityByName(activityName string) (*entities.Activity, error) {
-    var activity entities.Activity
-    if err := r.db.Preload("Staff").Preload("Staff.User").Where("LOWER(activity_name) = LOWER(?)", activityName).First(&activity).Error; err != nil {
-        return nil, err
-    }
-    return &activity, nil
+	var activity entities.Activity
+	if err := r.db.Preload("Staff").Preload("Staff.User").Where("LOWER(activity_name) = LOWER(?)", activityName).First(&activity).Error; err != nil {
+		return nil, err
+	}
+	return &activity, nil
 }
 
 func (r *GormActivityRepository) GetAllActivities() ([]*entities.Activity, error) {
-    var activities []*entities.Activity
-    if err := r.db.Preload("Staff").Preload("Staff.User").Find(&activities).Error; err != nil {
-        return nil, err
-    }
-    return activities, nil
+	var activities []*entities.Activity
+	if err := r.db.Preload("Staff").Preload("Staff.User").Find(&activities).Error; err != nil {
+		return nil, err
+	}
+	return activities, nil
 }
 
 func (r *GormActivityRepository) UpdateActivity(activity *entities.Activity) (*entities.Activity, error) {
-	if err := r.db.Save(&activity).Error; err != nil {
+	activity.Staff = entities.Staff{}
+
+	if err := r.db.Save(activity).Error; err != nil {
 		return nil, err
 	}
 
-	return r.GetActivityByID(activity.ID)
+	updated, err := r.GetActivityByID(activity.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return updated, nil
 }
 
 func (r *GormActivityRepository) DeleteActivity(id string) error {
@@ -98,7 +105,7 @@ func (r *GormActivityRepository) DeleteActivity(id string) error {
 }
 
 func (r *GormActivityRepository) CreateActivitySchedule(activitySchedule *entities.ActivitySchedule) (*entities.ActivitySchedule, error) {
-	if err := r.db.Create(&activitySchedule).Error; err != nil {
+	if err := r.db.Create(activitySchedule).Error; err != nil {
 		return nil, err
 	}
 
@@ -107,7 +114,7 @@ func (r *GormActivityRepository) CreateActivitySchedule(activitySchedule *entiti
 
 func (r *GormActivityRepository) CreateActivityScheduleWithDefaultParticipations(activitySchedule *entities.ActivitySchedule) (*entities.ActivitySchedule, error) {
 	err := r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&activitySchedule).Error; err != nil {
+		if err := tx.Create(activitySchedule).Error; err != nil {
 			return err
 		}
 
@@ -144,43 +151,43 @@ func (r *GormActivityRepository) CreateActivityScheduleWithDefaultParticipations
 }
 
 func (r *GormActivityRepository) GetActivityScheduleByID(id string) (*entities.ActivitySchedule, error) {
-    var activitySchedule entities.ActivitySchedule
-    if err := r.db.Preload("Activity").Preload("Activity.Staff").Preload("Activity.Staff.User").Where("id = ?", id).First(&activitySchedule).Error; err != nil {
-        return nil, err
-    }
-    return &activitySchedule, nil
+	var activitySchedule entities.ActivitySchedule
+	if err := r.db.Preload("Activity").Preload("Activity.Staff").Preload("Activity.Staff.User").Where("id = ?", id).First(&activitySchedule).Error; err != nil {
+		return nil, err
+	}
+	return &activitySchedule, nil
 }
 
 func (r *GormActivityRepository) GetAllActivitySchedules() ([]*entities.ActivitySchedule, error) {
-    var activitySchedules []*entities.ActivitySchedule
-    if err := r.db.Preload("Activity").Preload("Activity.Staff").Preload("Activity.Staff.User").Find(&activitySchedules).Error; err != nil {
-        return nil, err
-    }
-    return activitySchedules, nil
+	var activitySchedules []*entities.ActivitySchedule
+	if err := r.db.Preload("Activity").Preload("Activity.Staff").Preload("Activity.Staff.User").Find(&activitySchedules).Error; err != nil {
+		return nil, err
+	}
+	return activitySchedules, nil
 }
 
 func (r *GormActivityRepository) GetActivitySchedulesWithActivitySyncByDate(date *time.Time) ([]*entities.ActivitySchedule, error) {
-    var activitySchedules []*entities.ActivitySchedule
+	var activitySchedules []*entities.ActivitySchedule
 
-    query := r.db.Model(&entities.ActivitySchedule{}).Preload("Activity").Preload("Activity.Staff").Preload("Activity.Staff.User")
-    
-    if date != nil {
-        loc := time.FixedZone("ICT", 7*60*60)
-        dayStart := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc)
-        dayEnd := dayStart.AddDate(0, 0, 1)
+	query := r.db.Model(&entities.ActivitySchedule{}).Preload("Activity").Preload("Activity.Staff").Preload("Activity.Staff.User")
 
-        query = query.Where("activity_schedules.date >= ? AND activity_schedules.date < ?", dayStart, dayEnd)
-    }
+	if date != nil {
+		loc := time.FixedZone("ICT", 7*60*60)
+		dayStart := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc)
+		dayEnd := dayStart.AddDate(0, 0, 1)
 
-    if err := query.Order("activity_schedules.date ASC").Order("activity_schedules.start_time ASC").Find(&activitySchedules).Error; err != nil {
-        return nil, err
-    }
+		query = query.Where("activity_schedules.date >= ? AND activity_schedules.date < ?", dayStart, dayEnd)
+	}
 
-    return activitySchedules, nil
+	if err := query.Order("activity_schedules.date ASC").Order("activity_schedules.start_time ASC").Find(&activitySchedules).Error; err != nil {
+		return nil, err
+	}
+
+	return activitySchedules, nil
 }
 
 func (r *GormActivityRepository) UpdateActivitySchedule(activitySchedule *entities.ActivitySchedule) (*entities.ActivitySchedule, error) {
-	if err := r.db.Save(&activitySchedule).Error; err != nil {
+	if err := r.db.Save(activitySchedule).Error; err != nil {
 		return nil, err
 	}
 

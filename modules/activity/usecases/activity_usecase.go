@@ -200,6 +200,8 @@ func (uc *ActivityUseCaseImpl) UpdateActivityByID(id string, req activityModels.
 		existingActivity.Location = normalizeOptionalString(req.Location)
 	}
 
+	existingActivity.Staff = entities.Staff{}
+
 	updatedActivity, err := uc.repo.UpdateActivity(existingActivity)
 	if err != nil {
 		return nil, err
@@ -288,11 +290,16 @@ func (uc *ActivityUseCaseImpl) CreateActivityScheduleWithActivitySync(req activi
 	needUpdate := false
 
 	staff, staffErr := uc.userRepo.GetStaffByUserID(userID)
-	if staffErr == nil {
-		staffIDStr := staff.ID
-		updateReq.StaffID = &staffIDStr
-		needUpdate = true
+	if staffErr != nil {
+		if errors.Is(staffErr, gorm.ErrRecordNotFound) {
+			return nil, ErrStaffProfileNotFound
+		}
+		return nil, staffErr
 	}
+
+	staffIDStr := staff.ID
+	updateReq.StaffID = &staffIDStr
+	needUpdate = true
 
 	if existingActivity.ActivityType != activityType {
 		updateReq.ActivityType = &activityType
@@ -371,11 +378,15 @@ func (uc *ActivityUseCaseImpl) UpdateActivityScheduleWithActivitySyncByID(id str
 	needUpdateActivity := false
 
 	staff, staffErr := uc.userRepo.GetStaffByUserID(userID)
-	if staffErr == nil {
-		staffIDStr := staff.ID
-		activityUpdateReq.StaffID = &staffIDStr
-		needUpdateActivity = true
+	if staffErr != nil {
+		if errors.Is(staffErr, gorm.ErrRecordNotFound) {
+			return nil, ErrStaffProfileNotFound
+		}
+		return nil, staffErr
 	}
+	staffIDStr := staff.ID
+	activityUpdateReq.StaffID = &staffIDStr
+	needUpdateActivity = true
 
 	if req.ActivityName != nil {
 		activityName := strings.TrimSpace(*req.ActivityName)
