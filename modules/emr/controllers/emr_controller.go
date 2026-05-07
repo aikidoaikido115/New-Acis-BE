@@ -522,16 +522,31 @@ func parseResidentUpdateForm(form *multipart.Form) (models.UpdateResidentRequest
 		req.Status = &value
 	}
 	if value, ok := getFormValue(form, "pre_existing_conditions"); ok {
-		req.PreExistingConditions = &value
+		req.PreExistingConditions.IsSet = true
+		if value == "" {
+			req.PreExistingConditions.Value = nil
+		} else {
+			req.PreExistingConditions.Value = &value
+		}
 	}
 	if value, ok := getFormValue(form, "pre_existing_conditions_notes"); ok {
-		req.PreExistingConditionsNotes = &value
+		req.PreExistingConditionsNotes.IsSet = true
+		if value == "" {
+			req.PreExistingConditionsNotes.Value = nil
+		} else {
+			req.PreExistingConditionsNotes.Value = &value
+		}
 	}
 	if value, ok := getFormValue(form, "resuscitation_status"); ok {
 		req.ResucitationStatus = &value
 	}
 	if value, ok := getFormValue(form, "surgical_history"); ok {
-		req.SugicalHistory = &value
+		req.SugicalHistory.IsSet = true
+		if value == "" {
+			req.SugicalHistory.Value = nil
+		} else {
+			req.SugicalHistory.Value = &value
+		}
 	}
 	if value, ok := getFormValue(form, "preferred_emergency_hospital"); ok {
 		req.PreferredEmergencyHospital = &value

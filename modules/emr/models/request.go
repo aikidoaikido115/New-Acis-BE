@@ -1,10 +1,31 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 )
+
+type NullableString struct {
+	Value *string
+	IsSet bool
+}
+
+func (n *NullableString) UnmarshalJSON(data []byte) error {
+	n.IsSet = true
+	if string(data) == "null" {
+		n.Value = nil
+		return nil
+	}
+
+	var value string
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	n.Value = &value
+	return nil
+}
 
 type CreateResidentRequest struct {
 	RoomID    *string `json:"room_id"`
@@ -78,10 +99,10 @@ type UpdateResidentRequest struct {
 	CheckInDate                *time.Time          `json:"check_in_date"`
 	ExpectedCheckOutDate       *time.Time          `json:"expected_check_out_date"`
 	Status                     *string             `json:"status"`
-	PreExistingConditions      *string             `json:"pre_existing_conditions"`
-	PreExistingConditionsNotes *string             `json:"pre_existing_conditions_notes"`
+	PreExistingConditions      NullableString      `json:"pre_existing_conditions"`
+	PreExistingConditionsNotes NullableString      `json:"pre_existing_conditions_notes"`
 	ResucitationStatus         *string             `json:"resuscitation_status"`
-	SugicalHistory             *string             `json:"surgical_history"`
+	SugicalHistory             NullableString      `json:"surgical_history"`
 	PreferredEmergencyHospital *string             `json:"preferred_emergency_hospital"`
 	EmergencyHospitalPhone     *string             `json:"emergency_hospital_phone"`
 	ProfileImage               *string             `json:"profile_image"`
