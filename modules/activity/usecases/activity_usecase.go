@@ -871,7 +871,7 @@ func (uc *ActivityUseCaseImpl) UpdateParticipationByResidentIDAndASID(residentID
 		existingParticipation.IsParticipating = *req.IsParticipating
 	}
 
-	if req.ClearImage != nil && *req.ClearImage == true {
+	if req.ClearImage != nil && *req.ClearImage {
         existingParticipation.ImgURLs = make([]entities.ImageURL, 0)
     } else if len(files) > 0 {
         imgURLs, err := uc.uploadParticipationImages(files)
