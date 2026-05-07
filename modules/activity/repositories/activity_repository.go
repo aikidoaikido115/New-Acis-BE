@@ -88,6 +88,13 @@ func (r *GormActivityRepository) UpdateActivity(activity *entities.Activity) (*e
 		return nil, err
 	}
 
+	// After Save, ensure staff_id column is explicitly set to avoid any association-induced revert.
+	if activity.StaffID != "" {
+		if err := r.db.Model(&entities.Activity{}).Where("id = ?", activity.ID).Update("staff_id", activity.StaffID).Error; err != nil {
+			return nil, err
+		}
+	}
+
 	updated, err := r.GetActivityByID(activity.ID)
 	if err != nil {
 		return nil, err
@@ -346,23 +353,23 @@ func (r *GormActivityRepository) GetResidentsByScheduleIDCustom(asID string, par
 }
 
 func (r *GormActivityRepository) UpdateParticipation(participation *entities.Participation) (*entities.Participation, error) {
-    
-    updatePayload := entities.Participation{
-        IsParticipating: participation.IsParticipating,
-    }
-    if len(participation.ImgURLs) == 0 {
-        updatePayload.ImgURLs = make([]entities.ImageURL, 0)
-    } else {
-        updatePayload.ImgURLs = participation.ImgURLs
-    }
-    if err := r.db.Model(&entities.Participation{}).
-        Where("resident_id = ? AND as_id = ?", participation.ResidentID, participation.ASID).
-        Select("is_participating", "img_urls").
-        Updates(&updatePayload).Error; err != nil {
-        return nil, err
-    }
 
-    return r.GetParticipationByResidentIDAndASID(participation.ResidentID, participation.ASID)
+	updatePayload := entities.Participation{
+		IsParticipating: participation.IsParticipating,
+	}
+	if len(participation.ImgURLs) == 0 {
+		updatePayload.ImgURLs = make([]entities.ImageURL, 0)
+	} else {
+		updatePayload.ImgURLs = participation.ImgURLs
+	}
+	if err := r.db.Model(&entities.Participation{}).
+		Where("resident_id = ? AND as_id = ?", participation.ResidentID, participation.ASID).
+		Select("is_participating", "img_urls").
+		Updates(&updatePayload).Error; err != nil {
+		return nil, err
+	}
+
+	return r.GetParticipationByResidentIDAndASID(participation.ResidentID, participation.ASID)
 }
 
 func (r *GormActivityRepository) UpdateParticipationIsParticipatingByResidentIDs(asID string, residentIDs []string, isParticipating bool) error {
