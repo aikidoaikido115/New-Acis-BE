@@ -882,13 +882,15 @@ func (uc *ActivityUseCaseImpl) UpdateParticipationByResidentIDAndASID(residentID
 		existingParticipation.IsParticipating = *req.IsParticipating
 	}
 
-	if len(files) > 0 {
-		imgURLs, err := uc.uploadParticipationImages(files)
-		if err != nil {
-			return nil, err
-		}
-		existingParticipation.ImgURLs = imgURLs
-	}
+	if req.ClearImage != nil && *req.ClearImage {
+        existingParticipation.ImgURLs = make([]entities.ImageURL, 0)
+    } else if len(files) > 0 {
+        imgURLs, err := uc.uploadParticipationImages(files)
+        if err != nil {
+            return nil, err
+        }
+        existingParticipation.ImgURLs = imgURLs
+    }
 
 	// Enforce composite key from path even if entity is mutated elsewhere.
 	existingParticipation.ResidentID = residentID

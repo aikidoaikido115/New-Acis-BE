@@ -346,19 +346,23 @@ func (r *GormActivityRepository) GetResidentsByScheduleIDCustom(asID string, par
 }
 
 func (r *GormActivityRepository) UpdateParticipation(participation *entities.Participation) (*entities.Participation, error) {
-	updatePayload := entities.Participation{
-		IsParticipating: participation.IsParticipating,
-		ImgURLs:         participation.ImgURLs,
-	}
+    
+    updatePayload := entities.Participation{
+        IsParticipating: participation.IsParticipating,
+    }
+    if len(participation.ImgURLs) == 0 {
+        updatePayload.ImgURLs = make([]entities.ImageURL, 0)
+    } else {
+        updatePayload.ImgURLs = participation.ImgURLs
+    }
+    if err := r.db.Model(&entities.Participation{}).
+        Where("resident_id = ? AND as_id = ?", participation.ResidentID, participation.ASID).
+        Select("is_participating", "img_urls").
+        Updates(&updatePayload).Error; err != nil {
+        return nil, err
+    }
 
-	if err := r.db.Model(&entities.Participation{}).
-		Where("resident_id = ? AND as_id = ?", participation.ResidentID, participation.ASID).
-		Select("is_participating", "img_urls").
-		Updates(&updatePayload).Error; err != nil {
-		return nil, err
-	}
-
-	return r.GetParticipationByResidentIDAndASID(participation.ResidentID, participation.ASID)
+    return r.GetParticipationByResidentIDAndASID(participation.ResidentID, participation.ASID)
 }
 
 func (r *GormActivityRepository) UpdateParticipationIsParticipatingByResidentIDs(asID string, residentIDs []string, isParticipating bool) error {
