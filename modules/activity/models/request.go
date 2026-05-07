@@ -63,7 +63,7 @@ type CreateParticipationRequest struct {
 
 type UpdateParticipationRequest struct {
 	IsParticipating *bool `json:"is_participating"`
-	ClearImage      *bool  `json:"clear_image" form:"clear_image"`
+	ClearImage      *bool `json:"clear_image" form:"clear_image"`
 }
 
 type BulkUpdateParticipationIsParticipatingByResidentIDsRequest struct {

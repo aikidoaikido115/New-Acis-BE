@@ -84,6 +84,8 @@ func (r *GormActivityRepository) GetAllActivities() ([]*entities.Activity, error
 func (r *GormActivityRepository) UpdateActivity(activity *entities.Activity) (*entities.Activity, error) {
 	activity.Staff = entities.Staff{}
 
+	// prepare activity for save
+
 	if err := r.db.Save(activity).Error; err != nil {
 		return nil, err
 	}
@@ -93,6 +95,7 @@ func (r *GormActivityRepository) UpdateActivity(activity *entities.Activity) (*e
 		if err := r.db.Model(&entities.Activity{}).Where("id = ?", activity.ID).Update("staff_id", activity.StaffID).Error; err != nil {
 			return nil, err
 		}
+
 	}
 
 	updated, err := r.GetActivityByID(activity.ID)
@@ -353,7 +356,6 @@ func (r *GormActivityRepository) GetResidentsByScheduleIDCustom(asID string, par
 }
 
 func (r *GormActivityRepository) UpdateParticipation(participation *entities.Participation) (*entities.Participation, error) {
-
 	updatePayload := entities.Participation{
 		IsParticipating: participation.IsParticipating,
 	}
@@ -362,6 +364,7 @@ func (r *GormActivityRepository) UpdateParticipation(participation *entities.Par
 	} else {
 		updatePayload.ImgURLs = participation.ImgURLs
 	}
+
 	if err := r.db.Model(&entities.Participation{}).
 		Where("resident_id = ? AND as_id = ?", participation.ResidentID, participation.ASID).
 		Select("is_participating", "img_urls").

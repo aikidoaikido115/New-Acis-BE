@@ -5,9 +5,9 @@ import (
 	// "mime/multipart"
 	// "strconv"
 	// "mime/multipart"
+	"encoding/json"
 	"mime/multipart"
 	"strings"
-	"encoding/json"
 	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/models"
@@ -77,7 +77,7 @@ func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-    emergencyContactsJSON := datatypes.JSON(nil)
+	emergencyContactsJSON := datatypes.JSON(nil)
 	if len(req.EmergencyContacts) > 0 {
 		cleanedContacts := make([]models.EmergencyContact, 0, len(req.EmergencyContacts))
 		for _, contact := range req.EmergencyContacts {
@@ -592,6 +592,7 @@ func parseOptionalTime(value string) (*time.Time, error) {
 
 	return nil, fiber.ErrBadRequest
 }
+
 // GetRoomByID godoc
 // @Summary Get Room by ID
 // @Description Retrieve room information by room ID

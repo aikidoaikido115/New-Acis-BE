@@ -21,7 +21,7 @@ import (
 // @name Authorization
 // @description Type "Bearer" followed by a space and JWT token.
 func main() {
-	
+
 	cfg := configs.LoadConfigs()
 
 	if host := os.Getenv("SWAGGER_HOST"); host != "" {
