@@ -316,6 +316,7 @@ type RelativeDashboardParticipation struct {
 
 type RelativePatientInfoResponse struct {
 	ResidentID                string                      `json:"resident_id"`
+	ProfileImage 			  string   					  `json:"profile_image"`
 	FirstName                 string                      `json:"first_name"`
 	LastName                  string                      `json:"last_name"`
 	Nickname                  *string                     `json:"nickname"`

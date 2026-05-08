@@ -4021,8 +4021,14 @@ func (uc *EmrUseCaseImpl) GetRelativePatientInfo(userID string) (*models.Relativ
 		idCardNumber = *resident.IdCardNumber
 	}
 
+	profileImage := ""
+	if resident.ProfileImage != nil {
+		profileImage = *resident.ProfileImage
+	}
+
 	return &models.RelativePatientInfoResponse{
 		ResidentID:                resident.ID,
+		ProfileImage:              profileImage,
 		FirstName:                 resident.FirstName,
 		LastName:                  resident.LastName,
 		Nickname:                  resident.Nickname,
