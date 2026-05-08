@@ -184,16 +184,16 @@ func TestGetNumberOfResidentsDashboard_Success(t *testing.T) {
 }
 
 func TestGetNumberOfResidentsDashboard_KitchenStaff_Success(t *testing.T) {
-    uc, userRepo, emrRepo, _ := newDashboardUsecase(userConstants.RoleKitchenStaff)
+	uc, userRepo, emrRepo, _ := newDashboardUsecase(userConstants.RoleKitchenStaff)
 
-    result, err := uc.GetNumberOfResidentsDashboard("user-1")
+	result, err := uc.GetNumberOfResidentsDashboard("user-1")
 
-    assert.NoError(t, err)
-    assert.Equal(t, 1, userRepo.getUserCalls)
-    assert.Equal(t, 1, userRepo.getRoleCalls)
-    assert.Equal(t, 1, emrRepo.getNumberOfResidentsCalls)
-    
-    assert.NotNil(t, result)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, userRepo.getUserCalls)
+	assert.Equal(t, 1, userRepo.getRoleCalls)
+	assert.Equal(t, 1, emrRepo.getNumberOfResidentsCalls)
+
+	assert.NotNil(t, result)
 }
 
 func TestGetNumberOfResidentsDashboard_RepoError(t *testing.T) {

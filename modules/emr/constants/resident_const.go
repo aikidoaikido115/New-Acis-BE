@@ -4,6 +4,6 @@ const (
 	Active   = "active"
 	InActive = "inactive"
 
-	CPR      = "CPR"
-	DNR      = "DNR"
+	CPR = "CPR"
+	DNR = "DNR"
 )

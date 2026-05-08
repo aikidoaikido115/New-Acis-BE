@@ -892,12 +892,12 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 		resident.Status = *data.Status
 	}
 
-	if data.PreExistingConditions != nil {
-		resident.PreExistingConditions = data.PreExistingConditions
+	if data.PreExistingConditions.IsSet {
+		resident.PreExistingConditions = normalizeOptionalString(data.PreExistingConditions.Value)
 	}
 
-	if data.PreExistingConditionsNotes != nil {
-		resident.PreExistingConditionsNotes = data.PreExistingConditionsNotes
+	if data.PreExistingConditionsNotes.IsSet {
+		resident.PreExistingConditionsNotes = normalizeOptionalString(data.PreExistingConditionsNotes.Value)
 	}
 
 	if data.ResucitationStatus != nil {
@@ -907,8 +907,8 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 		resident.ResucitationStatus = data.ResucitationStatus
 	}
 
-	if data.SugicalHistory != nil {
-		resident.SugicalHistory = data.SugicalHistory
+	if data.SugicalHistory.IsSet {
+		resident.SugicalHistory = normalizeOptionalString(data.SugicalHistory.Value)
 	}
 
 	if data.PreferredEmergencyHospital != nil {

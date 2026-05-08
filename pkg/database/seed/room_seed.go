@@ -4,9 +4,8 @@ import (
 	"log"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
-	"gorm.io/gorm"
 	"github.com/google/uuid"
-
+	"gorm.io/gorm"
 )
 
 // SeedRoles creates default roles in the database
@@ -15,23 +14,23 @@ func SeedRooms(db *gorm.DB) {
 
 	rooms := []entities.Room{
 		{
-			ID:   uuid.New().String(),
-			Floor: 1,
+			ID:         uuid.New().String(),
+			Floor:      1,
 			RoomNumber: "101",
 		},
 		{
-			ID:   uuid.New().String(),
-			Floor: 1,
+			ID:         uuid.New().String(),
+			Floor:      1,
 			RoomNumber: "102",
 		},
 		{
-			ID:   uuid.New().String(),
-			Floor: 4,
+			ID:         uuid.New().String(),
+			Floor:      4,
 			RoomNumber: "401",
 		},
 		{
-			ID:   uuid.New().String(),
-			Floor: 4,
+			ID:         uuid.New().String(),
+			Floor:      4,
 			RoomNumber: "402",
 		},
 	}

@@ -5,9 +5,9 @@ import (
 	// "mime/multipart"
 	// "strconv"
 	// "mime/multipart"
+	"encoding/json"
 	"mime/multipart"
 	"strings"
-	"encoding/json"
 	"time"
 
 	"github.com/aikidoaikido115/New-Acis-BE/modules/emr/models"
@@ -77,7 +77,7 @@ func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-    emergencyContactsJSON := datatypes.JSON(nil)
+	emergencyContactsJSON := datatypes.JSON(nil)
 	if len(req.EmergencyContacts) > 0 {
 		cleanedContacts := make([]models.EmergencyContact, 0, len(req.EmergencyContacts))
 		for _, contact := range req.EmergencyContacts {
@@ -522,16 +522,31 @@ func parseResidentUpdateForm(form *multipart.Form) (models.UpdateResidentRequest
 		req.Status = &value
 	}
 	if value, ok := getFormValue(form, "pre_existing_conditions"); ok {
-		req.PreExistingConditions = &value
+		req.PreExistingConditions.IsSet = true
+		if value == "" {
+			req.PreExistingConditions.Value = nil
+		} else {
+			req.PreExistingConditions.Value = &value
+		}
 	}
 	if value, ok := getFormValue(form, "pre_existing_conditions_notes"); ok {
-		req.PreExistingConditionsNotes = &value
+		req.PreExistingConditionsNotes.IsSet = true
+		if value == "" {
+			req.PreExistingConditionsNotes.Value = nil
+		} else {
+			req.PreExistingConditionsNotes.Value = &value
+		}
 	}
 	if value, ok := getFormValue(form, "resuscitation_status"); ok {
 		req.ResucitationStatus = &value
 	}
 	if value, ok := getFormValue(form, "surgical_history"); ok {
-		req.SugicalHistory = &value
+		req.SugicalHistory.IsSet = true
+		if value == "" {
+			req.SugicalHistory.Value = nil
+		} else {
+			req.SugicalHistory.Value = &value
+		}
 	}
 	if value, ok := getFormValue(form, "preferred_emergency_hospital"); ok {
 		req.PreferredEmergencyHospital = &value
@@ -592,6 +607,7 @@ func parseOptionalTime(value string) (*time.Time, error) {
 
 	return nil, fiber.ErrBadRequest
 }
+
 // GetRoomByID godoc
 // @Summary Get Room by ID
 // @Description Retrieve room information by room ID

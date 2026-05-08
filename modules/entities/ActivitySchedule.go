@@ -10,6 +10,6 @@ type ActivitySchedule struct {
 	EndTime    time.Time `json:"end_time" gorm:"not null"`
 	CreatedAt  time.Time `json:"created_at" gorm:"not null"`
 	UpdatedAt  time.Time `json:"updated_at" gorm:"not null"`
-	
-	Activity   Activity  `json:"activity" gorm:"foreignKey:ActivityID;references:ID"`
+
+	Activity Activity `json:"activity" gorm:"foreignKey:ActivityID;references:ID"`
 }

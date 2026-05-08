@@ -12,6 +12,7 @@ import (
 	"github.com/aikidoaikido115/New-Acis-BE/modules/entities"
 	userRepo "github.com/aikidoaikido115/New-Acis-BE/modules/user/repositories"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 )
 
 type fakeActivityRepo struct {
@@ -112,6 +113,30 @@ type fakeAuditLogRepo struct {
 	createAuditLogCallCount int
 }
 
+type fakeActivityUserRepo struct {
+	userRepo.UserRepository
+	staffByUserID map[string]*entities.Staff
+}
+
+func newFakeActivityUserRepo() *fakeActivityUserRepo {
+	return &fakeActivityUserRepo{
+		UserRepository: userRepo.NewGormUserRepository(nil),
+		staffByUserID: map[string]*entities.Staff{
+			"user-1": {
+				ID:     "staff-1",
+				UserID: "user-1",
+			},
+		},
+	}
+}
+
+func (f *fakeActivityUserRepo) GetStaffByUserID(userID string) (*entities.Staff, error) {
+	if staff, ok := f.staffByUserID[userID]; ok {
+		return staff, nil
+	}
+	return nil, gorm.ErrRecordNotFound
+}
+
 func newFakeAuditLogRepo() *fakeAuditLogRepo {
 	return &fakeAuditLogRepo{AuditLogRepository: auditRepo.NewGormAuditLogRepository(nil)}
 }
@@ -148,9 +173,10 @@ func TestCreateActivityScheduleWithActivitySync_Success_ReuseExistingActivity(t 
 
 	activityRepository := newFakeActivityRepo(existingActivity, createdSchedule)
 	auditRepository := newFakeAuditLogRepo()
+	activityUserRepo := newFakeActivityUserRepo()
 	uc := usecases.NewActivityUseCase(
 		activityRepository,
-		userRepo.NewGormUserRepository(nil),
+		activityUserRepo,
 		auditRepository,
 		configs.Supabase{},
 	)
@@ -171,7 +197,7 @@ func TestCreateActivityScheduleWithActivitySync_Success_ReuseExistingActivity(t 
 	assert.Equal(t, "act-1", result.ActivityID)
 
 	assert.Equal(t, 1, activityRepository.getActivityByNameCallCount)
-	assert.Equal(t, 1, activityRepository.getActivityByIDCallCount)
+	assert.Equal(t, 3, activityRepository.getActivityByIDCallCount)
 	assert.Equal(t, 1, activityRepository.createActivityScheduleCallCount)
 
 	if assert.NotNil(t, activityRepository.capturedCreateActivitySchedule) {
@@ -181,7 +207,7 @@ func TestCreateActivityScheduleWithActivitySync_Success_ReuseExistingActivity(t 
 		assert.True(t, endTime.Equal(activityRepository.capturedCreateActivitySchedule.EndTime))
 	}
 
-	assert.Equal(t, 1, auditRepository.createAuditLogCallCount)
+	assert.Equal(t, 2, auditRepository.createAuditLogCallCount)
 }
 
 func TestCreateActivityScheduleWithActivitySync_Success_UpdateExistingActivityWhenFieldsChanged(t *testing.T) {
@@ -212,9 +238,10 @@ func TestCreateActivityScheduleWithActivitySync_Success_UpdateExistingActivityWh
 
 	activityRepository := newFakeActivityRepo(existingActivity, createdSchedule)
 	auditRepository := newFakeAuditLogRepo()
+	activityUserRepo := newFakeActivityUserRepo()
 	uc := usecases.NewActivityUseCase(
 		activityRepository,
-		userRepo.NewGormUserRepository(nil),
+		activityUserRepo,
 		auditRepository,
 		configs.Supabase{},
 	)
@@ -259,13 +286,24 @@ func TestBulkUpdateParticipationIsParticipatingByResidentIDs_Success_DedupReside
 	}
 
 	activityRepository := newFakeActivityRepo(nil, nil)
+	activityRepository.existingActivity = &entities.Activity{
+		ID:           "act-1",
+		StaffID:      "staff-old",
+		ActivityName: "Morning Exercise",
+		ActivityType: "Wellness",
+	}
+	activityRepository.existingActivitySchedule = &entities.ActivitySchedule{
+		ID:         "as-1",
+		ActivityID: "act-1",
+	}
 	activityRepository.participationsFirstFetch = before
 	activityRepository.participationsSecondFetch = after
 
 	auditRepository := newFakeAuditLogRepo()
+	activityUserRepo := newFakeActivityUserRepo()
 	uc := usecases.NewActivityUseCase(
 		activityRepository,
-		userRepo.NewGormUserRepository(nil),
+		activityUserRepo,
 		auditRepository,
 		configs.Supabase{},
 	)
@@ -278,11 +316,15 @@ func TestBulkUpdateParticipationIsParticipatingByResidentIDs_Success_DedupReside
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
+	assert.Equal(t, 1, activityRepository.updateActivityCallCount)
+	if assert.NotNil(t, activityRepository.updatedActivity) {
+		assert.Equal(t, "staff-1", activityRepository.updatedActivity.StaffID)
+	}
 	assert.Equal(t, 1, activityRepository.updateParticipationsCallCount)
 	assert.Equal(t, "as-1", activityRepository.capturedUpdateASID)
 	assert.Equal(t, []string{"r1", "r2"}, activityRepository.capturedUpdateResidentIDs)
 	assert.True(t, activityRepository.capturedUpdateIsParticipating)
-	assert.Equal(t, 2, auditRepository.createAuditLogCallCount)
+	assert.Equal(t, 3, auditRepository.createAuditLogCallCount)
 }
 
 func TestUpdateActivityScheduleWithActivitySyncByID_Success_UpdateActivityAndSchedule(t *testing.T) {
@@ -317,9 +359,10 @@ func TestUpdateActivityScheduleWithActivitySyncByID_Success_UpdateActivityAndSch
 	activityRepository.existingActivitySchedule = existingSchedule
 
 	auditRepository := newFakeAuditLogRepo()
+	activityUserRepo := newFakeActivityUserRepo()
 	uc := usecases.NewActivityUseCase(
 		activityRepository,
-		userRepo.NewGormUserRepository(nil),
+		activityUserRepo,
 		auditRepository,
 		configs.Supabase{},
 	)
@@ -341,7 +384,7 @@ func TestUpdateActivityScheduleWithActivitySyncByID_Success_UpdateActivityAndSch
 	assert.True(t, newStartTime.Equal(result.StartTime))
 	assert.True(t, newEndTime.Equal(result.EndTime))
 
-	assert.Equal(t, 1, activityRepository.updateActivityCallCount)
+	assert.Equal(t, 2, activityRepository.updateActivityCallCount)
 	if assert.NotNil(t, activityRepository.updatedActivity) {
 		assert.Equal(t, "Rehab", activityRepository.updatedActivity.ActivityType)
 		if assert.NotNil(t, activityRepository.updatedActivity.Location) {
@@ -359,7 +402,7 @@ func TestUpdateActivityScheduleWithActivitySyncByID_Success_UpdateActivityAndSch
 		assert.True(t, newEndTime.Equal(activityRepository.updatedActivitySchedule.EndTime))
 	}
 
-	assert.Equal(t, 2, auditRepository.createAuditLogCallCount)
+	assert.Equal(t, 3, auditRepository.createAuditLogCallCount)
 }
 
 func TestGetResidentsByScheduleIDCustom_Success_MapAndDedupeIntakeLabels(t *testing.T) {
@@ -388,9 +431,10 @@ func TestGetResidentsByScheduleIDCustom_Success_MapAndDedupeIntakeLabels(t *test
 		},
 	}
 
+	activityUserRepo := newFakeActivityUserRepo()
 	uc := usecases.NewActivityUseCase(
 		activityRepository,
-		userRepo.NewGormUserRepository(nil),
+		activityUserRepo,
 		newFakeAuditLogRepo(),
 		configs.Supabase{},
 	)

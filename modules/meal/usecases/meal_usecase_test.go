@@ -257,113 +257,112 @@ func ptrInt16(v int16) *int16 {
 }
 
 func TestCreateMealPlan_Success_WithAI(t *testing.T) {
-    uc, mealRepo, userRepo, emrRepo, auditRepo, aiClient := newMealUsecase(userConstants.RoleKitchenStaff)
+	uc, mealRepo, userRepo, emrRepo, auditRepo, aiClient := newMealUsecase(userConstants.RoleKitchenStaff)
 
-    mealRepo.menusByID["menu-main"] = &entities.Menu{ID: "menu-main", MenuName: "Main Menu", Description: "egg, rice"}
-    mealRepo.menusByID["menu-backup"] = &entities.Menu{ID: "menu-backup", MenuName: "Backup Menu", Description: "fish, soup"}
+	mealRepo.menusByID["menu-main"] = &entities.Menu{ID: "menu-main", MenuName: "Main Menu", Description: "egg, rice"}
+	mealRepo.menusByID["menu-backup"] = &entities.Menu{ID: "menu-backup", MenuName: "Backup Menu", Description: "fish, soup"}
 
-    emrRepo.allergyStatsResponse = emrModels.ResidentAllergyStatsDashboardResponse{
-        AllergyDetails: []emrModels.AllergyStatisticDashboardResponse{
-            {AllergyID: "a-1", AllergyName: "Egg", ResidentCount: 3},
-        },
-    }
+	emrRepo.allergyStatsResponse = emrModels.ResidentAllergyStatsDashboardResponse{
+		AllergyDetails: []emrModels.AllergyStatisticDashboardResponse{
+			{AllergyID: "a-1", AllergyName: "Egg", ResidentCount: 3},
+		},
+	}
 
-    aiClient.responses = []aiinfra.CheckAllergyResponse{
-        {Status: mealConstants.AllergyCheckStatusSafe, Reason: "safe"},
-        {Status: mealConstants.AllergyCheckStatusSafe, Reason: "safe"},
-    }
+	aiClient.responses = []aiinfra.CheckAllergyResponse{
+		{Status: mealConstants.AllergyCheckStatusSafe, Reason: "safe"},
+		{Status: mealConstants.AllergyCheckStatusSafe, Reason: "safe"},
+	}
 
-    mealRepo.createdMealPlanResponse = &entities.MealPlan{
-        ID:               "new-plan-1",
-        MenuID:           "menu-main",
-        BackUpMenuID:     ptrString("menu-backup"),
-        MainAmount:       10,
-        BackUpAmount:     ptrInt16(3),
-        MealType:         "breakfast",
-        CreatedByStaffID: "staff-1",
-        StaffName:        "Jane Doe",
-    }
+	mealRepo.createdMealPlanResponse = &entities.MealPlan{
+		ID:               "new-plan-1",
+		MenuID:           "menu-main",
+		BackUpMenuID:     ptrString("menu-backup"),
+		MainAmount:       10,
+		BackUpAmount:     ptrInt16(3),
+		MealType:         "breakfast",
+		CreatedByStaffID: "staff-1",
+		StaffName:        "Jane Doe",
+	}
 
-    mealPlan := &entities.MealPlan{
-        MenuID:       "menu-main",
-        BackUpMenuID: ptrString("menu-backup"),
-        MainAmount:   10,
-        BackUpAmount: ptrInt16(3),
-        MealType:     "Breakfast",
-    }
+	mealPlan := &entities.MealPlan{
+		MenuID:       "menu-main",
+		BackUpMenuID: ptrString("menu-backup"),
+		MainAmount:   10,
+		BackUpAmount: ptrInt16(3),
+		MealType:     "Breakfast",
+	}
 
-    result, warning, err := uc.CreateMealPlan(mealPlan, "user-1", false)
+	result, warning, err := uc.CreateMealPlan(mealPlan, "user-1", false)
 
-    assert.NoError(t, err)
-    assert.Nil(t, warning)
-    if assert.NotNil(t, result) {
-        assert.Equal(t, "new-plan-1", result.ID)
-        assert.Equal(t, "staff-1", result.CreatedByStaffID)
-        assert.Equal(t, "Jane Doe", result.StaffName)
-    }
+	assert.NoError(t, err)
+	assert.Nil(t, warning)
+	if assert.NotNil(t, result) {
+		assert.Equal(t, "new-plan-1", result.ID)
+		assert.Equal(t, "staff-1", result.CreatedByStaffID)
+		assert.Equal(t, "Jane Doe", result.StaffName)
+	}
 
-    assert.Equal(t, 1, userRepo.getUserCalls)
-    assert.Equal(t, 1, userRepo.getRoleCalls)
-    assert.Equal(t, 1, userRepo.getStaffCalls)
-    assert.Equal(t, 2, aiClient.checkAllergyCalls)
-    assert.Equal(t, 1, emrRepo.getResidentAllergyStatsCalls)
-    
-    
-    assert.Equal(t, 1, mealRepo.createMealPlanCalls)
-    assert.Equal(t, 1, auditRepo.createAuditLogCalls)
+	assert.Equal(t, 1, userRepo.getUserCalls)
+	assert.Equal(t, 1, userRepo.getRoleCalls)
+	assert.Equal(t, 1, userRepo.getStaffCalls)
+	assert.Equal(t, 2, aiClient.checkAllergyCalls)
+	assert.Equal(t, 1, emrRepo.getResidentAllergyStatsCalls)
 
-    if assert.NotNil(t, mealRepo.capturedCreatedMealPlan) {
-        assert.Equal(t, "breakfast", mealRepo.capturedCreatedMealPlan.MealType)
-        assert.Equal(t, "staff-1", mealRepo.capturedCreatedMealPlan.CreatedByStaffID)
-        assert.Equal(t, "Jane Doe", mealRepo.capturedCreatedMealPlan.StaffName)
-    }
+	assert.Equal(t, 1, mealRepo.createMealPlanCalls)
+	assert.Equal(t, 1, auditRepo.createAuditLogCalls)
+
+	if assert.NotNil(t, mealRepo.capturedCreatedMealPlan) {
+		assert.Equal(t, "breakfast", mealRepo.capturedCreatedMealPlan.MealType)
+		assert.Equal(t, "staff-1", mealRepo.capturedCreatedMealPlan.CreatedByStaffID)
+		assert.Equal(t, "Jane Doe", mealRepo.capturedCreatedMealPlan.StaffName)
+	}
 }
 
 func TestCreateMealPlan_Success_WithAIWarningWhenMainMenuNotSafe(t *testing.T) {
-    uc, mealRepo, _, emrRepo, auditRepo, aiClient := newMealUsecase(userConstants.RoleKitchenStaff)
+	uc, mealRepo, _, emrRepo, auditRepo, aiClient := newMealUsecase(userConstants.RoleKitchenStaff)
 
-    mealRepo.menusByID["menu-main"] = &entities.Menu{ID: "menu-main", MenuName: "Main Menu", Description: "shrimp, rice"}
-    mealRepo.menusByID["menu-backup"] = &entities.Menu{ID: "menu-backup", MenuName: "Backup Menu", Description: "chicken, soup"}
+	mealRepo.menusByID["menu-main"] = &entities.Menu{ID: "menu-main", MenuName: "Main Menu", Description: "shrimp, rice"}
+	mealRepo.menusByID["menu-backup"] = &entities.Menu{ID: "menu-backup", MenuName: "Backup Menu", Description: "chicken, soup"}
 
-    emrRepo.allergyStatsResponse = emrModels.ResidentAllergyStatsDashboardResponse{
-        AllergyDetails: []emrModels.AllergyStatisticDashboardResponse{
-            {AllergyID: "a-2", AllergyName: "Shrimp", ResidentCount: 2},
-        },
-    }
+	emrRepo.allergyStatsResponse = emrModels.ResidentAllergyStatsDashboardResponse{
+		AllergyDetails: []emrModels.AllergyStatisticDashboardResponse{
+			{AllergyID: "a-2", AllergyName: "Shrimp", ResidentCount: 2},
+		},
+	}
 
-    aiClient.responses = []aiinfra.CheckAllergyResponse{
-        {Status: mealConstants.AllergyCheckStatusAllergyWarn, Reason: "contains shrimp"},
-        {Status: mealConstants.AllergyCheckStatusSafe, Reason: "safe"},
-    }
+	aiClient.responses = []aiinfra.CheckAllergyResponse{
+		{Status: mealConstants.AllergyCheckStatusAllergyWarn, Reason: "contains shrimp"},
+		{Status: mealConstants.AllergyCheckStatusSafe, Reason: "safe"},
+	}
 
-    mealPlan := &entities.MealPlan{
-        MenuID:       "menu-main",
-        BackUpMenuID: ptrString("menu-backup"),
-        MainAmount:   8,
-        BackUpAmount: ptrInt16(4),
-        MealType:     "lunch",
-    }
+	mealPlan := &entities.MealPlan{
+		MenuID:       "menu-main",
+		BackUpMenuID: ptrString("menu-backup"),
+		MainAmount:   8,
+		BackUpAmount: ptrInt16(4),
+		MealType:     "lunch",
+	}
 
-    result, warning, err := uc.CreateMealPlan(mealPlan, "user-1", false)
+	result, warning, err := uc.CreateMealPlan(mealPlan, "user-1", false)
 
-    assert.NoError(t, err)
-    
-    assert.Nil(t, result) 
-    
-    if assert.NotNil(t, warning) {
-        assert.False(t, warning.MainMenuPassed)
-        assert.True(t, warning.BackupMenuPassed)
-        if assert.NotNil(t, warning.MainMenuResult) {
-            assert.Equal(t, mealConstants.AllergyCheckStatusAllergyWarn, warning.MainMenuResult.Status)
-        }
-        if assert.NotNil(t, warning.BackupMenuResult) {
-            assert.Equal(t, mealConstants.AllergyCheckStatusSafe, warning.BackupMenuResult.Status)
-        }
-    }
+	assert.NoError(t, err)
 
-    assert.Equal(t, 2, aiClient.checkAllergyCalls)
-    assert.Equal(t, 0, mealRepo.createMealPlanCalls)
-    assert.Equal(t, 0, auditRepo.createAuditLogCalls)
+	assert.Nil(t, result)
+
+	if assert.NotNil(t, warning) {
+		assert.False(t, warning.MainMenuPassed)
+		assert.True(t, warning.BackupMenuPassed)
+		if assert.NotNil(t, warning.MainMenuResult) {
+			assert.Equal(t, mealConstants.AllergyCheckStatusAllergyWarn, warning.MainMenuResult.Status)
+		}
+		if assert.NotNil(t, warning.BackupMenuResult) {
+			assert.Equal(t, mealConstants.AllergyCheckStatusSafe, warning.BackupMenuResult.Status)
+		}
+	}
+
+	assert.Equal(t, 2, aiClient.checkAllergyCalls)
+	assert.Equal(t, 0, mealRepo.createMealPlanCalls)
+	assert.Equal(t, 0, auditRepo.createAuditLogCalls)
 }
 
 func TestGetMealHistory_Success_NormalizeFiltersAndPagination(t *testing.T) {
