@@ -3379,3 +3379,48 @@ func getMultipartField(form *multipart.Form, key string) (string, bool) {
 	}
 	return values[0], true
 }
+
+// GetRelativeDashboardPreviewForStaffHandler godoc
+// @Summary Get Relative Dashboard Preview for Staff
+// @Description Retrieve relative dashboard data for staff preview (bypasses relative check)
+// @Tags Dashboard
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Resident ID"
+// @Param date query string false "Selected date (YYYY-MM-DD)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.RelativeDashboardResponse} "Relative dashboard preview retrieved successfully"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/residents/{id}/relative-dashboard [get]
+func (c *EmrController) GetRelativeDashboardPreviewForStaffHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Params("id")
+	dateInput := strings.TrimSpace(ctx.Query("date"))
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.GetRelativeDashboardPreviewForStaff(userID, residentID, dateInput)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "relative dashboard preview retrieved successfully",
+		"result":      result,
+	})
+}

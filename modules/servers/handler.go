@@ -155,6 +155,7 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	residentGroup.Get("/all", middlewares.JWTMiddleware(jwt), emrController.GetAllResidentsHandler)
 	residentGroup.Get("/overview", middlewares.JWTMiddleware(jwt), emrController.GetResidentOverviewHandler)
 	residentGroup.Get("/:id", middlewares.JWTMiddleware(jwt), emrController.GetResidentByIDHandler)
+	residentGroup.Get("/:id/relative-dashboard", middlewares.JWTMiddleware(jwt), emrController.GetRelativeDashboardPreviewForStaffHandler)
 	residentGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetResidentByRoomIDHandler)
 	residentGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateResidentByIDHandler)
 

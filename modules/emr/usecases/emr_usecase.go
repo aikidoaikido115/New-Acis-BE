@@ -135,6 +135,7 @@ type EmrUsecase interface {
 	RelativePortalLogin(req models.RelativePortalLoginRequest) (*models.RelativePortalLoginResponse, error)
 	GetRelativeDashboard(userID string, dateInput string) (*models.RelativeDashboardResponse, error)
 	GetRelativePatientInfo(userID string) (*models.RelativePatientInfoResponse, error)
+	GetRelativeDashboardPreviewForStaff(userID string, residentID string, dateInput string) (*models.RelativeDashboardResponse, error)
 
 	// DoctorOrder operations
 	CreateDoctorOrder(order *entities.DoctorOrder, userID string) (*entities.DoctorOrder, error)
@@ -3863,6 +3864,91 @@ func (uc *EmrUseCaseImpl) GetRelativeDashboard(userID string, dateInput string) 
 		return nil, errors.New("failed to get relative notes: " + err.Error())
 	}
 	participations, err := uc.emrrepo.GetParticipationsByResidentIDOnDate(relative.ResidentID, selectedDate)
+	if err != nil {
+		return nil, errors.New("failed to get participations: " + err.Error())
+	}
+
+	resultNotes := make([]models.RelativeDashboardNote, 0)
+	var lastUpdated *time.Time
+	for _, note := range notes {
+		if note == nil {
+			continue
+		}
+		noteTime := note.CreatedAt.In(loc)
+		if noteTime.Year() != selectedDate.Year() || noteTime.Month() != selectedDate.Month() || noteTime.Day() != selectedDate.Day() {
+			continue
+		}
+		if !note.SendNote {
+			continue
+		}
+
+		resultNotes = append(resultNotes, models.RelativeDashboardNote{
+			ID:        note.ID,
+			Content:   note.Content,
+			CreatedAt: note.CreatedAt.Format(time.RFC3339),
+		})
+
+		if lastUpdated == nil || note.CreatedAt.After(*lastUpdated) {
+			t := note.CreatedAt
+			lastUpdated = &t
+		}
+	}
+
+	var lastUpdatedText *string
+	if lastUpdated != nil {
+		text := lastUpdated.Format(time.RFC3339)
+		lastUpdatedText = &text
+	}
+
+	resultParticipations := make([]models.RelativeDashboardParticipation, 0, len(participations))
+	for _, participation := range participations {
+		if participation == nil {
+			continue
+		}
+		resultParticipations = append(resultParticipations, models.RelativeDashboardParticipation{
+			ResidentID:       participation.ResidentID,
+			ASID:             participation.ASID,
+			IsParticipating:  participation.IsParticipating,
+			ImgURLs:          participation.ImgURLs,
+			ActivitySchedule: participation.ActivitySchedule,
+		})
+	}
+
+	return &models.RelativeDashboardResponse{
+		ResidentID:     resident.ID,
+		ResidentName:   strings.TrimSpace(resident.FirstName + " " + resident.LastName),
+		Date:           selectedDate.Format("2006-01-02"),
+		LastUpdatedAt:  lastUpdatedText,
+		Notes:          resultNotes,
+		Participations: resultParticipations,
+	}, nil
+}
+
+func (uc *EmrUseCaseImpl) GetRelativeDashboardPreviewForStaff(userID string, residentID string, dateInput string) (*models.RelativeDashboardResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	resident, err := uc.emrrepo.GetResidentByID(residentID)
+	if err != nil {
+		return nil, errors.New("resident not found")
+	}
+
+	loc, _ := time.LoadLocation("Asia/Bangkok")
+	selectedDate := time.Now().In(loc)
+	if strings.TrimSpace(dateInput) != "" {
+		parsed, parseErr := time.ParseInLocation("2006-01-02", strings.TrimSpace(dateInput), loc)
+		if parseErr != nil {
+			return nil, errors.New("date must be in YYYY-MM-DD format")
+		}
+		selectedDate = parsed
+	}
+
+	notes, err := uc.emrrepo.GetRelativeNotesByResidentIDOnDate(residentID, selectedDate)
+	if err != nil {
+		return nil, errors.New("failed to get relative notes: " + err.Error())
+	}
+	participations, err := uc.emrrepo.GetParticipationsByResidentIDOnDate(residentID, selectedDate)
 	if err != nil {
 		return nil, errors.New("failed to get participations: " + err.Error())
 	}
