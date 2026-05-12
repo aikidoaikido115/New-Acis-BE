@@ -393,6 +393,29 @@ func sanitizeEmergencyContacts(contacts []models.EmergencyContact) datatypes.JSO
 	return datatypes.JSON(raw)
 }
 
+func sanitizeEmergencyHospitals(hospitals []models.EmergencyHospital) datatypes.JSON {
+	cleaned := make([]models.EmergencyHospital, 0, len(hospitals))
+	for _, hospital := range hospitals {
+		name := strings.TrimSpace(hospital.Name)
+		phone := strings.TrimSpace(hospital.Phone)
+		if name == "" && phone == "" {
+			continue
+		}
+		cleaned = append(cleaned, models.EmergencyHospital{
+			Name:  name,
+			Phone: phone,
+		})
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+	raw, err := json.Marshal(cleaned)
+	if err != nil {
+		return nil
+	}
+	return datatypes.JSON(raw)
+}
+
 func (uc *EmrUseCaseImpl) resolveStaffDisplayName(staffID string, cache map[string]string) string {
 	if staffID == "" {
 		return ""
@@ -605,6 +628,7 @@ func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID str
 		"surgical_history":              createdResident.SugicalHistory,
 		"preferred_emergency_hospital":  createdResident.PreferredEmergencyHospital,
 		"emergency_hospital_phone":      createdResident.EmergencyHospitalPhone,
+		"emergency_hospitals":           createdResident.EmergencyHospitals,
 		"profile_image":                 createdResident.ProfileImage,
 		"emergency_contacts":            createdResident.EmergencyContacts,
 	})
@@ -920,6 +944,10 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 		resident.EmergencyHospitalPhone = normalizeOptionalString(data.EmergencyHospitalPhone)
 	}
 
+	if data.EmergencyHospitals != nil {
+		resident.EmergencyHospitals = sanitizeEmergencyHospitals(*data.EmergencyHospitals)
+	}
+
 	if data.ProfileImage != nil {
 		resident.ProfileImage = normalizeOptionalString(data.ProfileImage)
 	}
@@ -969,6 +997,7 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 		"surgical_history":              updatedResident.SugicalHistory,
 		"preferred_emergency_hospital":  updatedResident.PreferredEmergencyHospital,
 		"emergency_hospital_phone":      updatedResident.EmergencyHospitalPhone,
+		"emergency_hospitals":           updatedResident.EmergencyHospitals,
 		"emergency_contacts":            updatedResident.EmergencyContacts,
 		"profile_image":                 updatedResident.ProfileImage,
 	})

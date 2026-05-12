@@ -100,6 +100,27 @@ func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
 		}
 	}
 
+	emergencyHospitalsJSON := datatypes.JSON(nil)
+	if len(req.EmergencyHospitals) > 0 {
+		cleanedHospitals := make([]models.EmergencyHospital, 0, len(req.EmergencyHospitals))
+		for _, hospital := range req.EmergencyHospitals {
+			name := strings.TrimSpace(hospital.Name)
+			phone := strings.TrimSpace(hospital.Phone)
+			if name == "" && phone == "" {
+				continue
+			}
+			cleanedHospitals = append(cleanedHospitals, models.EmergencyHospital{
+				Name:  name,
+				Phone: phone,
+			})
+		}
+		if len(cleanedHospitals) > 0 {
+			if raw, err := json.Marshal(cleanedHospitals); err == nil {
+				emergencyHospitalsJSON = datatypes.JSON(raw)
+			}
+		}
+	}
+
 	resident := &entities.Resident{
 		RoomID:                     req.RoomID,
 		FirstName:                  req.FirstName,
@@ -119,6 +140,7 @@ func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
 		PreferredEmergencyHospital: req.PreferredEmergencyHospital,
 		EmergencyHospitalPhone:     req.EmergencyHospitalPhone,
 		ProfileImage:               req.ProfileImage,
+		EmergencyHospitals:         emergencyHospitalsJSON,
 		EmergencyContacts:          emergencyContactsJSON,
 	}
 
@@ -457,6 +479,13 @@ func parseResidentCreateForm(form *multipart.Form) (models.CreateResidentRequest
 	if value, ok := getFormValue(form, "emergency_hospital_phone"); ok {
 		req.EmergencyHospitalPhone = &value
 	}
+	if value, ok := getFormValue(form, "emergency_hospitals"); ok {
+		var hospitals []models.EmergencyHospital
+		if err := json.Unmarshal([]byte(value), &hospitals); err != nil {
+			return req, nil, err
+		}
+		req.EmergencyHospitals = hospitals
+	}
 	if value, ok := getFormValue(form, "profile_image"); ok {
 		req.ProfileImage = &value
 	}
@@ -553,6 +582,13 @@ func parseResidentUpdateForm(form *multipart.Form) (models.UpdateResidentRequest
 	}
 	if value, ok := getFormValue(form, "emergency_hospital_phone"); ok {
 		req.EmergencyHospitalPhone = &value
+	}
+	if value, ok := getFormValue(form, "emergency_hospitals"); ok {
+		var hospitals []models.EmergencyHospital
+		if err := json.Unmarshal([]byte(value), &hospitals); err != nil {
+			return req, nil, err
+		}
+		req.EmergencyHospitals = &hospitals
 	}
 	if value, ok := getFormValue(form, "profile_image"); ok {
 		req.ProfileImage = &value

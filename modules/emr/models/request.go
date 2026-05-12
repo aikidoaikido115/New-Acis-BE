@@ -46,6 +46,7 @@ type CreateResidentRequest struct {
 	SugicalHistory             *string            `json:"surgical_history"`
 	PreferredEmergencyHospital *string            `json:"preferred_emergency_hospital" binding:"required"`
 	EmergencyHospitalPhone     *string            `json:"emergency_hospital_phone" binding:"required"`
+	EmergencyHospitals         []EmergencyHospital `json:"emergency_hospitals"`
 	ProfileImage               *string            `json:"profile_image"`
 	EmergencyContacts          []EmergencyContact `json:"emergency_contacts" binding:"required"`
 }
@@ -54,6 +55,11 @@ type EmergencyContact struct {
 	Name     string `json:"name"`
 	Relation string `json:"relation"`
 	Phone    string `json:"phone"`
+}
+
+type EmergencyHospital struct {
+	Name  string `json:"name"`
+	Phone string `json:"phone"`
 }
 
 type IntakeLabelRequest struct {
@@ -105,6 +111,7 @@ type UpdateResidentRequest struct {
 	SugicalHistory             NullableString      `json:"surgical_history"`
 	PreferredEmergencyHospital *string             `json:"preferred_emergency_hospital"`
 	EmergencyHospitalPhone     *string             `json:"emergency_hospital_phone"`
+	EmergencyHospitals         *[]EmergencyHospital `json:"emergency_hospitals"`
 	ProfileImage               *string             `json:"profile_image"`
 	EmergencyContacts          *[]EmergencyContact `json:"emergency_contacts"`
 

@@ -20,10 +20,6 @@ func SeedIntakeLabels(db *gorm.DB) {
 		},
 		{
 			ID:        uuid.New().String(),
-			LabelName: "ทานอาหารทางสายยาง",
-		},
-		{
-			ID:        uuid.New().String(),
 			LabelName: emr_constants.CareLevelPartial,
 		},
 		{
@@ -32,11 +28,7 @@ func SeedIntakeLabels(db *gorm.DB) {
 		},
 		{
 			ID:        uuid.New().String(),
-			LabelName: "ใช้รถเข็น",
-		},
-		{
-			ID:        uuid.New().String(),
-			LabelName: "ใช้วอคเกอร์",
+			LabelName: emr_constants.CareLevelOther,
 		},
 	}
 
