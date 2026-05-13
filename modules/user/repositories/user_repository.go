@@ -54,6 +54,7 @@ type UserRepository interface {
 	UpdateUserApprovalByID(userID string, isApprove bool) error
 	DeleteStaffAndUserByStaffID(staffID string) error
 	DeleteRelativeAndUserByUserID(userID string) error
+	DeleteUserByID(userID string) error
 	CreateOTP(otp *entities.OTP) error
 	GetOTPByUserID(userID string) (*entities.OTP, error)
 	DeleteOTP(userID string) error
@@ -392,6 +393,28 @@ func (r *GormUserRepository) DeleteRelativeAndUserByUserID(userID string) error 
 		}
 
 		if err := tx.Delete(&entities.Relative{}, "id = ?", relative.ID).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&entities.User{}, "id = ?", userID).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (r *GormUserRepository) DeleteUserByID(userID string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("DELETE FROM support_tickets WHERE created_by_user_id = ?", userID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM otps WHERE user_id = ?", userID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM temp_tokens WHERE user_id = ?", userID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM audit_logs WHERE user_id = ?", userID).Error; err != nil {
 			return err
 		}
 		if err := tx.Delete(&entities.User{}, "id = ?", userID).Error; err != nil {

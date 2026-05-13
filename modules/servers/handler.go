@@ -138,6 +138,7 @@ func SetupUserRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.
 	adminGroup.Patch("/users/staffs/:staff_id/role", middlewares.JWTMiddleware(jwt), userController.UpdateStaffRoleByIDHandler)
 	adminGroup.Delete("/users/staffs/:staff_id", middlewares.JWTMiddleware(jwt), userController.DeleteStaffByIDHandler)
 	adminGroup.Delete("/users/relatives/:user_id", middlewares.JWTMiddleware(jwt), userController.DeleteRelativeByUserIDHandler)
+	adminGroup.Delete("/users/:user_id", middlewares.JWTMiddleware(jwt), userController.DeleteUserByIDHandler)
 }
 
 func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.Supabase) {
