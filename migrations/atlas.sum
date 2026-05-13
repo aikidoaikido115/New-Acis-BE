@@ -1,4 +1,4 @@
-h1:FKBrNhz+/4qXicAUe+ipHwUKAv13qqwLYowZ4ulwwZI=
+h1:oHUNMppwnKC7hfG7EKOWbXcYqr6VnCTOB+KWevNw6as=
 20251225120117_baseline.sql h1:nDGr+0dzg9CoNnMMJPnwUDoN9CMokZ2O27hxABnWQIw=
 20251225121734_add_test_col.sql h1:HulH71cfP0x27QyxLV4XK5L/2923YKgP6XNpqnl/BQs=
 20251225122058_add_test_col.sql h1:UzZ1gqFQUYlwjFADblodN5gA1O74X1tiIEC5zNa8TOU=
@@ -52,3 +52,5 @@ h1:FKBrNhz+/4qXicAUe+ipHwUKAv13qqwLYowZ4ulwwZI=
 20260501095840_meal-staff-name.sql h1:MlD/z/gMPpLwbrGoolrlRJ+zsvqwkm47e8AbHjbe9oE=
 20260503000000_add_drug_plans_unique_constraint.sql h1:ZuEdNZTwsvuHwN18ExaaQI+dWXXL/KWx5XiG2InJOlA=
 20260503035058_reset-doctor-order-support-ticket.sql h1:8xrnGS5eocp/w/3WbRKpJmmICrP9c/cvR/uyxdTA3yM=
+20260512090000_add_emergency_hospitals_column.sql h1:gNJoAn6TsmG6jvBcJBNLAnSPqj5i+YA15hsrANP5r70=
+20260512103000_activity_schedules_series_status.sql h1:PislDwmtkBUs7FCD33B96iUxo7lJMLKbivqCr5hI7ac=
