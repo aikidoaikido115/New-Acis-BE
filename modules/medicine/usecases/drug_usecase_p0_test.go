@@ -146,7 +146,7 @@ func newDrugPlanUsecase() (*medicineUsecases.DrugUseCaseImpl, *fakeDrugPlanRepo,
 	userRepo := newFakeDrugPlanUserRepo()
 	auditRepo := newFakeDrugPlanAuditRepo()
 
-	uc := medicineUsecases.NewDrugUseCase(drugRepo, auditRepo, userRepo)
+	uc := medicineUsecases.NewDrugUseCase(drugRepo, auditRepo, userRepo, nil)
 	return uc, drugRepo, userRepo, auditRepo
 }
 

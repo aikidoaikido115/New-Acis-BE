@@ -135,6 +135,7 @@ type EmrUsecase interface {
 	RelativePortalLogin(req models.RelativePortalLoginRequest) (*models.RelativePortalLoginResponse, error)
 	GetRelativeDashboard(userID string, dateInput string) (*models.RelativeDashboardResponse, error)
 	GetRelativePatientInfo(userID string) (*models.RelativePatientInfoResponse, error)
+	GetRelativeDashboardPreviewForStaff(userID string, residentID string, dateInput string) (*models.RelativeDashboardResponse, error)
 
 	// DoctorOrder operations
 	CreateDoctorOrder(order *entities.DoctorOrder, userID string) (*entities.DoctorOrder, error)
@@ -226,6 +227,35 @@ func (uc *EmrUseCaseImpl) ensureRelative(userID string) error {
 
 	if userRole.Name != user_constants.RoleRelative {
 		return errors.New("only users with 'Relative' role can access relative portal")
+	}
+
+	return nil
+}
+
+func (uc *EmrUseCaseImpl) ensureRelativeAccessToResident(userID string, residentID string) error {
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return errors.New("failed to get user: " + err.Error())
+	}
+
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return errors.New("failed to get user role: " + err.Error())
+	}
+
+	if userRole.Name == user_constants.RoleRelative {
+		relative, err := uc.emrrepo.GetRelativeByUserID(userID)
+		if err != nil {
+			return errors.New("relative not found: " + err.Error())
+		}
+		if relative == nil || relative.ResidentID != residentID {
+			return errors.New("relative cannot access other resident data")
+		}
+		return nil
+	}
+
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return errors.New("only users with 'Medical Staff', 'Super User', 'Admin', or 'Relative' role can access this data")
 	}
 
 	return nil
@@ -380,6 +410,29 @@ func sanitizeEmergencyContacts(contacts []models.EmergencyContact) datatypes.JSO
 			Name:     name,
 			Relation: relation,
 			Phone:    phone,
+		})
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+	raw, err := json.Marshal(cleaned)
+	if err != nil {
+		return nil
+	}
+	return datatypes.JSON(raw)
+}
+
+func sanitizeEmergencyHospitals(hospitals []models.EmergencyHospital) datatypes.JSON {
+	cleaned := make([]models.EmergencyHospital, 0, len(hospitals))
+	for _, hospital := range hospitals {
+		name := strings.TrimSpace(hospital.Name)
+		phone := strings.TrimSpace(hospital.Phone)
+		if name == "" && phone == "" {
+			continue
+		}
+		cleaned = append(cleaned, models.EmergencyHospital{
+			Name:  name,
+			Phone: phone,
 		})
 	}
 	if len(cleaned) == 0 {
@@ -604,6 +657,7 @@ func (uc *EmrUseCaseImpl) CreateResident(resident *entities.Resident, userID str
 		"surgical_history":              createdResident.SugicalHistory,
 		"preferred_emergency_hospital":  createdResident.PreferredEmergencyHospital,
 		"emergency_hospital_phone":      createdResident.EmergencyHospitalPhone,
+		"emergency_hospitals":           createdResident.EmergencyHospitals,
 		"profile_image":                 createdResident.ProfileImage,
 		"emergency_contacts":            createdResident.EmergencyContacts,
 	})
@@ -919,6 +973,10 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 		resident.EmergencyHospitalPhone = normalizeOptionalString(data.EmergencyHospitalPhone)
 	}
 
+	if data.EmergencyHospitals != nil {
+		resident.EmergencyHospitals = sanitizeEmergencyHospitals(*data.EmergencyHospitals)
+	}
+
 	if data.ProfileImage != nil {
 		resident.ProfileImage = normalizeOptionalString(data.ProfileImage)
 	}
@@ -968,6 +1026,7 @@ func (uc *EmrUseCaseImpl) UpdateResidentByID(residentID string, data models.Upda
 		"surgical_history":              updatedResident.SugicalHistory,
 		"preferred_emergency_hospital":  updatedResident.PreferredEmergencyHospital,
 		"emergency_hospital_phone":      updatedResident.EmergencyHospitalPhone,
+		"emergency_hospitals":           updatedResident.EmergencyHospitals,
 		"emergency_contacts":            updatedResident.EmergencyContacts,
 		"profile_image":                 updatedResident.ProfileImage,
 	})
@@ -2249,19 +2308,8 @@ func (uc *EmrUseCaseImpl) GetRoomVitalSigns(roomID string, isLatest string, user
 }
 
 func (uc *EmrUseCaseImpl) GetVitalSignsHistory(residentID string, userID string) ([]*entities.VitalSign, error) {
-
-	user, err := uc.userrepo.GetUserByID(userID)
-	if err != nil {
-		return nil, errors.New("failed to get user: " + err.Error())
-	}
-
-	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
-	if err != nil {
-		return nil, errors.New("failed to get user role: " + err.Error())
-	}
-
-	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
-		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view vital signs history")
+	if err := uc.ensureRelativeAccessToResident(userID, residentID); err != nil {
+		return nil, err
 	}
 
 	residentExists, err := uc.emrrepo.ResidentExists(residentID)
@@ -2889,16 +2937,8 @@ func (uc *EmrUseCaseImpl) GetRoomLaboratoryValues(roomID string, isLatest string
 }
 
 func (uc *EmrUseCaseImpl) GetLaboratoryValuesHistory(residentID string, userID string) ([]*entities.LaboratoryValue, error) {
-	user, err := uc.userrepo.GetUserByID(userID)
-	if err != nil {
-		return nil, errors.New("failed to get user: " + err.Error())
-	}
-	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
-	if err != nil {
-		return nil, errors.New("failed to get user role: " + err.Error())
-	}
-	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
-		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view laboratory values history")
+	if err := uc.ensureRelativeAccessToResident(userID, residentID); err != nil {
+		return nil, err
 	}
 
 	residentExists, err := uc.emrrepo.ResidentExists(residentID)
@@ -3923,6 +3963,91 @@ func (uc *EmrUseCaseImpl) GetRelativeDashboard(userID string, dateInput string) 
 	}, nil
 }
 
+func (uc *EmrUseCaseImpl) GetRelativeDashboardPreviewForStaff(userID string, residentID string, dateInput string) (*models.RelativeDashboardResponse, error) {
+	if err := uc.ensureMedicalStaff(userID); err != nil {
+		return nil, err
+	}
+
+	resident, err := uc.emrrepo.GetResidentByID(residentID)
+	if err != nil {
+		return nil, errors.New("resident not found")
+	}
+
+	loc, _ := time.LoadLocation("Asia/Bangkok")
+	selectedDate := time.Now().In(loc)
+	if strings.TrimSpace(dateInput) != "" {
+		parsed, parseErr := time.ParseInLocation("2006-01-02", strings.TrimSpace(dateInput), loc)
+		if parseErr != nil {
+			return nil, errors.New("date must be in YYYY-MM-DD format")
+		}
+		selectedDate = parsed
+	}
+
+	notes, err := uc.emrrepo.GetRelativeNotesByResidentIDOnDate(residentID, selectedDate)
+	if err != nil {
+		return nil, errors.New("failed to get relative notes: " + err.Error())
+	}
+	participations, err := uc.emrrepo.GetParticipationsByResidentIDOnDate(residentID, selectedDate)
+	if err != nil {
+		return nil, errors.New("failed to get participations: " + err.Error())
+	}
+
+	resultNotes := make([]models.RelativeDashboardNote, 0)
+	var lastUpdated *time.Time
+	for _, note := range notes {
+		if note == nil {
+			continue
+		}
+		noteTime := note.CreatedAt.In(loc)
+		if noteTime.Year() != selectedDate.Year() || noteTime.Month() != selectedDate.Month() || noteTime.Day() != selectedDate.Day() {
+			continue
+		}
+		if !note.SendNote {
+			continue
+		}
+
+		resultNotes = append(resultNotes, models.RelativeDashboardNote{
+			ID:        note.ID,
+			Content:   note.Content,
+			CreatedAt: note.CreatedAt.Format(time.RFC3339),
+		})
+
+		if lastUpdated == nil || note.CreatedAt.After(*lastUpdated) {
+			t := note.CreatedAt
+			lastUpdated = &t
+		}
+	}
+
+	var lastUpdatedText *string
+	if lastUpdated != nil {
+		text := lastUpdated.Format(time.RFC3339)
+		lastUpdatedText = &text
+	}
+
+	resultParticipations := make([]models.RelativeDashboardParticipation, 0, len(participations))
+	for _, participation := range participations {
+		if participation == nil {
+			continue
+		}
+		resultParticipations = append(resultParticipations, models.RelativeDashboardParticipation{
+			ResidentID:       participation.ResidentID,
+			ASID:             participation.ASID,
+			IsParticipating:  participation.IsParticipating,
+			ImgURLs:          participation.ImgURLs,
+			ActivitySchedule: participation.ActivitySchedule,
+		})
+	}
+
+	return &models.RelativeDashboardResponse{
+		ResidentID:     resident.ID,
+		ResidentName:   strings.TrimSpace(resident.FirstName + " " + resident.LastName),
+		Date:           selectedDate.Format("2006-01-02"),
+		LastUpdatedAt:  lastUpdatedText,
+		Notes:          resultNotes,
+		Participations: resultParticipations,
+	}, nil
+}
+
 func (uc *EmrUseCaseImpl) GetRelativePatientInfo(userID string) (*models.RelativePatientInfoResponse, error) {
 	if err := uc.ensureRelative(userID); err != nil {
 		return nil, err
@@ -4021,8 +4146,14 @@ func (uc *EmrUseCaseImpl) GetRelativePatientInfo(userID string) (*models.Relativ
 		idCardNumber = *resident.IdCardNumber
 	}
 
+	profileImage := ""
+	if resident.ProfileImage != nil {
+		profileImage = *resident.ProfileImage
+	}
+
 	return &models.RelativePatientInfoResponse{
 		ResidentID:                resident.ID,
+		ProfileImage:              profileImage,
 		FirstName:                 resident.FirstName,
 		LastName:                  resident.LastName,
 		Nickname:                  resident.Nickname,

@@ -1002,6 +1002,74 @@ func (c *UserController) DeleteRelativeByUserIDHandler(ctx *fiber.Ctx) error {
 	})
 }
 
+// DeleteUserByIDHandler godoc
+// @Summary Delete user
+// @Description Delete a user account. Admin only.
+// @Tags User
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param user_id path string true "User ID"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=any} "User deleted successfully"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized - Missing user ID"
+// @Failure 403 {object} object{status=string,status_code=int,message=string,result=any} "Forbidden - Admin only"
+// @Router /api/admin/users/{user_id} [delete]
+func (c *UserController) DeleteUserByIDHandler(ctx *fiber.Ctx) error {
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.StatusUnauthorized,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	targetUserID := strings.TrimSpace(ctx.Params("user_id"))
+	if targetUserID == "" {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     "user_id is required",
+			"result":      nil,
+		})
+	}
+
+	if err := c.userusecase.DeleteUserByID(targetUserID, userID); err != nil {
+		lowerErr := strings.ToLower(err.Error())
+		if strings.Contains(lowerErr, "admin") {
+			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"status":      fiber.ErrForbidden.Message,
+				"status_code": fiber.StatusForbidden,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
+		if strings.Contains(lowerErr, "not found") {
+			return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"status":      fiber.ErrNotFound.Message,
+				"status_code": fiber.ErrNotFound.Code,
+				"message":     err.Error(),
+				"result":      nil,
+			})
+		}
+
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "User deleted successfully",
+		"result":      nil,
+	})
+}
+
 // GetUserByIDHandler godoc
 // @Summary Get User Information
 // @Description Get authenticated user's information

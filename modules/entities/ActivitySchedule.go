@@ -8,6 +8,8 @@ type ActivitySchedule struct {
 	Date       time.Time `json:"date" gorm:"not null"`
 	StartTime  time.Time `json:"start_time" gorm:"not null"`
 	EndTime    time.Time `json:"end_time" gorm:"not null"`
+	SeriesID   *string   `json:"series_id"`
+	Status     string    `json:"status" gorm:"not null;default:active"`
 	CreatedAt  time.Time `json:"created_at" gorm:"not null"`
 	UpdatedAt  time.Time `json:"updated_at" gorm:"not null"`
 

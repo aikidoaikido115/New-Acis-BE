@@ -138,6 +138,7 @@ func SetupUserRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.
 	adminGroup.Patch("/users/staffs/:staff_id/role", middlewares.JWTMiddleware(jwt), userController.UpdateStaffRoleByIDHandler)
 	adminGroup.Delete("/users/staffs/:staff_id", middlewares.JWTMiddleware(jwt), userController.DeleteStaffByIDHandler)
 	adminGroup.Delete("/users/relatives/:user_id", middlewares.JWTMiddleware(jwt), userController.DeleteRelativeByUserIDHandler)
+	adminGroup.Delete("/users/:user_id", middlewares.JWTMiddleware(jwt), userController.DeleteUserByIDHandler)
 }
 
 func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.Supabase) {
@@ -146,7 +147,7 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 
 	emrRepository := emrRepository.NewGormEmrRepository(db)
 	drugRepository := medicineRepository.NewGormDrugRepository(db)
-	drugUsecase := medicineUsecase.NewDrugUseCase(drugRepository, auditLogRepository, userRepository)
+	drugUsecase := medicineUsecase.NewDrugUseCase(drugRepository, auditLogRepository, userRepository, emrRepository)
 	emrUsecase := emrUsecase.NewEmrUseCase(emrRepository, auditLogRepository, userRepository, drugUsecase, supa, jwt)
 	emrController := emrController.NewEmrController(emrUsecase)
 
@@ -155,6 +156,7 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 	residentGroup.Get("/all", middlewares.JWTMiddleware(jwt), emrController.GetAllResidentsHandler)
 	residentGroup.Get("/overview", middlewares.JWTMiddleware(jwt), emrController.GetResidentOverviewHandler)
 	residentGroup.Get("/:id", middlewares.JWTMiddleware(jwt), emrController.GetResidentByIDHandler)
+	residentGroup.Get("/:id/relative-dashboard", middlewares.JWTMiddleware(jwt), emrController.GetRelativeDashboardPreviewForStaffHandler)
 	residentGroup.Get("/", middlewares.JWTMiddleware(jwt), emrController.GetResidentByRoomIDHandler)
 	residentGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), emrController.UpdateResidentByIDHandler)
 
@@ -277,7 +279,8 @@ func SetupMedicineRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
 	userRepository := userRepository.NewGormUserRepository(db)
 	drugRepository := medicineRepository.NewGormDrugRepository(db)
-	drugUsecase := medicineUsecase.NewDrugUseCase(drugRepository, auditLogRepository, userRepository)
+	emrRepository := emrRepository.NewGormEmrRepository(db)
+	drugUsecase := medicineUsecase.NewDrugUseCase(drugRepository, auditLogRepository, userRepository, emrRepository)
 	drugController := medicineController.NewDrugController(drugUsecase)
 
 	personalDrugGroup := app.Group("/api/emr/personal-drugs")
@@ -335,8 +338,11 @@ func SetupActivityRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa conf
 	activityScheduleGroup.Get("/sync", middlewares.JWTMiddleware(jwt), activityController.GetAllActivitySchedulesWithActivitySyncHandler)
 	activityScheduleGroup.Get("/sync/:id", middlewares.JWTMiddleware(jwt), activityController.GetActivityScheduleWithActivitySyncByIDHandler)
 	activityScheduleGroup.Patch("/sync/:id", middlewares.JWTMiddleware(jwt), activityController.UpdateActivityScheduleWithActivitySyncByIDHandler)
+	activityScheduleGroup.Post("/recurring", middlewares.JWTMiddleware(jwt), activityController.CreateRecurringActivityScheduleHandler)
 	activityScheduleGroup.Post("/", middlewares.JWTMiddleware(jwt), activityController.CreateActivityScheduleHandler)
 	activityScheduleGroup.Get("/", middlewares.JWTMiddleware(jwt), activityController.GetAllActivitySchedulesHandler)
+	activityScheduleGroup.Patch("/cancel", middlewares.JWTMiddleware(jwt), activityController.CancelActivityScheduleHandler)
+	activityScheduleGroup.Patch("/restore", middlewares.JWTMiddleware(jwt), activityController.RestoreActivityScheduleHandler)
 	activityScheduleGroup.Get("/:id/residents", middlewares.JWTMiddleware(jwt), activityController.GetResidentsByScheduleIDCustomHandler)
 	activityScheduleGroup.Get("/:id", middlewares.JWTMiddleware(jwt), activityController.GetActivityScheduleByIDHandler)
 	activityScheduleGroup.Patch("/:id", middlewares.JWTMiddleware(jwt), activityController.UpdateActivityScheduleByIDHandler)

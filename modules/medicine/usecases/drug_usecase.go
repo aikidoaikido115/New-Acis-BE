@@ -56,17 +56,24 @@ type DrugUseCaseImpl struct {
 	drugRepo     medicine_repository.DrugRepository
 	auditLogRepo audit_repository.AuditLogRepository
 	userRepo     user_repository.UserRepository
+	relativeRepo RelativeLookupRepository
+}
+
+type RelativeLookupRepository interface {
+	GetRelativeByUserID(userID string) (*entities.Relative, error)
 }
 
 func NewDrugUseCase(
 	drugRepo medicine_repository.DrugRepository,
 	auditLogRepo audit_repository.AuditLogRepository,
 	userRepo user_repository.UserRepository,
+	relativeRepo RelativeLookupRepository,
 ) *DrugUseCaseImpl {
 	return &DrugUseCaseImpl{
 		drugRepo:     drugRepo,
 		auditLogRepo: auditLogRepo,
 		userRepo:     userRepo,
+		relativeRepo: relativeRepo,
 	}
 }
 
@@ -83,6 +90,38 @@ func (uc *DrugUseCaseImpl) ensureMedicalStaff(userID string) error {
 
 	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
 		return errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can access personal drug data")
+	}
+
+	return nil
+}
+
+func (uc *DrugUseCaseImpl) ensureMedicalStaffOrRelativeForResident(userID string, residentID string) error {
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil {
+		return errors.New("failed to get user: " + err.Error())
+	}
+
+	userRole, err := uc.userRepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return errors.New("failed to get user role: " + err.Error())
+	}
+
+	if userRole.Name == user_constants.RoleRelative {
+		if uc.relativeRepo == nil {
+			return errors.New("relative access not configured")
+		}
+		relative, err := uc.relativeRepo.GetRelativeByUserID(userID)
+		if err != nil {
+			return errors.New("relative not found: " + err.Error())
+		}
+		if relative == nil || relative.ResidentID != residentID {
+			return errors.New("relative cannot access other resident data")
+		}
+		return nil
+	}
+
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return errors.New("only users with 'Medical Staff', 'Super User', 'Admin', or 'Relative' role can access drug plans")
 	}
 
 	return nil
@@ -1367,7 +1406,7 @@ func (uc *DrugUseCaseImpl) GetDrugAdministrationHistory(req models.DrugAdministr
 }
 
 func (uc *DrugUseCaseImpl) GetDrugPlansByResidentID(residentID string, userID string) ([]*entities.DrugPlan, error) {
-	if err := uc.ensureMedicalStaff(userID); err != nil {
+	if err := uc.ensureMedicalStaffOrRelativeForResident(userID, residentID); err != nil {
 		return nil, err
 	}
 
@@ -1392,7 +1431,7 @@ func (uc *DrugUseCaseImpl) GetDrugPlansByResidentID(residentID string, userID st
 }
 
 func (uc *DrugUseCaseImpl) GetDrugPlansByResidentIDToday(residentID string, userID string) ([]*entities.DrugPlan, error) {
-	if err := uc.ensureMedicalStaff(userID); err != nil {
+	if err := uc.ensureMedicalStaffOrRelativeForResident(userID, residentID); err != nil {
 		return nil, err
 	}
 

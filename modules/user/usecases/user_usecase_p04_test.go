@@ -92,6 +92,9 @@ func (f *fakeUserP04Repo) DeleteStaffAndUserByStaffID(staffID string) error {
 func (f *fakeUserP04Repo) DeleteRelativeAndUserByUserID(userID string) error {
 	return errors.New("not used")
 }
+func (f *fakeUserP04Repo) DeleteUserByID(userID string) error {
+	return errors.New("not used")
+}
 func (f *fakeUserP04Repo) GetRelativeUserByUserID(userID string) (*user_repository.AdminRelativeUser, error) {
 	return nil, errors.New("not used")
 }
