@@ -307,6 +307,59 @@ func (c *ActivityController) CreateActivityScheduleHandler(ctx *fiber.Ctx) error
 	})
 }
 
+// CreateRecurringActivityScheduleHandler godoc
+// @Summary Create Recurring Activity Schedules
+// @Description Create multiple activity schedules in a series
+// @Tags ActivitySchedule
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body models.CreateRecurringActivityScheduleRequest true "Recurring activity schedule payload"
+// @Success 201 {object} object{status=string,status_code=int,message=string,result=[]entities.ActivitySchedule}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 404 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/activity-schedules/recurring [post]
+func (c *ActivityController) CreateRecurringActivityScheduleHandler(ctx *fiber.Ctx) error {
+	var req models.CreateRecurringActivityScheduleRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	createdSchedules, err := c.activityUsecase.CreateRecurringActivitySchedules(req, userID)
+	if err != nil {
+		return ctx.Status(resolveStatusCode(err)).JSON(fiber.Map{
+			"status":      resolveStatusText(err),
+			"status_code": resolveStatusCode(err),
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusCreated,
+		"message":     "activity schedules created successfully",
+		"result":      createdSchedules,
+	})
+}
+
 // CreateActivityScheduleWithActivitySyncHandler godoc
 // @Summary Create Activity Schedule with Activity Sync
 // @Description Create a new schedule by activity name. Reuse existing activity when attributes match, update activity when attributes changed, or create new activity when name does not exist.
@@ -652,6 +705,116 @@ func (c *ActivityController) UpdateActivityScheduleByIDHandler(ctx *fiber.Ctx) e
 		"status_code": fiber.StatusOK,
 		"message":     "activity schedule updated successfully",
 		"result":      updatedActivitySchedule,
+	})
+}
+
+// CancelActivityScheduleHandler godoc
+// @Summary Cancel Activity Schedule
+// @Description Cancel a single activity schedule or following schedules in series
+// @Tags ActivitySchedule
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body models.CancelActivityScheduleRequest true "Cancel activity payload"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 404 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/activity-schedules/cancel [patch]
+func (c *ActivityController) CancelActivityScheduleHandler(ctx *fiber.Ctx) error {
+	var req models.CancelActivityScheduleRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	affected, err := c.activityUsecase.CancelActivitySchedule(req, userID)
+	if err != nil {
+		return ctx.Status(resolveStatusCode(err)).JSON(fiber.Map{
+			"status":      resolveStatusText(err),
+			"status_code": resolveStatusCode(err),
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "activity schedule cancelled successfully",
+		"result": fiber.Map{
+			"updated": affected,
+		},
+	})
+}
+
+// RestoreActivityScheduleHandler godoc
+// @Summary Restore Activity Schedule
+// @Description Restore a cancelled activity schedule to active
+// @Tags ActivitySchedule
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body models.RestoreActivityScheduleRequest true "Restore activity payload"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=object}
+// @Failure 400 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 404 {object} object{status=string,status_code=int,message=string,result=any}
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any}
+// @Router /api/activity-schedules/restore [patch]
+func (c *ActivityController) RestoreActivityScheduleHandler(ctx *fiber.Ctx) error {
+	var req models.RestoreActivityScheduleRequest
+	if err := ctx.BodyParser(&req); err != nil {
+		return ctx.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			"status":      fiber.ErrBadRequest.Message,
+			"status_code": fiber.ErrBadRequest.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	affected, err := c.activityUsecase.RestoreActivitySchedule(req, userID)
+	if err != nil {
+		return ctx.Status(resolveStatusCode(err)).JSON(fiber.Map{
+			"status":      resolveStatusText(err),
+			"status_code": resolveStatusCode(err),
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "activity schedule restored successfully",
+		"result": fiber.Map{
+			"updated": affected,
+		},
 	})
 }
 

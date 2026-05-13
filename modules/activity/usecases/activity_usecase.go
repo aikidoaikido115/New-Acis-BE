@@ -42,6 +42,9 @@ type ActivityUsecase interface {
 
 	// Activity Schedule operations
 	CreateActivitySchedule(req activityModels.CreateActivityScheduleRequest, userID string) (*entities.ActivitySchedule, error)
+	CreateRecurringActivitySchedules(req activityModels.CreateRecurringActivityScheduleRequest, userID string) ([]*entities.ActivitySchedule, error)
+	CancelActivitySchedule(req activityModels.CancelActivityScheduleRequest, userID string) (int64, error)
+	RestoreActivitySchedule(req activityModels.RestoreActivityScheduleRequest, userID string) (int64, error)
 	GetActivityScheduleByID(id string) (*entities.ActivitySchedule, error)
 	GetAllActivitySchedules() ([]*entities.ActivitySchedule, error)
 	GetAllActivitySchedulesWithActivitySync(date *time.Time) ([]*activityModels.ActivityScheduleWithActivitySyncResponse, error)
@@ -344,116 +347,118 @@ func (uc *ActivityUseCaseImpl) CreateActivityScheduleWithActivitySync(req activi
 }
 
 func (uc *ActivityUseCaseImpl) UpdateActivityScheduleWithActivitySyncByID(id string, req activityModels.UpdateActivityScheduleWithActivitySyncRequest, userID string) (*entities.ActivitySchedule, error) {
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return nil, errors.New("activity schedule id is required")
-	}
+    id = strings.TrimSpace(id)
+    if id == "" {
+        return nil, errors.New("activity schedule id is required")
+    }
 
-	userID = strings.TrimSpace(userID)
-	if userID == "" {
-		return nil, errors.New("user id is required")
-	}
+    userID = strings.TrimSpace(userID)
+    if userID == "" {
+        return nil, errors.New("user id is required")
+    }
 
-	if req.ActivityName == nil && req.ActivityType == nil && req.Date == nil && req.StartTime == nil && req.EndTime == nil && req.Location == nil && req.Description == nil {
-		return nil, errors.New("at least one field must be provided")
-	}
+    if req.ActivityName == nil && req.ActivityType == nil && req.Date == nil && req.StartTime == nil && req.EndTime == nil && req.Location == nil && req.Description == nil {
+        return nil, errors.New("at least one field must be provided")
+    }
 
-	existingSchedule, err := uc.repo.GetActivityScheduleByID(id)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrActivityScheduleNotFound
-		}
-		return nil, err
-	}
+    existingSchedule, err := uc.repo.GetActivityScheduleByID(id)
+    if err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            return nil, ErrActivityScheduleNotFound
+        }
+        return nil, err
+    }
 
-	existingActivity, err := uc.repo.GetActivityByID(existingSchedule.ActivityID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrActivityNotFound
-		}
-		return nil, err
-	}
+    existingActivity, err := uc.repo.GetActivityByID(existingSchedule.ActivityID)
+    if err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            return nil, ErrActivityNotFound
+        }
+        return nil, err
+    }
 
-	activityUpdateReq := activityModels.UpdateActivityRequest{}
-	needUpdateActivity := false
+    activityUpdateReq := activityModels.UpdateActivityRequest{}
+    needUpdateActivity := false
+    scheduleUpdateReq := activityModels.UpdateActivityScheduleRequest{}
+    needUpdateSchedule := false
 
-	staff, staffErr := uc.userRepo.GetStaffByUserID(userID)
-	if staffErr != nil {
-		if errors.Is(staffErr, gorm.ErrRecordNotFound) {
-			return nil, ErrStaffProfileNotFound
-		}
-		return nil, staffErr
-	}
-	staffIDStr := staff.ID
-	activityUpdateReq.StaffID = &staffIDStr
-	needUpdateActivity = true
+    staff, staffErr := uc.userRepo.GetStaffByUserID(userID)
+    if staffErr != nil {
+        if errors.Is(staffErr, gorm.ErrRecordNotFound) {
+            return nil, ErrStaffProfileNotFound
+        }
+        return nil, staffErr
+    }
+    staffIDStr := staff.ID
+    activityUpdateReq.StaffID = &staffIDStr
+    needUpdateActivity = true
 
-	if req.ActivityName != nil {
-		activityName := strings.TrimSpace(*req.ActivityName)
-		if activityName == "" {
-			return nil, errors.New("activity_name cannot be empty")
-		}
+    if req.ActivityName != nil {
+        activityName := strings.TrimSpace(*req.ActivityName)
+        if activityName == "" {
+            return nil, errors.New("activity_name cannot be empty")
+        }
 
-		if !strings.EqualFold(existingActivity.ActivityName, activityName) {
-			duplicated, duplicateErr := uc.repo.GetActivityByName(activityName)
-			if duplicateErr == nil && duplicated.ID != existingActivity.ID {
-				return nil, ErrActivityAlreadyExists
-			}
-			if duplicateErr != nil && !errors.Is(duplicateErr, gorm.ErrRecordNotFound) {
-				return nil, duplicateErr
-			}
-		}
+        if !strings.EqualFold(existingActivity.ActivityName, activityName) {
+            duplicated, duplicateErr := uc.repo.GetActivityByName(activityName)
+            if duplicateErr == nil && duplicated.ID != existingActivity.ID {
+                // 💡 แก้ไขแล้ว: ให้สลับ ID ไปหากิจกรรมที่มีอยู่แล้ว แทนที่จะโยน Error
+                scheduleUpdateReq.ActivityID = &duplicated.ID
+                needUpdateSchedule = true
+                needUpdateActivity = false 
+                existingActivity = duplicated 
+            } else if duplicateErr != nil && !errors.Is(duplicateErr, gorm.ErrRecordNotFound) {
+                return nil, duplicateErr
+            } else {
+                activityUpdateReq.ActivityName = &activityName
+                needUpdateActivity = true
+            }
+        }
+    }
 
-		activityUpdateReq.ActivityName = &activityName
-		needUpdateActivity = true
-	}
+    if req.ActivityType != nil {
+        activityType := strings.TrimSpace(*req.ActivityType)
+        if activityType == "" {
+            return nil, errors.New("activity_type cannot be empty")
+        }
+        activityUpdateReq.ActivityType = &activityType
+        needUpdateActivity = true
+    }
 
-	if req.ActivityType != nil {
-		activityType := strings.TrimSpace(*req.ActivityType)
-		if activityType == "" {
-			return nil, errors.New("activity_type cannot be empty")
-		}
-		activityUpdateReq.ActivityType = &activityType
-		needUpdateActivity = true
-	}
+    if req.Description != nil {
+        activityUpdateReq.Description = req.Description
+        needUpdateActivity = true
+    }
 
-	if req.Description != nil {
-		activityUpdateReq.Description = req.Description
-		needUpdateActivity = true
-	}
+    if req.Location != nil {
+        activityUpdateReq.Location = req.Location
+        needUpdateActivity = true
+    }
 
-	if req.Location != nil {
-		activityUpdateReq.Location = req.Location
-		needUpdateActivity = true
-	}
+    if needUpdateActivity {
+        if _, err := uc.UpdateActivityByID(existingActivity.ID, activityUpdateReq, userID); err != nil {
+            return nil, err
+        }
+    }
 
-	if needUpdateActivity {
-		if _, err := uc.UpdateActivityByID(existingActivity.ID, activityUpdateReq, userID); err != nil {
-			return nil, err
-		}
-	}
+    if req.Date != nil {
+        scheduleUpdateReq.Date = req.Date
+        needUpdateSchedule = true
+    }
+    if req.StartTime != nil {
+        scheduleUpdateReq.StartTime = req.StartTime
+        needUpdateSchedule = true
+    }
+    if req.EndTime != nil {
+        scheduleUpdateReq.EndTime = req.EndTime
+        needUpdateSchedule = true
+    }
 
-	scheduleUpdateReq := activityModels.UpdateActivityScheduleRequest{}
-	needUpdateSchedule := false
+    if needUpdateSchedule {
+        return uc.UpdateActivityScheduleByID(existingSchedule.ID, scheduleUpdateReq, userID)
+    }
 
-	if req.Date != nil {
-		scheduleUpdateReq.Date = req.Date
-		needUpdateSchedule = true
-	}
-	if req.StartTime != nil {
-		scheduleUpdateReq.StartTime = req.StartTime
-		needUpdateSchedule = true
-	}
-	if req.EndTime != nil {
-		scheduleUpdateReq.EndTime = req.EndTime
-		needUpdateSchedule = true
-	}
-
-	if needUpdateSchedule {
-		return uc.UpdateActivityScheduleByID(existingSchedule.ID, scheduleUpdateReq, userID)
-	}
-
-	return uc.repo.GetActivityScheduleByID(existingSchedule.ID)
+    return uc.repo.GetActivityScheduleByID(existingSchedule.ID)
 }
 
 func (uc *ActivityUseCaseImpl) GetActivityScheduleWithActivitySyncByID(id string) (*activityModels.ActivityScheduleWithActivitySyncResponse, error) {
@@ -519,6 +524,7 @@ func (uc *ActivityUseCaseImpl) CreateActivitySchedule(req activityModels.CreateA
 		Date:       req.Date,
 		StartTime:  req.StartTime,
 		EndTime:    req.EndTime,
+		Status:     "active",
 		CreatedAt:  now,
 		UpdatedAt:  now,
 	}
@@ -532,6 +538,165 @@ func (uc *ActivityUseCaseImpl) CreateActivitySchedule(req activityModels.CreateA
 	uc.createAuditLog(userID, audit_constants.AuditActionInsert, "activity_schedules", createdActivitySchedule.ID, "", string(newValue))
 
 	return createdActivitySchedule, nil
+}
+
+func (uc *ActivityUseCaseImpl) CreateRecurringActivitySchedules(req activityModels.CreateRecurringActivityScheduleRequest, userID string) ([]*entities.ActivitySchedule, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return nil, errors.New("user id is required")
+	}
+
+	activityID := strings.TrimSpace(req.ActivityID)
+	if activityID == "" {
+		return nil, errors.New("activity_id is required")
+	}
+
+	if _, err := uc.repo.GetActivityByID(activityID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrActivityNotFound
+		}
+		return nil, err
+	}
+
+	startDate, err := parseBangkokDate(req.StartDate)
+	if err != nil {
+		return nil, errors.New("start_date must be in YYYY-MM-DD format")
+	}
+	endDate, err := parseBangkokDate(req.EndDate)
+	if err != nil {
+		return nil, errors.New("end_date must be in YYYY-MM-DD format")
+	}
+	if endDate.Before(startDate) {
+		return nil, errors.New("end_date must be on or after start_date")
+	}
+
+	startHour, startMinute, err := parseBangkokClock(req.StartTime)
+	if err != nil {
+		return nil, errors.New("start_time must be in HH:mm format")
+	}
+	endHour, endMinute, err := parseBangkokClock(req.EndTime)
+	if err != nil {
+		return nil, errors.New("end_time must be in HH:mm format")
+	}
+
+	weekdaySet, err := normalizeRepeatDays(req.RepeatDays)
+	if err != nil {
+		return nil, err
+	}
+
+	loc, err := time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		return nil, err
+	}
+
+	seriesID := uuid.New().String()
+	now := time.Now().In(loc)
+	schedules := make([]*entities.ActivitySchedule, 0)
+
+	for date := startDate; !date.After(endDate); date = date.AddDate(0, 0, 1) {
+		if !weekdaySet[date.Weekday()] {
+			continue
+		}
+		startTime := time.Date(date.Year(), date.Month(), date.Day(), startHour, startMinute, 0, 0, loc)
+		endTime := time.Date(date.Year(), date.Month(), date.Day(), endHour, endMinute, 0, 0, loc)
+		if !endTime.After(startTime) {
+			return nil, errors.New("end_time must be after start_time")
+		}
+		dayStart := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc)
+		schedules = append(schedules, &entities.ActivitySchedule{
+			ID:         uuid.New().String(),
+			ActivityID: activityID,
+			Date:       dayStart,
+			StartTime:  startTime,
+			EndTime:    endTime,
+			SeriesID:   &seriesID,
+			Status:     "active",
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		})
+	}
+
+	if len(schedules) == 0 {
+		return nil, errors.New("no matching dates found for repeat_days")
+	}
+
+	if err := uc.repo.CreateActivitySchedulesBulk(schedules); err != nil {
+		return nil, err
+	}
+
+	return schedules, nil
+}
+
+func (uc *ActivityUseCaseImpl) CancelActivitySchedule(req activityModels.CancelActivityScheduleRequest, userID string) (int64, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return 0, errors.New("user id is required")
+	}
+
+	activityID := strings.TrimSpace(req.ActivityID)
+	if activityID == "" {
+		return 0, errors.New("activity_id is required")
+	}
+
+	cancelMode := strings.TrimSpace(req.CancelMode)
+	if cancelMode != "single" && cancelMode != "following" {
+		return 0, errors.New("cancel_mode must be 'single' or 'following'")
+	}
+
+	if cancelMode == "single" {
+		affected, err := uc.repo.UpdateActivityScheduleStatusByID(activityID, "cancelled")
+		if err != nil {
+			return 0, err
+		}
+		if affected == 0 {
+			return 0, ErrActivityScheduleNotFound
+		}
+		return affected, nil
+	}
+
+	schedule, err := uc.repo.GetActivityScheduleByID(activityID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, ErrActivityScheduleNotFound
+		}
+		return 0, err
+	}
+	if schedule.SeriesID == nil || strings.TrimSpace(*schedule.SeriesID) == "" {
+		return 0, errors.New("series_id not found for this activity")
+	}
+
+	loc, err := time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		return 0, err
+	}
+	targetDate := schedule.Date.In(loc)
+
+	affected, err := uc.repo.UpdateActivityScheduleStatusBySeriesFromDate(*schedule.SeriesID, targetDate, "cancelled")
+	if err != nil {
+		return 0, err
+	}
+	return affected, nil
+}
+
+func (uc *ActivityUseCaseImpl) RestoreActivitySchedule(req activityModels.RestoreActivityScheduleRequest, userID string) (int64, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return 0, errors.New("user id is required")
+	}
+
+	activityID := strings.TrimSpace(req.ActivityID)
+	if activityID == "" {
+		return 0, errors.New("activity_id is required")
+	}
+
+	affected, err := uc.repo.UpdateActivityScheduleStatusByID(activityID, "active")
+	if err != nil {
+		return 0, err
+	}
+	if affected == 0 {
+		return 0, ErrActivityScheduleNotFound
+	}
+	return affected, nil
 }
 
 func (uc *ActivityUseCaseImpl) GetActivityScheduleByID(id string) (*entities.ActivitySchedule, error) {
@@ -564,6 +729,8 @@ func (uc *ActivityUseCaseImpl) GetAllActivitySchedulesWithActivitySync(date *tim
 	responses := make([]*activityModels.ActivityScheduleWithActivitySyncResponse, 0, len(activitySchedules))
 	for _, schedule := range activitySchedules {
 		responses = append(responses, &activityModels.ActivityScheduleWithActivitySyncResponse{
+			ASID:         schedule.ID,
+			ActivityID:   schedule.ActivityID,
 			ActivityName: schedule.Activity.ActivityName,
 			ActivityType: schedule.Activity.ActivityType,
 			Date:         schedule.Date,
@@ -571,6 +738,8 @@ func (uc *ActivityUseCaseImpl) GetAllActivitySchedulesWithActivitySync(date *tim
 			EndTime:      schedule.EndTime,
 			Location:     schedule.Activity.Location,
 			Description:  schedule.Activity.Description,
+			SeriesID:     schedule.SeriesID,
+			Status:       schedule.Status,
 		})
 	}
 
@@ -1033,6 +1202,43 @@ func optionalStringEqual(a *string, b *string) bool {
 		return false
 	}
 	return strings.TrimSpace(*a) == strings.TrimSpace(*b)
+}
+
+func parseBangkokDate(value string) (time.Time, error) {
+	loc, err := time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.ParseInLocation("2006-01-02", strings.TrimSpace(value), loc)
+}
+
+func parseBangkokClock(value string) (int, int, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return 0, 0, errors.New("time is required")
+	}
+	if parsed, err := time.Parse("15:04", trimmed); err == nil {
+		return parsed.Hour(), parsed.Minute(), nil
+	}
+	if parsed, err := time.Parse("15:04:05", trimmed); err == nil {
+		return parsed.Hour(), parsed.Minute(), nil
+	}
+	return 0, 0, errors.New("invalid time format")
+}
+
+func normalizeRepeatDays(days []int) (map[time.Weekday]bool, error) {
+	if len(days) == 0 {
+		return nil, errors.New("repeat_days is required")
+	}
+	set := make(map[time.Weekday]bool, len(days))
+	for _, day := range days {
+		if day < 1 || day > 7 {
+			return nil, errors.New("repeat_days must be 1-7 (Mon-Sun)")
+		}
+		weekday := time.Weekday(day % 7)
+		set[weekday] = true
+	}
+	return set, nil
 }
 
 func (uc *ActivityUseCaseImpl) uploadParticipationImages(files []*multipart.FileHeader) ([]entities.ImageURL, error) {

@@ -3,6 +3,8 @@ package models
 import "time"
 
 type ActivityScheduleWithActivitySyncResponse struct {
+	ASID         string     `json:"as_id"`        
+    ActivityID   string     `json:"activity_id"`
 	ActivityName string    `json:"activity_name"`
 	ActivityType string    `json:"activity_type"`
 	Date         time.Time `json:"date"`
@@ -10,6 +12,8 @@ type ActivityScheduleWithActivitySyncResponse struct {
 	EndTime      time.Time `json:"end_time"`
 	Location     *string   `json:"location"`
 	Description  *string   `json:"description"`
+	SeriesID     *string   `json:"series_id"`
+	Status       string    `json:"status"`
 }
 
 type ResidentByScheduleResponse struct {

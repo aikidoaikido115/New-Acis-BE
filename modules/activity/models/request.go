@@ -24,11 +24,29 @@ type CreateActivityScheduleRequest struct {
 	EndTime    time.Time `json:"end_time" binding:"required"`
 }
 
+type CreateRecurringActivityScheduleRequest struct {
+	ActivityID string `json:"activity_id" binding:"required"`
+	StartDate  string `json:"start_date" binding:"required"`
+	EndDate    string `json:"end_date" binding:"required"`
+	StartTime  string `json:"start_time" binding:"required"`
+	EndTime    string `json:"end_time" binding:"required"`
+	RepeatDays []int  `json:"repeat_days" binding:"required"`
+}
+
 type UpdateActivityScheduleRequest struct {
 	ActivityID *string    `json:"activity_id"`
 	Date       *time.Time `json:"date"`
 	StartTime  *time.Time `json:"start_time"`
 	EndTime    *time.Time `json:"end_time"`
+}
+
+type CancelActivityScheduleRequest struct {
+	ActivityID string `json:"activity_id" binding:"required"`
+	CancelMode string `json:"cancel_mode" binding:"required"`
+}
+
+type RestoreActivityScheduleRequest struct {
+	ActivityID string `json:"activity_id" binding:"required"`
 }
 
 type CreateActivityScheduleWithActivitySyncRequest struct {
