@@ -100,6 +100,27 @@ func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
 		}
 	}
 
+	emergencyHospitalsJSON := datatypes.JSON(nil)
+	if len(req.EmergencyHospitals) > 0 {
+		cleanedHospitals := make([]models.EmergencyHospital, 0, len(req.EmergencyHospitals))
+		for _, hospital := range req.EmergencyHospitals {
+			name := strings.TrimSpace(hospital.Name)
+			phone := strings.TrimSpace(hospital.Phone)
+			if name == "" && phone == "" {
+				continue
+			}
+			cleanedHospitals = append(cleanedHospitals, models.EmergencyHospital{
+				Name:  name,
+				Phone: phone,
+			})
+		}
+		if len(cleanedHospitals) > 0 {
+			if raw, err := json.Marshal(cleanedHospitals); err == nil {
+				emergencyHospitalsJSON = datatypes.JSON(raw)
+			}
+		}
+	}
+
 	resident := &entities.Resident{
 		RoomID:                     req.RoomID,
 		FirstName:                  req.FirstName,
@@ -119,6 +140,7 @@ func (c *EmrController) CreateResidentHandler(ctx *fiber.Ctx) error {
 		PreferredEmergencyHospital: req.PreferredEmergencyHospital,
 		EmergencyHospitalPhone:     req.EmergencyHospitalPhone,
 		ProfileImage:               req.ProfileImage,
+		EmergencyHospitals:         emergencyHospitalsJSON,
 		EmergencyContacts:          emergencyContactsJSON,
 	}
 
@@ -457,6 +479,13 @@ func parseResidentCreateForm(form *multipart.Form) (models.CreateResidentRequest
 	if value, ok := getFormValue(form, "emergency_hospital_phone"); ok {
 		req.EmergencyHospitalPhone = &value
 	}
+	if value, ok := getFormValue(form, "emergency_hospitals"); ok {
+		var hospitals []models.EmergencyHospital
+		if err := json.Unmarshal([]byte(value), &hospitals); err != nil {
+			return req, nil, err
+		}
+		req.EmergencyHospitals = hospitals
+	}
 	if value, ok := getFormValue(form, "profile_image"); ok {
 		req.ProfileImage = &value
 	}
@@ -553,6 +582,13 @@ func parseResidentUpdateForm(form *multipart.Form) (models.UpdateResidentRequest
 	}
 	if value, ok := getFormValue(form, "emergency_hospital_phone"); ok {
 		req.EmergencyHospitalPhone = &value
+	}
+	if value, ok := getFormValue(form, "emergency_hospitals"); ok {
+		var hospitals []models.EmergencyHospital
+		if err := json.Unmarshal([]byte(value), &hospitals); err != nil {
+			return req, nil, err
+		}
+		req.EmergencyHospitals = &hospitals
 	}
 	if value, ok := getFormValue(form, "profile_image"); ok {
 		req.ProfileImage = &value
@@ -3378,4 +3414,49 @@ func getMultipartField(form *multipart.Form, key string) (string, bool) {
 		return "", false
 	}
 	return values[0], true
+}
+
+// GetRelativeDashboardPreviewForStaffHandler godoc
+// @Summary Get Relative Dashboard Preview for Staff
+// @Description Retrieve relative dashboard data for staff preview (bypasses relative check)
+// @Tags Dashboard
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Resident ID"
+// @Param date query string false "Selected date (YYYY-MM-DD)"
+// @Success 200 {object} object{status=string,status_code=int,message=string,result=models.RelativeDashboardResponse} "Relative dashboard preview retrieved successfully"
+// @Failure 401 {object} object{status=string,status_code=int,message=string,result=any} "Unauthorized"
+// @Failure 500 {object} object{status=string,status_code=int,message=string,result=any} "Internal Server Error"
+// @Router /api/emr/residents/{id}/relative-dashboard [get]
+func (c *EmrController) GetRelativeDashboardPreviewForStaffHandler(ctx *fiber.Ctx) error {
+	residentID := ctx.Params("id")
+	dateInput := strings.TrimSpace(ctx.Query("date"))
+
+	userID, ok := ctx.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return ctx.Status(fiber.ErrUnauthorized.Code).JSON(fiber.Map{
+			"status":      fiber.ErrUnauthorized.Message,
+			"status_code": fiber.ErrUnauthorized.Code,
+			"message":     "Unauthorized: Missing user ID",
+			"result":      nil,
+		})
+	}
+
+	result, err := c.emrUsecase.GetRelativeDashboardPreviewForStaff(userID, residentID, dateInput)
+	if err != nil {
+		return ctx.Status(fiber.ErrInternalServerError.Code).JSON(fiber.Map{
+			"status":      fiber.ErrInternalServerError.Message,
+			"status_code": fiber.ErrInternalServerError.Code,
+			"message":     err.Error(),
+			"result":      nil,
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":      "Success",
+		"status_code": fiber.StatusOK,
+		"message":     "relative dashboard preview retrieved successfully",
+		"result":      result,
+	})
 }
