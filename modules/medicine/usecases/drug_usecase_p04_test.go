@@ -89,6 +89,9 @@ func (f *fakeDrugPlanP04UserRepo) DeleteStaffAndUserByStaffID(staffID string) er
 func (f *fakeDrugPlanP04UserRepo) DeleteRelativeAndUserByUserID(userID string) error {
 	return errors.New("not used")
 }
+func (f *fakeDrugPlanP04UserRepo) DeleteUserByID(userID string) error {
+	return errors.New("not used")
+}
 func (f *fakeDrugPlanP04UserRepo) GetRelativeUserByUserID(userID string) (*user_repository.AdminRelativeUser, error) {
 	return nil, errors.New("not used")
 }
@@ -203,7 +206,7 @@ func TestForceGenerateTodayDrugPlans_Success(t *testing.T) {
 		activeDrugs:   []*entities.PersonalDrug{{ID: "pd-1"}, {ID: "pd-2"}},
 		createResults: []bool{true, false},
 	}
-	uc := NewDrugUseCase(repo, &fakeDrugPlanP04AuditRepo{}, userRepo)
+	uc := NewDrugUseCase(repo, &fakeDrugPlanP04AuditRepo{}, userRepo, nil)
 
 	result, err := uc.ForceGenerateTodayDrugPlans("user-1")
 
@@ -233,7 +236,7 @@ func TestForceGenerateTodayDrugPlansByResidentID_Success(t *testing.T) {
 		activeDrugs:    []*entities.PersonalDrug{{ID: "pd-1"}},
 		createResults:  []bool{true},
 	}
-	uc := NewDrugUseCase(repo, &fakeDrugPlanP04AuditRepo{}, userRepo)
+	uc := NewDrugUseCase(repo, &fakeDrugPlanP04AuditRepo{}, userRepo, nil)
 
 	result, err := uc.ForceGenerateTodayDrugPlansByResidentID("resident-1", "user-1")
 
@@ -255,7 +258,7 @@ func TestForceGenerateTodayDrugPlansByResidentID_ErrorWhenResidentMissing(t *tes
 		},
 	}
 	repo := &fakeDrugPlanP04Repo{residentExists: false}
-	uc := NewDrugUseCase(repo, &fakeDrugPlanP04AuditRepo{}, userRepo)
+	uc := NewDrugUseCase(repo, &fakeDrugPlanP04AuditRepo{}, userRepo, nil)
 
 	result, err := uc.ForceGenerateTodayDrugPlansByResidentID("resident-1", "user-1")
 

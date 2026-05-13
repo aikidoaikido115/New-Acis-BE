@@ -48,6 +48,7 @@ type UserUsecase interface {
 	UpdateStaffRoleByID(staffID string, roleName string, userID string) (*entities.User, error)
 	DeleteStaffByID(staffID string, userID string) error
 	DeleteRelativeByUserID(targetUserID string, adminUserID string) error
+	DeleteUserByID(targetUserID string, adminUserID string) error
 
 	ForgotPassword(email string) error
 	VerifyOTP(email, otpCode string) error
@@ -535,6 +536,54 @@ func (u *UserUseCaseImpl) DeleteRelativeByUserID(targetUserID string, adminUserI
 	}
 
 	return nil
+}
+
+func (u *UserUseCaseImpl) DeleteUserByID(targetUserID string, adminUserID string) error {
+	if err := u.ensureAdmin(adminUserID); err != nil {
+		return err
+	}
+
+	targetUserID = strings.TrimSpace(targetUserID)
+	if targetUserID == "" {
+		return errors.New("user id is required")
+	}
+
+	user, err := u.userrepo.GetUserByID(targetUserID)
+	if err != nil {
+		return errors.New("user not found: " + err.Error())
+	}
+
+	switch user.Role.Name {
+	case user_constants.RoleRelative:
+		return u.DeleteRelativeByUserID(targetUserID, adminUserID)
+	case user_constants.RoleMedicalStaff, user_constants.RoleKitchenStaff, user_constants.RoleSuperUser:
+		staff, err := u.userrepo.GetStaffByUserID(targetUserID)
+		if err != nil {
+			return errors.New("staff not found: " + err.Error())
+		}
+		return u.DeleteStaffByID(staff.ID, adminUserID)
+	default:
+		oldUserData, _ := json.Marshal(user)
+		if err := u.userrepo.DeleteUserByID(targetUserID); err != nil {
+			return errors.New("failed to delete user: " + err.Error())
+		}
+
+		auditLog := &entities.AuditLogs{
+			ID:        uuid.New().String(),
+			TableName: "users",
+			RecordID:  user.ID,
+			UserID:    adminUserID,
+			Action:    audit_constants.AuditActionDelete,
+			OldValue:  string(oldUserData),
+			NewValue:  "",
+		}
+
+		if _, err := u.auditlogrepo.CreateAuditLog(auditLog); err != nil {
+			log.Printf("[ERROR] Failed to create audit log for user deletion %s: %v", targetUserID, err)
+		}
+
+		return nil
+	}
 }
 
 func (u *UserUseCaseImpl) ensureAdmin(userID string) error {
