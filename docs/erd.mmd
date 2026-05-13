@@ -1,0 +1,385 @@
+erDiagram
+  Activity {
+    string ID PK
+    string StaffID FK
+    string ActivityName
+    string ActivityType
+    string Description
+    string Location
+  }
+  ActivitySchedule {
+    string ID PK
+    string ActivityID FK
+    datetime Date
+    datetime StartTime
+    datetime EndTime
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  Allergy {
+    string ID PK
+    string AllergyName
+  }
+  AuditLogs {
+    string ID PK
+    string TableName
+    string RecordID
+    string UserID
+    string Action
+    string OldValue
+    string NewValue
+    datetime CreatedAt
+  }
+  DailyFile {
+    string ID PK
+    string DailyID FK
+    string FileName
+    string FileType
+    int FileSize
+    string URL
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  DailyUpdate {
+    string ID PK
+    string RelativeID FK
+    string Description
+    string CreatedByStaffID
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  DoctorOrder {
+    string ID PK
+    string ResidentID FK
+    string OrderDate
+    string OrderType
+    string Title
+    string Details
+    string StartDate
+    string EndDate
+    string Frequency
+    string OrderedBy
+    string CreatedByStaffID
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  DrugAllergy {
+    string ID PK
+    string AllergyName
+  }
+  DrugMaster {
+    string ID PK
+    string Name
+    string Dose
+  }
+  DrugPlan {
+    string ID PK
+    string PdID FK
+    boolean IsTaken
+    datetime TakenAt
+    string GivenByStaffID
+    boolean IsOmitted
+    string OmittedReason
+    string Notes
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  IntakeLabels {
+    string ID PK
+    string LabelName
+  }
+  LaboratoryValue {
+    string ID PK
+    string ResidentID PK, FK
+    datetime MeasurementDate
+    string TimeOfDay
+    float BloodGlucose
+    float FluidIn
+    float FluidOut
+    float UrineOutput
+    string UrineType
+    int Stool
+    int DiaperChange
+    string CreatedByStaffID
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  MealPlan {
+    string ID PK
+    string MenuID FK
+    string BackUpMenuID
+    int MainAmount
+    int BackUpAmount
+    boolean IsAllergy
+    string MealType
+    string CreatedByStaffID
+    string StaffName
+    datetime CreatedAt
+  }
+  Menu {
+    string ID PK
+    string MenuName
+    string Description
+  }
+  NurseNote {
+    string ID PK
+    string ResidentID FK
+    string Category
+    string Content
+    string Priority
+    boolean SendNote
+    string CreatedByStaffID
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  OTP {
+    string UserID PK, FK
+    string OTP
+    datetime ExpiresAt
+  }
+  Participation {
+    string ResidentID PK, FK
+    string ASID PK, FK
+    boolean IsParticipating
+    string ImgURLs
+  }
+  PersonalDrug {
+    string ID PK
+    string ResidentID FK
+    string DmID FK
+    string Amount
+    string AmountUnit
+    int Frequency
+    string TimeOfDay
+    string Timing
+    string Description
+    string TakeType
+    datetime StartDate
+    datetime EndDate
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  Relative {
+    string ID PK
+    string UserID FK
+    string ResidentID FK
+    string RelativePassword
+    string Relation
+    string Phone
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  RelativeMagicLinkToken {
+    string ID PK
+    string RelativeID FK
+    string ResidentID FK
+    string Token
+    datetime ExpiresAt
+    datetime LastAccessedAt
+    string CreatedByUserID
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  RelativeNote {
+    string ID PK
+    string ResidentID FK
+    string Relation
+    string Content
+    boolean SendNote
+    string CreatedByStaffID
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  Resident {
+    string ID PK
+    string RoomID FK
+    string FirstName
+    string LastName
+    string Gender
+    string Nickname
+    string IdCardNumber
+    datetime DateOfBirth
+    string PurposeOfStay
+    datetime CheckInDate
+    datetime ExpectedCheckOutDate
+    string Status
+    string PreExistingConditions
+    string PreExistingConditionsNotes
+    string ResucitationStatus
+    string SugicalHistory
+    string PreferredEmergencyHospital
+    string EmergencyHospitalPhone
+    json EmergencyContacts
+    string ProfileImage
+  }
+  ResidentAllergies {
+    string ResidentID PK, FK
+    string AllergyID PK, FK
+    string NoteText
+    datetime NotedAt
+  }
+  ResidentDA {
+    string ResidentID PK, FK
+    string DrugAllergyID PK, FK
+    string NoteText
+    datetime NotedAt
+  }
+  ResidentLabels {
+    string ResidentID PK, FK
+    string LabelID PK, FK
+    string NoteText
+    datetime NotedAt
+  }
+  Role {
+    string ID PK
+    string Name
+  }
+  Room {
+    string ID PK
+    string StaffID FK
+    int Floor
+    string RoomNumber
+  }
+  Staff {
+    string ID PK
+    string UserID FK
+  }
+  StaffsFiles {
+    string ID PK
+    string StaffID FK
+    string FileName
+    string FileType
+    int FileSize
+    string File
+  }
+  SupportTicket {
+    string ID PK
+    string Name
+    string Email
+    string Subject
+    string Message
+    string Status
+    string ReporterRole
+    string CreatedByUserID FK
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  TempToken {
+    string UserID PK, FK
+    string Token
+  }
+  User {
+    string ID PK
+    string RoleID FK
+    string Username
+    string Email
+    string Password
+    boolean IsApprove
+    string FirstName
+    string LastName
+    string Nickname
+    string Gender
+    string Phone
+    string ProfileImage
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  VitalSign {
+    string ID PK
+    string ResidentID PK, FK
+    datetime MeasurementDate
+    string TimeOfDay
+    float Temperature
+    int HeartRate
+    int BreathingRate
+    int BloodPressureSystolic
+    int BloodPressureDiastolic
+    int OxygenSaturation
+    string CreatedByStaffID
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  WarehouseItem {
+    string ID PK
+    string Code
+    string Name
+    string Description
+    int Quantity
+    int MinimumQuantity
+    string Unit
+    string Category
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  WarehouseTransaction {
+    string ID PK
+    string Code
+    string Type
+    string ItemID FK
+    string ItemCode
+    string ItemName
+    int Quantity
+    string OperatorUserID FK
+    string Operator
+    string ApprovalStatus
+    string ApprovedByUserID
+    string ApprovedBy
+    datetime ApprovedAt
+    string RejectedByUserID
+    string RejectedBy
+    datetime RejectedAt
+    string RejectionReason
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  WoundCareNote {
+    string ID PK
+    string ResidentID FK
+    string Location
+    string WoundType
+    string Size
+    string Treatment
+    string Supplies
+    string Status
+    string ImageURL
+    string Note
+    string CreatedByStaffID
+    datetime CreatedAt
+    datetime UpdatedAt
+  }
+  Activity ||--o{ ActivitySchedule : "ActivityID->ID"
+  ActivitySchedule ||--o{ Participation : "ASID->ID"
+  Allergy ||--o{ ResidentAllergies : "AllergyID->ID"
+  DailyUpdate ||--o{ DailyFile : "DailyID->ID"
+  DrugAllergy ||--o{ ResidentDA : "DrugAllergyID->ID"
+  DrugMaster ||--o{ PersonalDrug : "DmID->ID"
+  IntakeLabels ||--o{ ResidentLabels : "LabelID->ID"
+  Menu ||--o{ MealPlan : "MenuID->ID"
+  PersonalDrug ||--o{ DrugPlan : "PdID->ID"
+  Relative ||--o{ DailyUpdate : "RelativeID->ID"
+  Relative ||--o{ RelativeMagicLinkToken : "RelativeID->ID"
+  Resident ||--o{ DoctorOrder : "ResidentID->ID"
+  Resident ||--o{ LaboratoryValue : "ResidentID->ID"
+  Resident ||--o{ NurseNote : "ResidentID->ID"
+  Resident ||--o{ Participation : "ResidentID->ID"
+  Resident ||--o{ PersonalDrug : "ResidentID->ID"
+  Resident ||--o{ Relative : "ResidentID->ID"
+  Resident ||--o{ RelativeMagicLinkToken : "ResidentID->ID"
+  Resident ||--o{ RelativeNote : "ResidentID->ID"
+  Resident ||--o{ ResidentAllergies : "ResidentID->ID"
+  Resident ||--o{ ResidentDA : "ResidentID->ID"
+  Resident ||--o{ ResidentLabels : "ResidentID->ID"
+  Resident ||--o{ VitalSign : "ResidentID->ID"
+  Resident ||--o{ WoundCareNote : "ResidentID->ID"
+  Role ||--o{ User : "RoleID->ID"
+  Room ||--o{ Resident : "RoomID->ID"
+  Staff ||--o{ Activity : "StaffID->ID"
+  Staff ||--o{ Room : "StaffID->ID"
+  Staff ||--o{ StaffsFiles : "StaffID->ID"
+  User ||--o{ OTP : "UserID->ID"
+  User ||--o{ Relative : "UserID->ID"
+  User ||--o{ Staff : "UserID->ID"
+  User ||--o{ SupportTicket : "CreatedByUserID->ID"
+  User ||--o{ TempToken : "UserID->ID"
+  User ||--o{ WarehouseTransaction : "OperatorUserID->ID"
+  WarehouseItem ||--o{ WarehouseTransaction : "ItemID->ID"
