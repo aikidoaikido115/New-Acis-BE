@@ -147,7 +147,7 @@ func SetupEmrRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT, supa configs.S
 
 	emrRepository := emrRepository.NewGormEmrRepository(db)
 	drugRepository := medicineRepository.NewGormDrugRepository(db)
-	drugUsecase := medicineUsecase.NewDrugUseCase(drugRepository, auditLogRepository, userRepository)
+	drugUsecase := medicineUsecase.NewDrugUseCase(drugRepository, auditLogRepository, userRepository, emrRepository)
 	emrUsecase := emrUsecase.NewEmrUseCase(emrRepository, auditLogRepository, userRepository, drugUsecase, supa, jwt)
 	emrController := emrController.NewEmrController(emrUsecase)
 
@@ -278,7 +278,8 @@ func SetupMedicineRoutes(app *fiber.App, db *gorm.DB, jwt configs.JWT) {
 	auditLogRepository := auditLogRepository.NewGormAuditLogRepository(db)
 	userRepository := userRepository.NewGormUserRepository(db)
 	drugRepository := medicineRepository.NewGormDrugRepository(db)
-	drugUsecase := medicineUsecase.NewDrugUseCase(drugRepository, auditLogRepository, userRepository)
+	emrRepository := emrRepository.NewGormEmrRepository(db)
+	drugUsecase := medicineUsecase.NewDrugUseCase(drugRepository, auditLogRepository, userRepository, emrRepository)
 	drugController := medicineController.NewDrugController(drugUsecase)
 
 	personalDrugGroup := app.Group("/api/emr/personal-drugs")

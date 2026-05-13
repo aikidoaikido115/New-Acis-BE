@@ -231,6 +231,35 @@ func (uc *EmrUseCaseImpl) ensureRelative(userID string) error {
 	return nil
 }
 
+func (uc *EmrUseCaseImpl) ensureRelativeAccessToResident(userID string, residentID string) error {
+	user, err := uc.userrepo.GetUserByID(userID)
+	if err != nil {
+		return errors.New("failed to get user: " + err.Error())
+	}
+
+	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return errors.New("failed to get user role: " + err.Error())
+	}
+
+	if userRole.Name == user_constants.RoleRelative {
+		relative, err := uc.emrrepo.GetRelativeByUserID(userID)
+		if err != nil {
+			return errors.New("relative not found: " + err.Error())
+		}
+		if relative == nil || relative.ResidentID != residentID {
+			return errors.New("relative cannot access other resident data")
+		}
+		return nil
+	}
+
+	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
+		return errors.New("only users with 'Medical Staff', 'Super User', 'Admin', or 'Relative' role can access this data")
+	}
+
+	return nil
+}
+
 func (uc *EmrUseCaseImpl) buildThaiDOBPassword(dateOfBirth time.Time) string {
 	dd := dateOfBirth.Day()
 	mm := int(dateOfBirth.Month())
@@ -2249,19 +2278,8 @@ func (uc *EmrUseCaseImpl) GetRoomVitalSigns(roomID string, isLatest string, user
 }
 
 func (uc *EmrUseCaseImpl) GetVitalSignsHistory(residentID string, userID string) ([]*entities.VitalSign, error) {
-
-	user, err := uc.userrepo.GetUserByID(userID)
-	if err != nil {
-		return nil, errors.New("failed to get user: " + err.Error())
-	}
-
-	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
-	if err != nil {
-		return nil, errors.New("failed to get user role: " + err.Error())
-	}
-
-	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
-		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view vital signs history")
+	if err := uc.ensureRelativeAccessToResident(userID, residentID); err != nil {
+		return nil, err
 	}
 
 	residentExists, err := uc.emrrepo.ResidentExists(residentID)
@@ -2889,16 +2907,8 @@ func (uc *EmrUseCaseImpl) GetRoomLaboratoryValues(roomID string, isLatest string
 }
 
 func (uc *EmrUseCaseImpl) GetLaboratoryValuesHistory(residentID string, userID string) ([]*entities.LaboratoryValue, error) {
-	user, err := uc.userrepo.GetUserByID(userID)
-	if err != nil {
-		return nil, errors.New("failed to get user: " + err.Error())
-	}
-	userRole, err := uc.userrepo.GetRoleByID(user.RoleID)
-	if err != nil {
-		return nil, errors.New("failed to get user role: " + err.Error())
-	}
-	if userRole.Name != user_constants.RoleMedicalStaff && userRole.Name != user_constants.RoleSuperUser && userRole.Name != user_constants.RoleAdmin {
-		return nil, errors.New("only users with 'Medical Staff', 'Super User', or 'Admin' role can view laboratory values history")
+	if err := uc.ensureRelativeAccessToResident(userID, residentID); err != nil {
+		return nil, err
 	}
 
 	residentExists, err := uc.emrrepo.ResidentExists(residentID)
