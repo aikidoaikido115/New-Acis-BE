@@ -83,9 +83,18 @@ func (uc *SupportUseCaseImpl) GetSupportTickets(query models.ListSupportTicketsQ
 	query.Search = strings.TrimSpace(query.Search)
 	query.Status = strings.TrimSpace(strings.ToLower(query.Status))
 	query.ReporterRole = strings.TrimSpace(query.ReporterRole)
-	query.CreatedByUserID = strings.TrimSpace(userID)
-	if query.CreatedByUserID == "" {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
 		return nil, errors.New("user id is required")
+	}
+
+	roleName, err := uc.getRoleNameByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !uc.isSupportManagerRole(roleName) {
+		query.CreatedByUserID = userID
 	}
 
 	if query.Status != "" && !isValidSupportStatus(query.Status) {
@@ -116,7 +125,14 @@ func (uc *SupportUseCaseImpl) GetSupportTicketByID(id string, userID string) (*e
 	}
 
 	if ticket.CreatedByUserID != userID {
-		return nil, errors.New("support ticket not found")
+		roleName, err := uc.getRoleNameByUserID(userID)
+		if err != nil {
+			return nil, err
+		}
+
+		if !uc.isSupportManagerRole(roleName) {
+			return nil, errors.New("support ticket not found")
+		}
 	}
 
 	return ticket, nil
