@@ -25,7 +25,7 @@ func SeedMenus(db *gorm.DB) {
 		},
 		{
 			ID:          uuid.New().String(),
-			MenuName:    "ข้ามต้มกุ้ง",
+			MenuName:    "ข้าวต้มกุ้ง",
 			Description: "ข้าวหอมมะลิ, กุ้งสด, ขิงซอย, ต้นหอม, ขึ้นฉ่าย",
 		},
 		{
