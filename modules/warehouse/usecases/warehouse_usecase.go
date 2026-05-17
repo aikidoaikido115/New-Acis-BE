@@ -143,11 +143,26 @@ func (uc *WarehouseUseCaseImpl) CreateWarehouseItem(req models.CreateWarehouseIt
 		return nil, errors.New("failed to create warehouse item: " + err.Error())
 	}
 
-	if _, err := uc.createTransactionRecord(createdItem, constants.TransactionTypeAddItem, req.Quantity, operatorUser); err != nil {
+	transaction, err := uc.createTransactionRecord(createdItem, constants.TransactionTypeAddItem, req.Quantity, operatorUser)
+	if err != nil {
 		if rollbackErr := uc.warehouseRepo.DeleteWarehouseItem(createdItem.ID); rollbackErr != nil {
 			log.Printf("[WARN] failed to rollback warehouse item after transaction creation failure: %v", rollbackErr)
 		}
 		return nil, errors.New("failed to create initial stock transaction: " + err.Error())
+	}
+
+	if autoApprove, autoErr := uc.shouldAutoApproveWarehouseTransaction(userID); autoErr != nil {
+		return nil, errors.New("failed to determine warehouse approval mode: " + autoErr.Error())
+	} else if autoApprove {
+		if _, approveErr := uc.finalizeApprovedTransaction(transaction, userID); approveErr != nil {
+			return nil, errors.New("failed to auto approve initial stock transaction: " + approveErr.Error())
+		}
+
+		refreshedItem, refreshErr := uc.warehouseRepo.GetWarehouseItemByID(createdItem.ID)
+		if refreshErr != nil {
+			return nil, errors.New("failed to refresh approved warehouse item: " + refreshErr.Error())
+		}
+		createdItem = refreshedItem
 	}
 
 	newValue, _ := json.Marshal(createdItem)
@@ -284,12 +299,27 @@ func (uc *WarehouseUseCaseImpl) UpdateWarehouseItemByID(id string, req models.Up
 	}
 
 	if quantityAdjustmentAmount > 0 {
-		if _, txErr := uc.createTransactionRecord(updatedItem, quantityAdjustmentType, quantityAdjustmentAmount, operatorUser); txErr != nil {
+		transaction, txErr := uc.createTransactionRecord(updatedItem, quantityAdjustmentType, quantityAdjustmentAmount, operatorUser)
+		if txErr != nil {
 			if itemChanged {
 				log.Printf("warning: warehouse item %s updated successfully but failed to create quantity adjustment transaction: %v", updatedItem.ID, txErr)
 				return updatedItem, nil
 			}
 			return nil, errors.New("failed to create warehouse quantity adjustment transaction: " + txErr.Error())
+		}
+
+		if autoApprove, autoErr := uc.shouldAutoApproveWarehouseTransaction(userID); autoErr != nil {
+			return nil, errors.New("failed to determine warehouse approval mode: " + autoErr.Error())
+		} else if autoApprove {
+			if _, approveErr := uc.finalizeApprovedTransaction(transaction, userID); approveErr != nil {
+				return nil, errors.New("failed to auto approve warehouse quantity adjustment transaction: " + approveErr.Error())
+			}
+
+			refreshedItem, refreshErr := uc.warehouseRepo.GetWarehouseItemByID(updatedItem.ID)
+			if refreshErr != nil {
+				return nil, errors.New("failed to refresh approved warehouse item: " + refreshErr.Error())
+			}
+			updatedItem = refreshedItem
 		}
 	}
 
@@ -320,7 +350,8 @@ func (uc *WarehouseUseCaseImpl) DeleteWarehouseItemByID(id string, userID string
 		return errors.New("cannot submit remove request for item with zero stock")
 	}
 
-	if _, txErr := uc.createTransactionRecord(existing, constants.TransactionTypeRemove, existing.Quantity, operatorUser); txErr != nil {
+	_, txErr := uc.createTransactionRecord(existing, constants.TransactionTypeRemove, existing.Quantity, operatorUser)
+	if txErr != nil {
 		return errors.New("failed to create warehouse remove transaction: " + txErr.Error())
 	}
 
@@ -364,8 +395,23 @@ func (uc *WarehouseUseCaseImpl) AdjustWarehouseItemByID(id string, req models.Ad
 		txType = constants.TransactionTypeWithdraw
 	}
 
-	if _, txErr := uc.createTransactionRecord(item, txType, req.Quantity, operatorUser); txErr != nil {
+	transaction, txErr := uc.createTransactionRecord(item, txType, req.Quantity, operatorUser)
+	if txErr != nil {
 		return nil, errors.New("failed to create warehouse adjustment transaction: " + txErr.Error())
+	}
+
+	if autoApprove, autoErr := uc.shouldAutoApproveWarehouseTransaction(userID); autoErr != nil {
+		return nil, errors.New("failed to determine warehouse approval mode: " + autoErr.Error())
+	} else if autoApprove {
+		if _, approveErr := uc.finalizeApprovedTransaction(transaction, userID); approveErr != nil {
+			return nil, errors.New("failed to auto approve warehouse adjustment transaction: " + approveErr.Error())
+		}
+
+		refreshedItem, refreshErr := uc.warehouseRepo.GetWarehouseItemByID(item.ID)
+		if refreshErr != nil {
+			return nil, errors.New("failed to refresh approved warehouse item: " + refreshErr.Error())
+		}
+		item = refreshedItem
 	}
 
 	return item, nil
@@ -706,6 +752,67 @@ func (uc *WarehouseUseCaseImpl) createTransactionRecord(item *entities.Warehouse
 	}
 
 	return uc.warehouseRepo.CreateTransaction(transaction)
+}
+
+func (uc *WarehouseUseCaseImpl) shouldAutoApproveWarehouseTransaction(userID string) (bool, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return false, errors.New("user id is required")
+	}
+
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil {
+		return false, errors.New("failed to get user: " + err.Error())
+	}
+
+	role, err := uc.userRepo.GetRoleByID(user.RoleID)
+	if err != nil {
+		return false, errors.New("failed to get user role: " + err.Error())
+	}
+
+	return role.Name == user_constants.RoleSuperUser || role.Name == user_constants.RoleAdmin, nil
+}
+
+func (uc *WarehouseUseCaseImpl) finalizeApprovedTransaction(transaction *entities.WarehouseTransaction, approverUserID string) (*entities.WarehouseTransaction, error) {
+	if transaction == nil {
+		return nil, errors.New("transaction is required")
+	}
+
+	approverUserID = strings.TrimSpace(approverUserID)
+	if approverUserID == "" {
+		return nil, errors.New("approver user id is required")
+	}
+
+	approverUser, err := uc.userRepo.GetUserByID(approverUserID)
+	if err != nil {
+		return nil, errors.New("failed to get approver user: " + err.Error())
+	}
+
+	if applyErr := uc.applyApprovedTransactionEffect(transaction, approverUserID); applyErr != nil {
+		return nil, applyErr
+	}
+
+	oldValue, _ := json.Marshal(transaction)
+	transaction.ApprovalStatus = constants.ApprovalStatusApproved
+	transaction.RejectedByUserID = nil
+	transaction.RejectedBy = nil
+	transaction.RejectedAt = nil
+	transaction.RejectionReason = nil
+	transaction.ApprovedByUserID = &approverUserID
+	approverName := buildDisplayName(approverUser)
+	transaction.ApprovedBy = &approverName
+	approvedAt := bangkokNow()
+	transaction.ApprovedAt = &approvedAt
+
+	updatedTransaction, updateErr := uc.warehouseRepo.UpdateTransaction(transaction)
+	if updateErr != nil {
+		return nil, errors.New("failed to update approved transaction: " + updateErr.Error())
+	}
+
+	newValue, _ := json.Marshal(updatedTransaction)
+	uc.createAuditLog(approverUserID, audit_constants.AuditActionUpdate, "warehouse_transactions", updatedTransaction.ID, string(oldValue), string(newValue))
+
+	return updatedTransaction, nil
 }
 
 func (uc *WarehouseUseCaseImpl) ensureMedicalStaff(userID string) error {
